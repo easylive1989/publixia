@@ -27,6 +27,7 @@ Personal stock + indicator dashboard.
 ```
 backend/                 FastAPI app + scheduler + DB layer
 frontend/                Vite/React app
+admin/                   Standalone interactive admin CLI (users / tokens)
 tests/                   pytest backend test suite (run from repo root)
 stock-dashboard.service  systemd unit copied to VPS
 deploy.sh                Manual VPS deploy (used outside CI)
@@ -66,32 +67,26 @@ Already-deployed migrations are immutable — make corrections by writing a new 
 
 ## Auth bootstrap (first token)
 
-The API enforces `Authorization: Bearer <token>` on every endpoint.
+The API enforces `Authorization: Bearer <token>` on every endpoint. Use
+the standalone admin CLI in `admin/` to create users and issue tokens —
+see [`admin/README.md`](admin/README.md) for setup.
 
 ```bash
-# 1. Make sure the ops Discord webhook is set (Secrets-driven on every deploy):
-#    DISCORD_STOCK_WEBHOOK_URL is enough for normal use.
+# One-time venv setup
+cd admin && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && cd ..
 
-# 2. Create the user (only needed once per person)
-ssh root@$VPS_HOST 'cd /opt/stock-dashboard/backend && .venv/bin/python -m scripts.manage_users create <name>'
+# Run interactively (defaults to backend/stock_dashboard.db)
+admin/.venv/bin/python -m admin
 
-# 3. Issue the user a token
-ssh root@$VPS_HOST 'cd /opt/stock-dashboard/backend && .venv/bin/python -m scripts.issue_token issue --user-name <name> --label <label>'
-# → Copy the printed sd_... token (shown only once)
-
-# 4. Paste the token into the dashboard's TokenGate prompt.
+# Or against an arbitrary DB file (e.g., a copy from the VPS)
+DB_PATH=/tmp/sd.db admin/.venv/bin/python -m admin
 ```
 
-The token is kept in browser `localStorage`. The 🔓 重新登入 button on the header clears it.
-
-Token CLI:
-
-```bash
-python -m scripts.issue_token issue --user-name <name> --label <label>           # 365 days default
-python -m scripts.issue_token issue --user-name <name> --label <label> --no-expiry
-python -m scripts.issue_token list
-python -m scripts.issue_token revoke <id>
-```
+The interactive flow covers: list users, create user, refresh token
+(rotates the user's existing active token), and revoke. Issued tokens
+are shown **once** — copy them immediately, then paste into the
+dashboard's TokenGate prompt. The token is kept in browser `localStorage`;
+the 🔓 重新登入 button on the header clears it.
 
 ## Disabled: 券商分點
 

@@ -19,120 +19,69 @@ Taiwan top-100 list. The dashboard runs on a VPS as a `systemd` service
   scope by `user_id`. `/api/dashboard`, news, and per-ticker detail
   endpoints are open to any valid token.
 
-## Where the CLI lives
+## User & token management — `admin/` CLI
 
-The CLIs run on the VPS where the DB and venv exist:
-
-```bash
-ssh root@<VPS_HOST>
-cd /opt/stock-dashboard/backend
-source .venv/bin/activate                   # uvicorn's venv
-```
-
-All commands below assume that working directory + activated venv.
-
-## User management — `manage_users.py`
+User and token administration is done through the standalone interactive
+CLI in `admin/` (see [`admin/README.md`](admin/README.md) for setup).
 
 ```bash
-# List all users (always shows 'paul' as id=1, the migrated default)
-python -m scripts.manage_users list
+# One-time venv setup
+cd admin && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && cd ..
 
-# Create a new user. Errors with exit 1 if the name already exists.
-python -m scripts.manage_users create alice
+# Run interactively
+admin/.venv/bin/python -m admin                                # default DB
+DB_PATH=/path/to/stock_dashboard.db admin/.venv/bin/python -m admin
 ```
 
-The new user starts with no token and an empty watchlist + alerts.
+The interactive flow covers:
 
-## Token management — `issue_token.py`
+- **List users** — table view of all users + their active token status
+  (`active` / `expired` / `none`). Drill into a user to refresh or
+  revoke their token.
+- **Create user** — prompts for a name; optionally issues an initial
+  token in the same flow.
+- **Refresh token** — picks a user, prompts for label and expiry
+  (365d / 30d / never / custom), revokes the existing active token,
+  and prints the new plaintext **once** (copy it immediately — there
+  is no recovery).
 
-### Issue / rotate a user's token
+### Where to run it
 
-```bash
-# 365-day default expiry
-python -m scripts.issue_token issue --user-name alice --label alice-laptop
+The CLI talks to a **local** SQLite file and is fully decoupled from the
+backend. Two patterns:
 
-# Custom expiry
-python -m scripts.issue_token issue --user-name alice --label tmp --expires-days 30
+1. **On the VPS** (simplest, no DB copying):
 
-# Permanent (no expiry — use sparingly)
-python -m scripts.issue_token issue --user-name alice --label permanent --no-expiry
-```
+   ```bash
+   ssh root@<VPS_HOST>
+   cd /opt/stock-dashboard/admin
+   .venv/bin/python -m admin
+   ```
 
-If a prior active token exists for that user, it's automatically revoked
-in the same transaction. The plaintext token prints to stdout — copy it
-once; you cannot recover it later.
+   The default `DB_PATH` resolution (`<repo>/backend/stock_dashboard.db`)
+   matches the deployed layout.
 
-If the user doesn't exist the script errors with a pointer:
+2. **On your laptop** against a copy of the VPS DB — useful for audit.
+   Note that any writes (create user, refresh token) only land in the
+   local copy unless you `scp` it back and restart the service.
 
-```
-error: user 'bob' not found.
-  Run: python -m scripts.manage_users create bob
-```
+### Common workflows
 
-### List tokens
+**Onboard a new user** — choose `Create user`, enter name, accept the
+"issue token now" prompt, copy the plaintext, share via a private
+channel. The user pastes it into the dashboard's TokenGate
+(`https://stock.paul-learning.dev/`).
 
-```bash
-python -m scripts.issue_token list
-```
+**Rotate** (expiry approaching or device replaced) — choose
+`Refresh token`, pick the user, set label/expiry. The previous active
+token is revoked the moment the new one is issued.
 
-Output columns: `ID | USER | PREFIX | LABEL | CREATED | LAST_USED | STATUS`.
-`STATUS` is one of `active / expired / revoked`. `LAST_USED` updates on
-every authenticated request.
+**Audit** — `List users` shows token status and expiry at a glance.
+For deeper inspection (last-used timestamps, revoked rows) read the
+`api_tokens` table directly via `sqlite3`.
 
-### Manual revoke
-
-Used only when you can't reach the user to rotate (compromise, lost
-device). Identify the row id from `issue_token list`, then:
-
-```bash
-python -m scripts.issue_token revoke 7
-```
-
-## Common workflows
-
-### Onboard a new user
-
-```bash
-python -m scripts.manage_users create $NAME
-python -m scripts.issue_token issue --user-name $NAME --label $NAME-laptop
-# share plaintext token via private channel
-```
-
-The user pastes the token into the dashboard's TokenGate
-(`https://stock.paul-learning.dev/`); it's stored in `localStorage`
-and re-sent as `Authorization: Bearer <token>` on every API request.
-
-### Rotate (expiry approaching, or device replaced)
-
-```bash
-python -m scripts.issue_token issue --user-name $NAME --label $NAME-newlaptop
-```
-
-The previous active token is revoked the moment this command commits. The
-user should clear localStorage on their old device (or log out via the
-dashboard's settings) and paste the new token on the new device.
-
-### Audit access
-
-```bash
-python -m scripts.manage_users list
-python -m scripts.issue_token list
-```
-
-Compare `LAST_USED` to a recent timestamp — long gaps suggest a stale
-token that can be revoked.
-
-### Emergency: revoke everything for a user
-
-There's no `revoke-all-for-user` shortcut; rotate-and-discard works:
-
-```bash
-python -m scripts.issue_token issue --user-name $NAME --label emergency-rotate \
-    --expires-days 1
-# Don't share the new token; let it expire in 24h.
-```
-
-Or revoke directly by id from the `list` output.
+**Emergency revoke without reissue** — pick the user from the list,
+choose `Revoke active token`. They will get 401 on the next request.
 
 ## Auto-tracked Taiwan top-100
 
@@ -283,8 +232,8 @@ On 401 (expired/revoked), `apiFetch` clears `localStorage` and the
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `401 Token user not found` after rotation | DB inconsistency (orphaned api_tokens row) | Inspect `SELECT * FROM api_tokens WHERE user_id NOT IN (SELECT id FROM users)`; if any, revoke or delete |
-| `IntegrityError: UNIQUE constraint failed: api_tokens.user_id` on issue | Active row exists but `revoke_token` didn't update | Re-run `issue_token issue` (the script revokes-then-inserts in one transaction); if persistent, manually `UPDATE api_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL` |
-| User reports working token suddenly returns 401 | Someone else rotated (`issue_token issue` for the same user) | List tokens to see which row is now active; reissue if intended, or revoke the unintended one |
+| `IntegrityError: UNIQUE constraint failed: api_tokens.user_id` on issue | Active row exists but the rotate-revoke step didn't update | Re-run `Refresh token` in the admin CLI (revokes-then-inserts in one transaction); if persistent, manually `UPDATE api_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL` |
+| User reports working token suddenly returns 401 | Someone else rotated (`Refresh token` for the same user) | Inspect `api_tokens` to see which row is now active; reissue if intended, or revoke the unintended one |
 | Discord ops alert: `Stock Dashboard auth burst` | 5+ 401s from one IP in 5 min | Check logs (`journalctl -u stock-dashboard.service`) for the IP / token prefix; could be a stale token on a polling client, or scanning attempt |
 | Detail endpoint returns 404 for a ticker the user expected to view | Not in user's watchlist and not in auto-tracked seed | User adds via dashboard "+ 新增" or `POST /api/stocks`; or admin appends to `seeds/auto_tracked_taiwan.txt` and restarts |
 | Logs flooded with `yfinance: $XXXX.TW: possibly delisted` for an auto-tracked ticker | Seed contains a delisted/never-existed symbol | `DELETE FROM auto_tracked_stocks WHERE ticker = ?` and remove from seed file |
