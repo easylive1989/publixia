@@ -5,6 +5,23 @@ Personal stock + indicator dashboard.
 - **Backend**: FastAPI on a VPS at `/opt/stock-dashboard/backend`, deployed via `.github/workflows/deploy-backend.yml`. Service: `stock-dashboard.service` (systemd).
 - **Frontend**: Vite + React + Tailwind, deployed to GitHub Pages via `.github/workflows/deploy-frontend.yml`. Public URL: `https://stock.paul-learning.dev` (custom subdomain via DNS CNAME).
 
+## 命名由來
+
+**Publixia** /pʌbˈlɪk-si-ə/ 是一個結合「古羅馬歷史底蘊」與「現代軟體自動化」的自創詞，可從三個層次解讀：
+
+1. **歷史溯源 — Publicani（羅馬稅收承包商）**
+   人類最早的「法人組織」與「股份持有者」原型，西元前的羅馬廣場上即進行資本運作與權利轉讓。命名上借此表達回歸交易本質的精神。
+
+2. **字根拆解**
+   - `Publi-`：聯想 Public（公開市場）／ Publish（發布），意指「將個人交易策略發布到公開市場執行」。
+   - `-ix`：常作為 Index（指標）或 Execute（執行）的縮寫，強調系統的精準。
+   - `-ia`：常用於表示「領域」或「系統」（如 Utopia、Media），代表完整的策略生態系。
+
+3. **功能轉譯 — The Public Market's Execution Axis（公開市場的執行軸心）**
+   從混亂的公開資訊中，透過個人設定的邏輯，過濾出精確的執行信號。它不只是分析，更是個人策略在市場上的執行窗口。
+
+定位一句話：**「傳承兩千年的交易智慧，結合現代 AI 的自動執行系統。」**
+
 ## Repository layout
 
 ```
