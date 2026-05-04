@@ -38,9 +38,11 @@ jobs:
         run: |
           mkdir -p _site
           cp -r frontend/dist/. _site/
+          # Carry the custom domain over to the built site.
+          cp CNAME _site/CNAME
           # SPA refresh fallback: GH Pages serves the site-root 404.html for
-          # any unknown path, which boots the React app; react-router then
-          # resolves the URL (basename '/publixia').
+          # any unknown path, which boots the React app; react-router resolves
+          # it from the URL (no basename — served from subdomain root).
           cp _site/index.html _site/404.html
 
       - uses: actions/configure-pages@v4

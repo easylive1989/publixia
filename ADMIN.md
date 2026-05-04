@@ -99,8 +99,7 @@ python -m scripts.issue_token issue --user-name $NAME --label $NAME-laptop
 ```
 
 The user pastes the token into the dashboard's TokenGate
-(GitHub Pages URL — `easylive1989.github.io/publixia/` or the configured
-custom domain); it's stored in `localStorage`
+(`https://stock.paul-learning.dev/`); it's stored in `localStorage`
 and re-sent as `Authorization: Bearer <token>` on every API request.
 
 ### Rotate (expiry approaching, or device replaced)

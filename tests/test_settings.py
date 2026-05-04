@@ -29,7 +29,7 @@ def test_settings_cors_origins_default():
     """Default CORS allows the production frontend."""
     import core.settings as settings_mod
     importlib.reload(settings_mod)
-    assert "https://paul-learning.dev" in settings_mod.settings.cors_origins
+    assert "https://stock.paul-learning.dev" in settings_mod.settings.cors_origins
 
 
 def test_settings_log_level_default():

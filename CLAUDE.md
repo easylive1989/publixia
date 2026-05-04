@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 Personal stock dashboard. Single product, single VPS service:
 - `backend/` — FastAPI app + APScheduler-based fetchers + SQLite (`stock_dashboard.db`) on the VPS
-- `frontend/` — Vite + React + Tailwind, deployed to GitHub Pages under `/publixia/`
+- `frontend/` — Vite + React + Tailwind, deployed to GitHub Pages on the custom subdomain `stock.paul-learning.dev` (no path prefix — served from `/`)
 - `tests/` — pytest suite for the backend (run from repo root: `python3 -m pytest tests/`)
 
 There is no monorepo / no shared `common/` package — `core/discord.py` is the only Discord helper.
@@ -43,8 +43,8 @@ cd frontend && npm test                     # frontend (vitest)
 
 ## Frontend architecture
 
-- `frontend/vite.config.ts` — `base: '/publixia/'` (GitHub Pages path).
-- `frontend/src/router.tsx` — react-router with `basename: '/publixia'`.
+- `frontend/vite.config.ts` — `base: '/'` (served from a subdomain root).
+- `frontend/src/router.tsx` — react-router without basename.
 - API client reads `import.meta.env.PROD` to switch between dev (relative `/api`) and prod (`https://api.paul-learning.dev`).
 - Sparkline components: data points are one per trading day. Don't add interpolation/gap-filling — non-trading days should be visually absent.
 

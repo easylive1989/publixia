@@ -5,8 +5,8 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  // GitHub Pages serves under the repo path; final URL: easylive1989.github.io/publixia/
-  base: '/publixia/',
+  // Served from custom subdomain stock.paul-learning.dev/ — root, no path prefix.
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

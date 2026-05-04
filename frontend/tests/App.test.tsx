@@ -8,7 +8,7 @@ import { useAuthStore } from '../src/store/auth-store';
 
 describe('App integration', () => {
   beforeEach(() => {
-    window.history.pushState({}, '', '/publixia/');
+    window.history.pushState({}, '', '/');
   });
 
   it('shows TokenGate when no token', () => {
