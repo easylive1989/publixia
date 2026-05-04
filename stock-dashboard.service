@@ -1,0 +1,16 @@
+[Unit]
+Description=Stock Dashboard API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/stock-dashboard/backend
+ExecStart=/opt/stock-dashboard/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+Environment=DB_PATH=/opt/stock-dashboard/backend/stock_dashboard.db
+EnvironmentFile=-/opt/stock-dashboard/backend/.env
+
+[Install]
+WantedBy=multi-user.target

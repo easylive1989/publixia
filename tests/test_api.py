@@ -1,0 +1,476 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../backend"))
+os.environ["DB_PATH"] = ":memory:"
+
+import pytest
+import db
+import json
+
+from fastapi.testclient import TestClient
+
+from main import app
+
+client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def seed_data():
+    """Seed data after conftest.py's reset_db re-initialises the DB."""
+    db.save_indicator("taiex", 21458.0, json.dumps({"change_pct": 0.58, "prev_close": 21334.0}))
+    db.save_indicator("fx", 32.15, json.dumps({"change_pct": 0.12, "prev_close": 32.11}))
+    db.save_indicator("fear_greed", 58.0, json.dumps({"label": "貪婪"}))
+    db.save_indicator("margin_balance", 2341.0, json.dumps({"unit": "億元"}))
+    db.save_indicator("ndc", 24.0, json.dumps({"light": "黃紅燈", "light_code": 4}))
+    db.add_watched_ticker(1, "0050.TW")
+    db.save_stock_snapshot("0050.TW", 198.35, 1.15, 0.58, "TWD", "元大台灣50")
+
+
+def test_dashboard_returns_all_indicators():
+    r = client.get("/api/dashboard")
+    assert r.status_code == 200
+    data = r.json()
+    for key in ["taiex", "fx", "fear_greed", "margin_balance", "ndc"]:
+        assert key in data
+        assert "value" in data[key]
+        assert "timestamp" in data[key]
+
+
+def test_history_returns_list():
+    r = client.get("/api/history/taiex?time_range=3M")
+    assert r.status_code == 200
+    rows = r.json()
+    assert isinstance(rows, list)
+    assert rows[0]["value"] == 21458.0
+
+
+def test_history_unknown_indicator_returns_404():
+    r = client.get("/api/history/unknown")
+    assert r.status_code == 404
+
+
+def test_history_is_one_row_per_trading_date():
+    """Daily-snapshot guarantee: regardless of how many times the fetcher writes
+    on the same date, /api/history returns one row per date, ordered chronologically."""
+    from datetime import datetime, timedelta, timezone
+    base = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # Three writes on 'today' — all upsert into the same (taiex, today) row.
+    db.save_indicator("taiex", 39000.0, timestamp=base - timedelta(hours=4))
+    db.save_indicator("taiex", 39200.0, timestamp=base - timedelta(hours=2))
+    db.save_indicator("taiex", 39303.5, timestamp=base)
+    # One write yesterday — a separate row.
+    db.save_indicator("taiex", 38900.0, timestamp=base - timedelta(days=1))
+    # Day before yesterday — another separate row.
+    db.save_indicator("taiex", 38500.0, timestamp=base - timedelta(days=2))
+
+    r = client.get("/api/history/taiex?time_range=1M")
+    assert r.status_code == 200
+    rows = r.json()
+    # Exactly 3 rows for 3 distinct dates (the seed_data write today is also
+    # on `today`, so it gets upserted into the same row as our 3 writes above).
+    dates = [row["timestamp"][:10] for row in rows]
+    assert len(dates) == len(set(dates)), f"duplicate dates in history: {dates}"
+    # Ordered ascending by timestamp.
+    assert dates == sorted(dates)
+    # The latest row for 'today' won (39303.5), not the earlier ones.
+    assert rows[-1]["value"] == 39303.5
+
+
+def test_get_stocks_returns_watchlist():
+    r = client.get("/api/stocks")
+    assert r.status_code == 200
+    stocks = r.json()
+    tickers = [s["ticker"] for s in stocks]
+    assert "0050.TW" in tickers
+
+
+def test_add_and_delete_stock():
+    r = client.post("/api/stocks", json={"ticker": "2330.tw"})
+    assert r.status_code == 200
+    tickers = db.get_watched_tickers(1)
+    assert "2330.TW" in tickers  # normalized to uppercase
+
+    r = client.delete("/api/stocks/2330.TW")
+    assert r.status_code == 200
+    assert "2330.TW" not in db.get_watched_tickers(1)
+
+
+def test_stock_history_returns_data(monkeypatch):
+    fake = {
+        "ticker": "2330.TW",
+        "name": "台積電",
+        "currency": "TWD",
+        "time_range": "3M",
+        "dates": ["2026-01-02", "2026-01-03"],
+        "candles": [
+            {"open": 700, "high": 710, "low": 695, "close": 705, "volume": 12345},
+            {"open": 705, "high": 715, "low": 700, "close": 710, "volume": 23456},
+        ],
+        "indicators": {
+            "ma5": [None, None],
+            "ma20": [None, None],
+            "ma60": [None, None],
+            "rsi14": [50.0, 60.0],
+            "macd": [0.1, 0.2],
+            "macd_signal": [0.05, 0.1],
+            "macd_histogram": [0.05, 0.1],
+        },
+    }
+    monkeypatch.setattr("api.routes.stocks.fetch_stock_history", lambda ticker, time_range: fake)
+    r = client.get("/api/stocks/2330.tw/history?time_range=3M")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ticker"] == "2330.TW"
+    assert len(data["candles"]) == 2
+    assert "rsi14" in data["indicators"]
+
+
+def test_stock_history_404_when_no_data(monkeypatch):
+    monkeypatch.setattr("api.routes.stocks.fetch_stock_history", lambda ticker, time_range: None)
+    r = client.get("/api/stocks/UNKNOWN/history?time_range=3M")
+    assert r.status_code == 404
+
+
+def test_stock_history_rejects_invalid_range():
+    r = client.get("/api/stocks/2330.TW/history?time_range=10Y")
+    assert r.status_code == 400
+
+
+def test_refresh_unknown_indicator_returns_404():
+    r = client.post("/api/refresh/bogus")
+    assert r.status_code == 404
+
+
+def test_alert_endpoints_full_flow():
+    r = client.post("/api/alerts", json={
+        "target_type": "indicator",
+        "target": "taiex",
+        "condition": "above",
+        "threshold": 22000,
+    })
+    assert r.status_code == 200
+    aid = r.json()["id"]
+
+    r = client.get("/api/alerts")
+    assert r.status_code == 200
+    items = r.json()
+    assert any(a["id"] == aid and a["target"] == "taiex" for a in items)
+
+    r = client.patch(f"/api/alerts/{aid}", json={"enabled": False})
+    assert r.status_code == 200
+    items = client.get("/api/alerts").json()
+    assert next(a for a in items if a["id"] == aid)["enabled"] == 0
+
+    r = client.delete(f"/api/alerts/{aid}")
+    assert r.status_code == 200
+    items = client.get("/api/alerts").json()
+    assert all(a["id"] != aid for a in items)
+
+
+def test_create_stock_alert_normalises_ticker():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock",
+        "target": "2330.tw",
+        "condition": "below",
+        "threshold": 800,
+    })
+    assert r.status_code == 200
+    items = client.get("/api/alerts").json()
+    aid = r.json()["id"]
+    assert next(a for a in items if a["id"] == aid)["target"] == "2330.TW"
+
+
+def test_create_alert_rejects_invalid_input():
+    r = client.post("/api/alerts", json={
+        "target_type": "weather", "target": "rain", "condition": "above", "threshold": 1,
+    })
+    assert r.status_code == 400
+
+    r = client.post("/api/alerts", json={
+        "target_type": "indicator", "target": "taiex", "condition": "sideways", "threshold": 1,
+    })
+    assert r.status_code == 400
+
+    r = client.post("/api/alerts", json={
+        "target_type": "indicator", "target": "unknown_ind", "condition": "above", "threshold": 1,
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_stock_indicator_per_above():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "above",
+        "threshold": 30,
+        "indicator_key": "per",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert "id" in body
+
+
+def test_post_alert_stock_indicator_streak_below_with_window_n():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "streak_below",
+        "threshold": 25,
+        "indicator_key": "per",
+        "window_n": 5,
+    })
+    assert r.status_code == 200
+
+
+def test_post_alert_stock_indicator_missing_indicator_key_400():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "above",
+        "threshold": 30,
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_stock_indicator_unknown_indicator_key_400():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "above",
+        "threshold": 30,
+        "indicator_key": "unknown",
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_stock_indicator_non_taiwan_ticker_400():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "AAPL",
+        "condition": "above",
+        "threshold": 30,
+        "indicator_key": "per",
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_streak_missing_window_n_400():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "indicator",
+        "target": "margin_balance",
+        "condition": "streak_above",
+        "threshold": 5000,
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_streak_window_n_out_of_range_400():
+    db.init_db()
+    r = client.post("/api/alerts", json={
+        "target_type": "indicator",
+        "target": "margin_balance",
+        "condition": "streak_above",
+        "threshold": 5000,
+        "window_n": 1,    # < 2
+    })
+    assert r.status_code == 400
+    r2 = client.post("/api/alerts", json={
+        "target_type": "indicator",
+        "target": "margin_balance",
+        "condition": "streak_above",
+        "threshold": 5000,
+        "window_n": 31,   # > 30
+    })
+    assert r2.status_code == 400
+
+
+def test_post_alert_percentile_above_with_per():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "percentile_above",
+        "threshold": 90,
+        "indicator_key": "per",
+    })
+    assert r.status_code == 200
+
+
+def test_post_alert_percentile_with_revenue_400():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "percentile_above",
+        "threshold": 90,
+        "indicator_key": "revenue",   # monthly,跟 percentile 不相容
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_yoy_above_with_revenue():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "yoy_above",
+        "threshold": 30,
+        "indicator_key": "revenue",
+    })
+    assert r.status_code == 200
+
+
+def test_post_alert_yoy_with_per_400():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "yoy_above",
+        "threshold": 30,
+        "indicator_key": "per",   # daily,跟 yoy 不相容
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_percentile_threshold_out_of_range_400():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "percentile_above",
+        "threshold": 150,   # > 100
+        "indicator_key": "per",
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_yoy_with_q_eps():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "yoy_above",
+        "threshold": 30,
+        "indicator_key": "q_eps",
+    })
+    assert r.status_code == 200
+
+
+def test_post_alert_yoy_with_y_cash_dividend():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "yoy_above",
+        "threshold": 20,
+        "indicator_key": "y_cash_dividend",
+    })
+    assert r.status_code == 200
+
+
+def test_post_alert_yoy_with_unknown_q_key_400():
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "yoy_above",
+        "threshold": 30,
+        "indicator_key": "q_unknown_field",
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_percentile_with_q_eps_400():
+    """percentile 仍只支援 daily,搭 q_eps 應 400。"""
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "percentile_above",
+        "threshold": 90,
+        "indicator_key": "q_eps",
+    })
+    assert r.status_code == 400
+
+
+def test_post_alert_yoy_with_per_still_400():
+    """yoy + daily indicator 仍應 400。"""
+    r = client.post("/api/alerts", json={
+        "target_type": "stock_indicator",
+        "target": "2330.TW",
+        "condition": "yoy_above",
+        "threshold": 30,
+        "indicator_key": "per",
+    })
+    assert r.status_code == 400
+
+
+def test_indicators_spec_endpoint():
+    r = client.get("/api/indicators/spec")
+    assert r.status_code == 200
+    body = r.json()
+    assert "indicator" in body
+    assert "stock_indicator" in body
+    assert len(body["indicator"]) == 10
+    assert len(body["stock_indicator"]) == 16
+
+    # spot-check known entries
+    keys_indicator = {s["key"] for s in body["indicator"]}
+    assert "taiex" in keys_indicator
+    assert "fear_greed" in keys_indicator
+    assert "margin_balance" in keys_indicator  # indicator-level
+
+    keys_stock = {s["key"] for s in body["stock_indicator"]}
+    assert "per" in keys_stock
+    assert "revenue" in keys_stock
+    assert "q_eps" in keys_stock
+    assert "y_cash_dividend" in keys_stock
+    assert "margin_balance" in keys_stock  # stock-level (collides with indicator-level by name)
+
+    # verify schema fields
+    sample = body["indicator"][0]
+    assert {"key", "label", "unit", "supported_conditions"} <= set(sample.keys())
+    assert isinstance(sample["supported_conditions"], list)
+
+
+def test_endpoint_returns_401_without_auth_override():
+    """Without dependency_override, endpoints require Authorization header."""
+    from api.dependencies import require_token
+
+    saved = app.dependency_overrides.pop(require_token, None)
+    try:
+        unauthed = TestClient(app)
+        r = unauthed.get("/api/dashboard")
+        assert r.status_code == 401
+        assert "Missing" in r.json()["detail"] or "Invalid" in r.json()["detail"]
+    finally:
+        if saved is not None:
+            app.dependency_overrides[require_token] = saved
+
+
+def test_detail_404_when_neither_watched_nor_auto_tracked():
+    r = client.get("/api/stocks/UNKNOWN.XYZ/history?time_range=1M")
+    assert r.status_code == 404
+    r = client.get("/api/stocks/UNKNOWN.XYZ/valuation")
+    assert r.status_code == 404
+    r = client.get("/api/stocks/UNKNOWN.XYZ/revenue")
+    assert r.status_code == 404
+    r = client.get("/api/stocks/UNKNOWN.XYZ/financial")
+    assert r.status_code == 404
+    r = client.get("/api/stocks/UNKNOWN.XYZ/dividend")
+    assert r.status_code == 404
+
+
+def test_detail_passes_gate_for_auto_tracked():
+    """2330.TW is in the seed list — auto-tracked, accessible to any user."""
+    # Don't add 2330.TW to user 1's personal watchlist; auto-tracked alone should suffice.
+    r = client.get("/api/stocks/2330.TW/dividend")
+    # 200 from cache or 200 with empty rows; either way not 404 from gating
+    assert r.status_code != 404
+
+
+def test_detail_passes_gate_for_user_watchlist():
+    """A ticker outside the seed list works once the user adds it."""
+    db.add_watched_ticker(1, "FAKE.US")
+    r = client.get("/api/stocks/FAKE.US/dividend")
+    # FAKE.US is NOT a Taiwan ticker → fundamentals routes 400 (not 404 from gating)
+    assert r.status_code != 404
