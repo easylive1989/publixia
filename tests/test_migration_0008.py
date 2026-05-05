@@ -1,4 +1,8 @@
 """Verify migration 0008 produces the expected FSE schema."""
+import sqlite3
+
+import pytest
+
 import db
 
 
@@ -35,7 +39,10 @@ def test_strategies_table_shape():
         "entry_fill_price", "pending_exit_kind", "pending_exit_signal_date",
         "last_error", "last_error_at", "created_at", "updated_at",
     }
-    assert expected.issubset(cols.keys())
+    assert set(cols.keys()) == expected, (
+        f"strategies columns mismatch: extra={set(cols.keys()) - expected}, "
+        f"missing={expected - set(cols.keys())}"
+    )
     assert "idx_strategies_user" in _indexes("strategies")
     assert "idx_strategies_notify_open" in _indexes("strategies")
 
@@ -47,14 +54,15 @@ def test_strategy_signals_table_shape():
         "fill_price", "exit_reason", "pnl_points", "pnl_amount", "message",
         "created_at",
     }
-    assert expected.issubset(cols.keys())
+    assert set(cols.keys()) == expected, (
+        f"strategy_signals columns mismatch: extra={set(cols.keys()) - expected}, "
+        f"missing={expected - set(cols.keys())}"
+    )
     assert "idx_signals_strategy_date" in _indexes("strategy_signals")
 
 
 def test_strategies_check_constraints_enforced():
-    """direction / contract / state CHECK constraints must reject bad values."""
-    import pytest
-    import sqlite3
+    """direction / contract / state / pending_exit_kind CHECK constraints must reject bad values."""
     conn = db.connection.get_connection()
     conn.execute("INSERT INTO users (name) VALUES ('migration_test_user')")
     user_id = conn.execute(
@@ -86,3 +94,43 @@ def test_strategies_check_constraints_enforced():
         _insert(contract="ES")
     with pytest.raises(sqlite3.IntegrityError):
         _insert(state="halfway")
+    with pytest.raises(sqlite3.IntegrityError):
+        _insert(pending_exit_kind="GHOST")
+
+
+def test_strategy_signals_kind_check_constraint_enforced():
+    """kind CHECK must reject any value outside the six allowed kinds."""
+    conn = db.connection.get_connection()
+    conn.execute("INSERT INTO users (name) VALUES ('signal_kind_test_user')")
+    user_id = conn.execute(
+        "SELECT id FROM users WHERE name='signal_kind_test_user'"
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO strategies "
+        "(user_id, name, direction, contract, contract_size, "
+        " entry_dsl, take_profit_dsl, stop_loss_dsl, "
+        " state, created_at, updated_at) "
+        "VALUES (?, 'sig-kind-test', 'long', 'TX', 1, "
+        " '{}', '{}', '{}', 'idle', "
+        " '2026-01-01T00:00:00', '2026-01-01T00:00:00')",
+        (user_id,),
+    )
+    strategy_id = conn.execute(
+        "SELECT id FROM strategies WHERE name='sig-kind-test'"
+    ).fetchone()[0]
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO strategy_signals "
+            "(strategy_id, kind, signal_date, created_at) "
+            "VALUES (?, 'ENTRY_FILL', '2026-01-02', '2026-01-02T00:00:00')",
+            (strategy_id,),
+        )
+
+    # Same for a totally bogus kind
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "INSERT INTO strategy_signals "
+            "(strategy_id, kind, signal_date, created_at) "
+            "VALUES (?, 'NOT_A_KIND', '2026-01-02', '2026-01-02T00:00:00')",
+            (strategy_id,),
+        )

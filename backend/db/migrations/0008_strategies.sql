@@ -29,7 +29,7 @@ CREATE TABLE strategies (
     entry_signal_date        TEXT,
     entry_fill_date          TEXT,
     entry_fill_price         REAL,
-    pending_exit_kind        TEXT,
+    pending_exit_kind        TEXT CHECK (pending_exit_kind IN ('TAKE_PROFIT','STOP_LOSS','TIMEOUT')),
     pending_exit_signal_date TEXT,
 
     last_error               TEXT,
