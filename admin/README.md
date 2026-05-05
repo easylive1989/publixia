@@ -35,6 +35,15 @@ DB_PATH=/path/to/stock_dashboard.db admin/.venv/bin/python -m admin
   (365d / 30d / never / custom), then revokes the existing active token
   and issues a new one. The plaintext token is shown **once** —
   copy it immediately.
+- **Manage scheduler** — table view of every scheduled job with its
+  cron expression, enabled flag, last run time, and last status. Pick a
+  job to edit the cron expression (5-field POSIX, interpreted in
+  `Asia/Taipei`) or toggle it on / off. Defaults are seeded by the
+  backend from `backend/jobs/registry.py` the first time it boots —
+  admin edits override those defaults and are never rewritten.
+- **Restart backend service** — runs `systemctl restart stock-dashboard`
+  so scheduler edits take effect. Run as root (or via a `sudo` shell)
+  on the VPS — does nothing on machines without that systemd unit.
 
 ## Working against the VPS database
 

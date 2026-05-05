@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from . import ops
+from . import ops, scheduler_ops
 from .db import db_path
 
 
@@ -184,6 +184,141 @@ def _today_label() -> str:
     return date.today().isoformat()
 
 
+def _render_scheduler_table(jobs: list[dict]) -> None:
+    if not jobs:
+        console.print(
+            "[yellow]No scheduler rows yet — start the backend once to "
+            "seed defaults.[/yellow]"
+        )
+        return
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("NAME")
+    table.add_column("CRON")
+    table.add_column("ENABLED")
+    table.add_column("LAST RUN")
+    table.add_column("STATUS")
+
+    status_color = {
+        "ok":    "[green]ok[/green]",
+        "error": "[red]error[/red]",
+    }
+    for j in jobs:
+        enabled_cell = (
+            "[green]yes[/green]" if j["enabled"] else "[dim]no[/dim]"
+        )
+        status = j["last_status"] or "-"
+        table.add_row(
+            j["name"],
+            j["cron_expr"],
+            enabled_cell,
+            j["last_run_at"] or "-",
+            status_color.get(status, status),
+        )
+    console.print(table)
+
+
+def _action_scheduler_menu() -> None:
+    while True:
+        jobs = scheduler_ops.list_jobs()
+        _render_scheduler_table(jobs)
+        if not jobs:
+            return
+        choices = [
+            questionary.Choice(
+                f"{j['name']}  [{j['cron_expr']}]"
+                f"  ({'on' if j['enabled'] else 'off'})",
+                value=j,
+            )
+            for j in jobs
+        ]
+        choices.append(questionary.Choice("[back]", value=None))
+        picked = questionary.select("Pick a job:", choices=choices).ask()
+        if picked is None:
+            return
+        _job_action_menu(picked)
+
+
+def _job_action_menu(job: dict) -> None:
+    while True:
+        action = questionary.select(
+            f"Job '{job['name']}' (cron='{job['cron_expr']}', "
+            f"enabled={'yes' if job['enabled'] else 'no'}):",
+            choices=[
+                questionary.Choice("Edit cron expression", value="edit"),
+                questionary.Choice(
+                    "Disable" if job["enabled"] else "Enable",
+                    value="toggle",
+                ),
+                questionary.Choice("[back]", value="back"),
+            ],
+        ).ask()
+
+        if action in (None, "back"):
+            return
+        if action == "edit":
+            _action_edit_cron(job)
+        elif action == "toggle":
+            new_enabled = not bool(job["enabled"])
+            scheduler_ops.set_enabled(job["name"], new_enabled)
+            console.print(
+                f"[green]Set '{job['name']}' enabled = "
+                f"{new_enabled}.[/green]"
+            )
+            console.print(
+                "[dim]Restart the backend (top menu → Restart backend "
+                "service) for the change to take effect.[/dim]"
+            )
+
+        # Refresh the row from DB so subsequent menu choices are accurate.
+        latest = next(
+            (j for j in scheduler_ops.list_jobs() if j["name"] == job["name"]),
+            None,
+        )
+        if latest is None:
+            return
+        job = latest
+
+
+def _action_edit_cron(job: dict) -> None:
+    while True:
+        new_expr = questionary.text(
+            "Cron expression (5 fields: m h dom mon dow):",
+            default=job["cron_expr"],
+        ).ask()
+        if new_expr is None:
+            return
+        new_expr = new_expr.strip()
+        if not new_expr or new_expr == job["cron_expr"]:
+            return
+        err = scheduler_ops.validate_cron(new_expr)
+        if err:
+            console.print(f"[red]Invalid cron:[/red] {err}")
+            if not questionary.confirm("Try again?", default=True).ask():
+                return
+            continue
+        scheduler_ops.update_cron(job["name"], new_expr)
+        console.print(
+            f"[green]Updated '{job['name']}' cron → '{new_expr}'.[/green]"
+        )
+        console.print(
+            "[dim]Restart the backend (top menu → Restart backend "
+            "service) for the change to take effect.[/dim]"
+        )
+        return
+
+
+def _action_restart_backend() -> None:
+    if not questionary.confirm(
+        "Restart 'stock-dashboard' systemd service now?", default=False,
+    ).ask():
+        return
+    ok, output = scheduler_ops.restart_backend()
+    if ok:
+        console.print(f"[green]{output}[/green]")
+    else:
+        console.print(f"[red]Restart failed:[/red] {output}")
+
+
 def main() -> int:
     console.print(
         Panel.fit(
@@ -199,6 +334,8 @@ def main() -> int:
                 questionary.Choice("List users", value="list"),
                 questionary.Choice("Create user", value="create"),
                 questionary.Choice("Refresh token", value="refresh"),
+                questionary.Choice("Manage scheduler", value="scheduler"),
+                questionary.Choice("Restart backend service", value="restart"),
                 questionary.Choice("Quit", value="quit"),
             ],
         ).ask()
@@ -227,6 +364,10 @@ def main() -> int:
                 ).ask()
                 if picked is not None:
                     _action_refresh_token(picked)
+            elif action == "scheduler":
+                _action_scheduler_menu()
+            elif action == "restart":
+                _action_restart_backend()
         except FileNotFoundError as e:
             console.print(f"[red]{e}[/red]")
             return 1
