@@ -31,6 +31,8 @@ def _render_users_table(users: list[dict]) -> None:
     table.add_column("TOKEN PREFIX")
     table.add_column("TOKEN EXPIRES")
     table.add_column("STATUS")
+    table.add_column("STRATEGY")
+    table.add_column("WEBHOOK")
 
     status_color = {
         "active": "[green]active[/green]",
@@ -38,6 +40,13 @@ def _render_users_table(users: list[dict]) -> None:
         "none": "[dim]none[/dim]",
     }
     for u in users:
+        strategy_cell = (
+            "[green]✓[/green]" if u.get("can_use_strategy")
+            else "[dim]✗[/dim]"
+        )
+        webhook_cell = u.get("webhook_display", "—")
+        if webhook_cell == "—":
+            webhook_cell = "[dim]—[/dim]"
         table.add_row(
             str(u["id"]),
             u["name"],
@@ -45,6 +54,8 @@ def _render_users_table(users: list[dict]) -> None:
             u["token_prefix"] or "-",
             (u["token_expires_at"] or "never") if u["token_id"] else "-",
             status_color.get(u["token_status"], u["token_status"]),
+            strategy_cell,
+            webhook_cell,
         )
     console.print(table)
 
@@ -73,13 +84,22 @@ def _action_list_users() -> None:
 def _user_action_menu(user: dict) -> None:
     while True:
         action = questionary.select(
-            f"User '{user['name']}' (id={user['id']}, token={user['token_status']}):",
+            f"User '{user['name']}' (id={user['id']}, "
+            f"token={user['token_status']}, "
+            f"strategy={'on' if user.get('can_use_strategy') else 'off'}):",
             choices=[
                 questionary.Choice("Refresh token", value="refresh"),
                 questionary.Choice(
                     "Revoke active token",
                     value="revoke",
                     disabled=None if user["token_status"] == "active" else "no active token",
+                ),
+                questionary.Choice("Toggle strategy permission", value="toggle_strategy"),
+                questionary.Choice("Set Discord webhook URL", value="set_webhook"),
+                questionary.Choice(
+                    "Clear Discord webhook URL",
+                    value="clear_webhook",
+                    disabled=None if user.get("discord_webhook_url") else "no webhook set",
                 ),
                 questionary.Choice("[back]", value="back"),
             ],
@@ -89,19 +109,60 @@ def _user_action_menu(user: dict) -> None:
             return
         if action == "refresh":
             _action_refresh_token(user)
-            users = ops.list_users_with_token()
-            user = next((u for u in users if u["id"] == user["id"]), user)
         elif action == "revoke":
             if questionary.confirm(
-                f"Revoke active token for '{user['name']}'?",
-                default=False,
+                f"Revoke active token for '{user['name']}'?", default=False,
             ).ask():
                 if ops.revoke_active_token(user["id"]):
                     console.print("[green]Token revoked.[/green]")
                 else:
                     console.print("[yellow]No active token to revoke.[/yellow]")
-            users = ops.list_users_with_token()
-            user = next((u for u in users if u["id"] == user["id"]), user)
+        elif action == "toggle_strategy":
+            new_state = not bool(user.get("can_use_strategy"))
+            ops.set_strategy_permission(user["id"], new_state)
+            console.print(
+                f"[green]Strategy permission for '{user['name']}' = "
+                f"{'ON' if new_state else 'OFF'}[/green]"
+            )
+        elif action == "set_webhook":
+            _action_set_webhook(user)
+        elif action == "clear_webhook":
+            if questionary.confirm(
+                f"Clear webhook for '{user['name']}'? "
+                "(Strategies that depend on it will fail to send "
+                "notifications until a new URL is set.)",
+                default=False,
+            ).ask():
+                ops.clear_discord_webhook(user["id"])
+                console.print("[green]Webhook cleared.[/green]")
+
+        # Refresh the row so subsequent menu iterations see new state.
+        users = ops.list_users_with_token()
+        latest = next((u for u in users if u["id"] == user["id"]), None)
+        if latest is None:
+            return
+        user = latest
+
+
+def _action_set_webhook(user: dict) -> None:
+    url = questionary.text(
+        "Discord webhook URL:",
+        validate=lambda v: True if v.strip().startswith("https://") else (
+            "URL must start with https://"
+        ),
+    ).ask()
+    if not url:
+        return
+    url = url.strip()
+    try:
+        ops.set_discord_webhook(user["id"], url)
+    except ValueError as e:
+        console.print(f"[red]Rejected:[/red] {e}")
+        return
+    console.print(
+        f"[green]Webhook set for '{user['name']}'.[/green] "
+        f"[dim](Strategy notifications will use this URL.)[/dim]"
+    )
 
 
 def _action_create_user() -> None:
