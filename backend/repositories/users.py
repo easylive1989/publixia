@@ -58,7 +58,7 @@ def get_user_with_settings(user_id: int) -> Optional[dict]:
 
 
 def set_strategy_permission(user_id: int, granted: bool) -> bool:
-    """Toggle can_use_strategy. Returns True iff a row was updated."""
+    """Set can_use_strategy to `granted`. Returns True iff a row was updated."""
     conn = get_connection()
     cur = conn.execute(
         "UPDATE users SET can_use_strategy = ? WHERE id = ?",
@@ -69,7 +69,11 @@ def set_strategy_permission(user_id: int, granted: bool) -> bool:
 
 
 def set_discord_webhook(user_id: int, url: str) -> bool:
-    """Store a per-user webhook (plaintext). Returns True iff updated."""
+    """Store a per-user webhook (plaintext). Returns True iff updated.
+
+    Callers are responsible for validating the URL format before calling
+    this function — admin/ops.py owns the regex check today.
+    """
     conn = get_connection()
     cur = conn.execute(
         "UPDATE users SET discord_webhook_url = ? WHERE id = ?",

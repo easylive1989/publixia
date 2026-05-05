@@ -55,3 +55,7 @@ def test_set_and_clear_discord_webhook():
 
 def test_set_discord_webhook_unknown_user_returns_false():
     assert set_discord_webhook(99999, "https://x") is False
+
+
+def test_clear_discord_webhook_unknown_user_returns_false():
+    assert clear_discord_webhook(99999) is False
