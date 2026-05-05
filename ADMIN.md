@@ -83,6 +83,50 @@ For deeper inspection (last-used timestamps, revoked rows) read the
 **Emergency revoke without reissue** — pick the user from the list,
 choose `Revoke active token`. They will get 401 on the next request.
 
+## Strategy permissions & per-user Discord webhooks
+
+The Futures Strategy Engine (`docs/superpowers/specs/2026-05-05-futures-strategy-engine-design.md`) is gated by two new per-user fields on the `users` table:
+
+- `can_use_strategy` — boolean. When `0`, the user gets `403` from any
+  `/api/strategies/*` endpoint (introduced in P4) and the frontend hides
+  the strategy section. Default `0` for every user including `paul`.
+- `discord_webhook_url` — nullable text. Per-user webhook for strategy
+  notifications. Stored plaintext (same model as the project's `.env`).
+  Without one set, the user cannot enable real-time notifications on a
+  strategy.
+
+Both are managed exclusively through the admin CLI's per-user submenu.
+
+### Workflows
+
+- **Grant strategy access**: `List users → pick user → Toggle strategy
+  permission`. Toggling is idempotent — choosing the action a second
+  time revokes.
+- **Set per-user webhook**: `List users → pick user → Set Discord
+  webhook URL`. The CLI validates the URL pattern
+  `https://(discord|discordapp).com/api/webhooks/<id>/<token>` and
+  rejects anything else.
+- **Rotate webhook**: just call `Set Discord webhook URL` again — it
+  overwrites the previous URL.
+- **Clear webhook**: `Clear Discord webhook URL`. Asks for confirmation
+  because strategies that depend on it will then silently fail to send
+  notifications. (In a later phase we will additionally offer to
+  auto-disable the user's notify-enabled strategies in the same flow.)
+
+### Audit
+
+The list view shows two new columns, `STRATEGY` (✓/✗) and `WEBHOOK`
+(masked URL or `—`). The webhook display elides the secret token
+segment so the table can be safely shared/screenshotted.
+
+For a deeper inspection (or to dump every user's raw URL), query the DB
+directly:
+
+```bash
+sqlite3 /opt/stock-dashboard/backend/stock_dashboard.db \
+  "SELECT id, name, can_use_strategy, discord_webhook_url FROM users"
+```
+
 ## Auto-tracked Taiwan top-100
 
 Taiwan large-caps + popular ETFs are auto-tracked: backend fetchers
