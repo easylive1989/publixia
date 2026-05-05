@@ -43,6 +43,12 @@ def get_user_with_settings(user_id: int) -> Optional[dict]:
 
     Booleans are decoded from SQLite's INTEGER 0/1 to Python bool so callers
     don't have to remember the underlying storage.
+
+    SECURITY: the returned dict includes the raw `discord_webhook_url`
+    plaintext. Do NOT splat this dict (`**user`) into a public response
+    model — only the backend notifier (P4+) is allowed to read it. Public
+    endpoints must derive `has_webhook = url is not None` and discard the
+    URL itself, as `api/routes/me.py` does.
     """
     row = get_connection().execute(
         "SELECT id, name, created_at, "
