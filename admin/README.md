@@ -44,6 +44,15 @@ DB_PATH=/path/to/stock_dashboard.db admin/.venv/bin/python -m admin
 - **Restart backend service** — runs `systemctl restart stock-dashboard`
   so scheduler edits take effect. Run as root (or via a `sudo` shell)
   on the VPS — does nothing on machines without that systemd unit.
+- **Toggle strategy permission** — flips `users.can_use_strategy` for the
+  selected user. Hidden gate for the Futures Strategy Engine; off by
+  default.
+- **Set Discord webhook URL** — stores a per-user webhook for strategy
+  notifications. Validates `https://(discord|discordapp).com/api/webhooks/<id>/<token>`
+  before persisting.
+- **Clear Discord webhook URL** — sets the column back to NULL. Strategies
+  that need it to send notifications will then silently skip until a new
+  URL is configured.
 
 ## Working against the VPS database
 

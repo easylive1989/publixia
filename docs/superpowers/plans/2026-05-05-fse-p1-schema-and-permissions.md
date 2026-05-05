@@ -36,6 +36,7 @@
 - Any code under `backend/services/strategy_*.py` (P2/P3).
 - `api/routes/strategies.py` and `repositories/strategies.py` (P4 — even though the tables exist).
 - The cascade "disabling strategies when clearing a webhook" warning (P4 — there are no enabled strategies to disable yet, so the helper is unnecessary in P1).
+- **Send-test-message-on-set after `set_discord_webhook`** (spec §8.3): deferred to P4 when `core/discord.py::send_to_discord` gains the `webhook_url` parameter and the admin layer can reuse it cleanly. Until then, an admin who pastes a wrong URL won't notice until the first real signal fires (acceptable risk for a privileged operator tool).
 - Any frontend changes (P5).
 
 ---

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 # before route modules trigger partial-loading of the same packages.
 import db  # noqa: F401
 
-from api.routes import indicators, stocks, fundamentals, news, futures
+from api.routes import indicators, stocks, fundamentals, news, futures, me
 from api.routes import alerts as alerts_routes
 from core.errors import (
     AuthError, FetcherError, RepositoryError, StockDashboardError,
@@ -33,6 +33,7 @@ app.include_router(fundamentals.router)
 app.include_router(alerts_routes.router)
 app.include_router(news.router)
 app.include_router(futures.router)
+app.include_router(me.router)
 
 
 _ERROR_TO_STATUS: list[tuple[type[StockDashboardError], int]] = [

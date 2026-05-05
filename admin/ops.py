@@ -5,6 +5,7 @@ issuance mirrors backend/services/token_service.py: sd_-prefixed,
 sha256-hashed, one active token per user (revoke prior on insert).
 """
 import hashlib
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,23 @@ _TOKEN_BODY_BYTES = 32
 _PREFIX_DISPLAY_LEN = 6
 _DEFAULT_EXPIRY_DAYS = 365
 
+_DISCORD_WEBHOOK_RE = re.compile(
+    r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]{60,}$"
+)
+# Token length lower bound: real Discord webhook tokens are ~68 chars.
+# 60 is a conservative floor that rejects partial / truncated paste-typos
+# while still tolerating any future tokens shorter than 68.
+
+
+def _mask_webhook(url: str | None) -> str:
+    """Render a webhook URL with the secret middle elided. NULL -> '—'."""
+    if not url:
+        return "—"
+    head, _, tail = url.rpartition("/")
+    if not tail or len(tail) < 8:
+        return f"{head}/...{tail[-4:] if tail else ''}"
+    return f"{head}/...{tail[-4:]}"
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
@@ -27,15 +45,20 @@ def _hash_token(plain: str) -> str:
 
 
 def list_users_with_token() -> list[dict]:
-    """Return users joined with their active-token status.
+    """Return users joined with their active-token status + FSE settings.
 
     status ∈ {"active", "expired", "none"}.
+    Each row also carries:
+      - can_use_strategy: bool
+      - webhook_display:  str   (masked URL or "—")
     """
     now = _now_iso()
     with connect() as conn:
         rows = conn.execute(
             """
             SELECT u.id, u.name, u.created_at,
+                   u.can_use_strategy,
+                   u.discord_webhook_url,
                    t.id          AS token_id,
                    t.prefix      AS token_prefix,
                    t.expires_at  AS token_expires_at,
@@ -56,6 +79,8 @@ def list_users_with_token() -> list[dict]:
             d["token_status"] = "expired"
         else:
             d["token_status"] = "active"
+        d["can_use_strategy"] = bool(d["can_use_strategy"])
+        d["webhook_display"] = _mask_webhook(d["discord_webhook_url"])
         out.append(d)
     return out
 
@@ -112,6 +137,48 @@ def revoke_active_token(user_id: int) -> bool:
             "UPDATE api_tokens SET revoked_at = ? "
             "WHERE user_id = ? AND revoked_at IS NULL",
             (now, user_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def set_strategy_permission(user_id: int, granted: bool) -> bool:
+    """Set can_use_strategy for `user_id`. Returns True iff a row was updated."""
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET can_use_strategy = ? WHERE id = ?",
+            (1 if granted else 0, user_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def set_discord_webhook(user_id: int, url: str) -> bool:
+    """Validate format + persist a per-user Discord webhook.
+
+    Raises ValueError if the URL does not look like a Discord webhook.
+    Returns True iff the user row was updated.
+    """
+    if not _DISCORD_WEBHOOK_RE.match(url or ""):
+        raise ValueError(
+            "not a valid discord webhook URL "
+            "(expected https://discord.com/api/webhooks/<id>/<token>)"
+        )
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET discord_webhook_url = ? WHERE id = ?",
+            (url, user_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def clear_discord_webhook(user_id: int) -> bool:
+    """Set discord_webhook_url back to NULL. Returns True iff updated."""
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET discord_webhook_url = NULL WHERE id = ?",
+            (user_id,),
         )
         conn.commit()
         return cur.rowcount > 0
