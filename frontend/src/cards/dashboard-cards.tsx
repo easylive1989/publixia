@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Link } from 'react-router-dom';
 import { useDashboardData, type IndicatorSlot } from '@/hooks/useDashboardData';
 import { useIndicatorHistory } from '@/hooks/useIndicatorHistory';
 import { useRangeStore } from '@/store/range-store';
@@ -48,6 +49,22 @@ const CONFIGS: IndicatorConfig[] = [
     formatSub: (extra, ts) => {
       const prev = asNumber(extra.prev_close);
       return `前收 ${prev != null ? prev.toLocaleString() : '—'} · 更新 ${fmtDate(ts)}`;
+    },
+    formatBadge: (extra) => changePctBadge(extra),
+  },
+  {
+    key: 'tw_futures',
+    label: '台指期 (TX)',
+    formatValue: (v) => v.toLocaleString(),
+    formatSub: (extra, ts) => {
+      const prev = asNumber(extra.prev_close);
+      const contract = asString(extra.contract);
+      const parts = [
+        `前收 ${prev != null ? prev.toLocaleString() : '—'}`,
+      ];
+      if (contract) parts.push(`近月 ${contract}`);
+      parts.push(`更新 ${fmtDate(ts)}`);
+      return parts.join(' · ');
     },
     formatBadge: (extra) => changePctBadge(extra),
   },
@@ -172,11 +189,32 @@ function makeCard(cfg: IndicatorConfig): FC {
   };
 }
 
-CONFIGS.forEach((cfg) =>
+// 部分卡片有「點進去看詳細頁」的需求 — 這個 map 把指標 key 對到目的路徑。
+const DETAIL_LINKS: Record<string, string> = {
+  tw_futures: '/futures/tw',
+};
+
+function withDetailLink(Inner: FC, href: string): FC {
+  return function LinkedCard() {
+    return (
+      <Link
+        to={href}
+        className="block rounded-xl transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Inner />
+      </Link>
+    );
+  };
+}
+
+CONFIGS.forEach((cfg) => {
+  const Base = makeCard(cfg);
+  const href = DETAIL_LINKS[cfg.key];
+  const component = href ? withDetailLink(Base, href) : Base;
   registerCard({
     id: cfg.key,
     label: cfg.label,
     defaultPage: 'dashboard',
-    component: makeCard(cfg),
-  }),
-);
+    component,
+  });
+});

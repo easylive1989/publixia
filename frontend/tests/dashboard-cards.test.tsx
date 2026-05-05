@@ -28,8 +28,8 @@ beforeEach(() => {
 });
 
 describe('dashboard-cards', () => {
-  it('registers 12 cards on the dashboard page', () => {
-    expect(listCards('dashboard').length).toBe(12);
+  it('registers 13 cards on the dashboard page', () => {
+    expect(listCards('dashboard').length).toBe(13);
   });
 
   it('taiex renders main value + change_pct badge + prev_close in sub', async () => {

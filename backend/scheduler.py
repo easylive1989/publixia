@@ -9,6 +9,7 @@ from fetchers.fundamentals_stock import fetch_watchlist_stock_daily
 from fetchers.ndc import fetch_ndc
 from fetchers.news import fetch_news
 from fetchers.volume import fetch_tw_volume, fetch_us_volume
+from fetchers.futures import fetch_tw_futures
 from db import purge_old_data
 
 TST = pytz.timezone("Asia/Taipei")
@@ -30,6 +31,9 @@ def start_scheduler() -> BackgroundScheduler:
     # Daily 18:00 TST (after TWSE settlement)
     scheduler.add_job(fetch_chip_total, CronTrigger(hour=18, minute=0, timezone=TST), id="chip_total", replace_existing=True)
     scheduler.add_job(fetch_tw_volume,  CronTrigger(hour=18, minute=5, timezone=TST), id="tw_volume",  replace_existing=True)
+
+    # 台指期日線:每日 17:30 TST(期交所一般交易 13:45 收盤,FinMind 約 17:00 後更新)
+    scheduler.add_job(fetch_tw_futures, CronTrigger(hour=17, minute=30, timezone=TST), id="tw_futures", replace_existing=True)
 
     # Phase 4: watchlist 個股 daily 主動拉(chip + PER),確保警示能觸發
     scheduler.add_job(
