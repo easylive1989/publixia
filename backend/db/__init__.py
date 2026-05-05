@@ -66,6 +66,7 @@ def purge_old_data(days: int = 1095):
         )
         conn.execute("DELETE FROM stock_financial_quarterly WHERE date<?", (cutoff_date,))
         # dividend not purged (long history important).
+        # futures_daily not purged — long-history K-line is the main use case.
 
 
 # Re-exports for backward compatibility.
@@ -89,4 +90,7 @@ from repositories.fundamentals import (  # noqa: E402,F401
     save_revenue_monthly_rows, get_revenue_monthly_range, get_latest_revenue_ym,
     save_financial_quarterly_rows, get_financial_quarterly_range, get_latest_financial_date,
     save_dividend_history_rows, get_dividend_history, get_latest_dividend_announce_date,
+)
+from repositories.futures import (  # noqa: E402,F401
+    save_futures_daily_rows, get_futures_daily_range, get_latest_futures_date,
 )

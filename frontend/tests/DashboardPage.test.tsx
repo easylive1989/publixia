@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { server } from './setup';
 import DashboardPage from '../src/pages/DashboardPage';
@@ -12,9 +13,11 @@ import { useRangeStore } from '../src/store/range-store';
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={client}>
-      <DashboardPage />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <DashboardPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -34,7 +37,7 @@ beforeEach(() => {
 });
 
 describe('DashboardPage', () => {
-  it('renders all 12 registered cards by default', async () => {
+  it('renders all 13 registered cards by default', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('加權指數')).toBeInTheDocument();
