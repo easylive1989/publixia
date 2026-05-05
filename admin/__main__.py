@@ -145,20 +145,24 @@ def _user_action_menu(user: dict) -> None:
 
 
 def _action_set_webhook(user: dict) -> None:
-    url = questionary.text(
-        "Discord webhook URL:",
-        validate=lambda v: True if v.strip().startswith("https://") else (
-            "URL must start with https://"
-        ),
-    ).ask()
-    if not url:
-        return
-    url = url.strip()
-    try:
-        ops.set_discord_webhook(user["id"], url)
-    except ValueError as e:
-        console.print(f"[red]Rejected:[/red] {e}")
-        return
+    while True:
+        url = questionary.text(
+            "Discord webhook URL:",
+            validate=lambda v: True if v.strip().startswith("https://") else (
+                "URL must start with https://"
+            ),
+        ).ask()
+        if not url:
+            return
+        url = url.strip()
+        try:
+            ops.set_discord_webhook(user["id"], url)
+        except ValueError as e:
+            console.print(f"[red]Rejected:[/red] {e}")
+            if not questionary.confirm("Try again?", default=True).ask():
+                return
+            continue
+        break
     console.print(
         f"[green]Webhook set for '{user['name']}'.[/green] "
         f"[dim](Strategy notifications will use this URL.)[/dim]"
