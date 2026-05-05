@@ -39,7 +39,7 @@ def test_set_discord_webhook_validates_format():
 
 
 def test_set_discord_webhook_stores_and_masks():
-    url = "https://discord.com/api/webhooks/123456789/abcdefghijklmnopqrstuvwxyz"
+    url = "https://discord.com/api/webhooks/123456789/" + "abcdefghij" * 7
     ops.set_discord_webhook(1, url)
     rows = ops.list_users_with_token()
     paul = next(u for u in rows if u["id"] == 1)
@@ -68,3 +68,20 @@ def test_set_discord_webhook_accepts_discordapp_alias():
     rows = ops.list_users_with_token()
     paul = next(u for u in rows if u["id"] == 1)
     assert "discordapp.com" in paul["webhook_display"]
+
+
+def test_set_strategy_permission_unknown_user_returns_false():
+    """Admin layer should return False for an unknown user_id (mirrors repo)."""
+    assert ops.set_strategy_permission(99999, True) is False
+
+
+def test_clear_discord_webhook_unknown_user_returns_false():
+    assert ops.clear_discord_webhook(99999) is False
+
+
+def test_set_discord_webhook_rejects_short_token():
+    """Token shorter than 60 chars is a paste-typo; reject."""
+    with pytest.raises(ValueError, match="discord webhook"):
+        ops.set_discord_webhook(
+            1, "https://discord.com/api/webhooks/1/short",
+        )

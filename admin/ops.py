@@ -19,8 +19,11 @@ _PREFIX_DISPLAY_LEN = 6
 _DEFAULT_EXPIRY_DAYS = 365
 
 _DISCORD_WEBHOOK_RE = re.compile(
-    r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$"
+    r"^https://(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]{60,}$"
 )
+# Token length lower bound: real Discord webhook tokens are ~68 chars.
+# 60 is a conservative floor that rejects partial / truncated paste-typos
+# while still tolerating any future tokens shorter than 68.
 
 
 def _mask_webhook(url: str | None) -> str:
