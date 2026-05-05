@@ -231,8 +231,8 @@ DSL 為純 JSON，可序列化、即時 evaluator 直接執行、能無歧義翻
 | `bbands` | `n,k` | `upper / middle / lower` | `bt.ind.BollingerBands` |
 | `atr` | `n` | — | `bt.ind.ATR` |
 | `kd` | `n` | `k / d` | `bt.ind.Stochastic` |
-| `highest` | `n` | (field 預設 high) | `bt.ind.Highest` |
-| `lowest` | `n` | (field 預設 low) | `bt.ind.Lowest` |
+| `highest` | `n` | — (固定取 high) | `bt.ind.Highest` |
+| `lowest` | `n` | — (固定取 low) | `bt.ind.Lowest` |
 | `change_pct` | `n` | — | 自訂：`(close - close[-n]) / close[-n] * 100` |
 
 預設值：`rsi.n=14`、`macd=(12,26,9)`、`bbands=(20,2)`、`atr=14`、`kd.n=9`。
@@ -382,6 +382,9 @@ def evaluate_one(s: Strategy, today: str) -> None:
 寫 `ENTRY_FILLED + fill_price=today_bar.open`、`state='open'`、不發 Discord。
 
 ### 5.6 `_try_exit` — 順序：stop_loss → take_profit → max_hold_days
+
+`held = count_trading_days(s.contract, s.entry_fill_date, today_bar.date)` 不含 entry_fill_date 當日（fill 日為 day 0、隔個交易日為 day 1）。`max_hold_days = N` 表示「持倉 N 個交易日後」當日就觸發 TIMEOUT；UI 文字明確標示「進場後第 N 個交易日結束」。
+
 
 ```python
 if dsl_check_exit(s.stop_loss_dsl,   ...): return _emit_exit(s, today, 'STOP_LOSS')
@@ -653,7 +656,7 @@ UI 在前端先用 `/api/me` disable toggle，避免使用者點到才知道；4
 
 ### 7.6 訊號歷史保留
 
-策略刪除 → cascade 刪 signals。`purge_old_data`（既有 Sunday 00:00 job）保留 3 年策略訊號（與 indicator/stocks 同政策）。
+策略刪除 → cascade 刪 signals。實作上把 `strategy_signals` 加進既有 `purge_old_data`（Sunday 00:00 job），保留 3 年（與 indicator/stocks 同政策）。
 
 ## 8. API + Admin CLI
 
@@ -745,7 +748,7 @@ Manage user: paul
   6) Back
 ```
 
-- **Toggle**：翻 boolean + audit log（print）。
+- **Toggle**：翻 boolean，CLI 在 terminal 印出操作紀錄（與既有 token-revoke 同風格，無專門 audit log 表）。
 - **Set webhook**：驗證格式（`https://discord(?:app)?.com/api/webhooks/.+/.+`）→ 寫入 → 立即發 test message；失敗 rollback。
 - **Clear**：set NULL；若該 user 有 `notify_enabled=1` 策略，先警示「會 disable N 個策略，繼續？(y/N)」。
 
@@ -804,7 +807,7 @@ src/
 
 ### 9.4 圖表
 
-`EquityCurveChart` 與 buy & hold 疊兩條線；技術選型沿用既有 sparkline lib（避免新增 dep）。
+`EquityCurveChart` 與 buy & hold 疊兩條線；用 Recharts（既有 sparkline 同 lib，`recharts ^3.8.1` 已在 `package.json` 中），不新增 dep。
 
 ## 10. 測試策略
 
@@ -841,7 +844,7 @@ numpy>=1.24
 
 ### 11.2 Migration 與 service restart
 
-VPS 既有 deploy-backend.yml 流程：rsync 後 `systemctl restart stock-dashboard.service` → `init_db()` 跑 migration 0008 → 自動建表。需確認 deploy workflow 是否會跑 `pip install -r requirements.txt`（現有規則：見 `deploy-backend.yml`）；若否要補步驟。
+VPS 既有 deploy-backend.yml 流程：rsync 後 VPS 端執行 `.venv/bin/pip install -q -r requirements.txt` → `systemctl restart stock-dashboard.service` → `init_db()` 跑 migration 0008 → 自動建表。新增 dep 會自動安裝，不需改 workflow。
 
 ### 11.3 文件
 
@@ -879,7 +882,5 @@ VPS 既有 deploy-backend.yml 流程：rsync 後 `systemctl restart stock-dashbo
 
 ## 14. 開放問題（待 implementation 階段確認）
 
-- VPS 的 Python 版本與 Backtrader 相容性實測。
-- `deploy-backend.yml` 是否在每次 deploy 跑 `pip install -r requirements.txt`；若否要補。
-- 前端 chart lib 實際是哪個（影響 EquityCurveChart 實作）。
-- max_hold_days 是否要包含進場日（目前設計用「held = trading days from entry_fill_date to today_bar.date」，不含進場當日）— 跟 4b2「進場當天不評估」一致，但可能要在 UI 上明確標示「N 個交易日後」的算法。
+- VPS 的 Python 版本與 Backtrader 1.9.78.123 相容性實測（Phase 6 第一步：在 VPS 上 `import backtrader` 跑通；若 numpy deprecation 出現再 pin numpy 版本）。
+- Backtrader import matplotlib 在無 GUI VPS 上是否需要先 `pip install matplotlib` 才能 import 成功（依 Backtrader 版本與 Python 版本而定，需在 P2 開頭驗）。
