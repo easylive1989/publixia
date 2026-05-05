@@ -129,10 +129,13 @@ def test_dashboard_includes_tw_futures():
 
 def test_futures_history_endpoint_returns_ohlcv_and_indicators():
     db.init_db()
-    # Seed enough rows to compute MA/MACD — reuse SAMPLE_RAW pipeline.
+    # Keep the patch active across both the seed call AND the endpoint
+    # hit — the route triggers its own lazy fetch_tw_futures(), which
+    # would otherwise call FinMind for real and overwrite the seeded
+    # last_date with whatever today's data looks like.
     with patch("fetchers.futures._request", return_value=SAMPLE_RAW):
         fetch_tw_futures()
-    r = client.get("/api/futures/tw/history?time_range=3M")
+        r = client.get("/api/futures/tw/history?time_range=3M")
     assert r.status_code == 200
     body = r.json()
     assert body["symbol"] == "TX"
