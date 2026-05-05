@@ -164,10 +164,30 @@ def test_fetch_chip_total_handles_empty_response():
 
 
 def test_fetch_ndc_saves_indicator():
-    fake_csv = "年月,景氣綜合判斷分數\n115年02月,24\n115年01月,23\n"
-    with patch("fetchers.ndc.requests.get") as mock_get:
-        mock_get.return_value.text = fake_csv
-        mock_get.return_value.raise_for_status = MagicMock()
+    page_html = '<meta name="csrf-token" content="csrf123">'
+    api_response = {
+        "line": {
+            "12": {"data": [
+                {"x": "202601", "y": 23},
+                {"x": "202602", "y": 24},
+            ]},
+            "2": {"data": [
+                {"x": "202601", "y": 3},
+                {"x": "202602", "y": 4},
+            ]},
+        }
+    }
+    page_resp = MagicMock()
+    page_resp.text = page_html
+    api_resp = MagicMock()
+    api_resp.json.return_value = api_response
+    api_resp.raise_for_status = MagicMock()
+
+    scraper = MagicMock()
+    scraper.get.return_value = page_resp
+    scraper.post.return_value = api_resp
+
+    with patch("fetchers.ndc.cloudscraper.create_scraper", return_value=scraper):
         from fetchers.ndc import fetch_ndc
         fetch_ndc()
     row = db.get_latest_indicator("ndc")
@@ -175,11 +195,14 @@ def test_fetch_ndc_saves_indicator():
     assert row["value"] == 24.0
     extra = json.loads(row["extra_json"])
     assert extra["light"] == "黃紅燈"
+    assert extra["period"] == "2026/02"
 
 
 def test_fetch_fear_greed_saves_indicator():
-    # fake_json structure based on typical macromicro.me chart API response
-    fake_json = {"data": [[1745000000, 58], [1744000000, 52]]}
+    # CNN Fear & Greed Index API response shape.
+    fake_json = {
+        "fear_and_greed": {"score": 58.0, "rating": "greed"},
+    }
     with patch("fetchers.fear_greed.requests.get") as mock_get:
         mock_get.return_value.json.return_value = fake_json
         mock_get.return_value.raise_for_status = MagicMock()
@@ -189,7 +212,8 @@ def test_fetch_fear_greed_saves_indicator():
     assert row is not None
     assert row["value"] == 58.0
     extra = json.loads(row["extra_json"])
-    assert "label" in extra
+    assert extra["label"] == "貪婪"
+    assert extra["rating_en"] == "greed"
 
 
 def test_fetch_tw_volume_calls_check_alerts():

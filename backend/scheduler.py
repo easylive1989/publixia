@@ -1,59 +1,78 @@
+"""APScheduler bootstrap.
+
+Schedule rows live in the `scheduler_jobs` SQLite table; the in-code
+`jobs.registry.JOBS` dict provides the authoritative name → callable map
+plus a default cron used the first time a new job appears.
+
+Boot sequence:
+1. For every entry in JOBS, insert a default row if missing (existing
+   rows are never overwritten — they reflect admin edits).
+2. Read the table back; for each enabled row whose name is in the
+   registry, parse cron_expr via APScheduler's `CronTrigger.from_crontab`
+   and add the job. Each invocation is wrapped to record run status.
+3. Unknown rows (registry entry deleted but DB row remains) are skipped
+   with a warning rather than crashing the service.
+
+Edits to `scheduler_jobs` take effect on the next backend restart.
+"""
+import logging
+
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from fetchers.yfinance_fetcher import fetch_taiex, fetch_fx, fetch_tw_stocks, fetch_us_stocks
-from fetchers.fear_greed import fetch_fear_greed
-from fetchers.chip_total import fetch_chip_total
-from fetchers.fundamentals_stock import fetch_watchlist_stock_daily
-from fetchers.ndc import fetch_ndc
-from fetchers.news import fetch_news
-from fetchers.volume import fetch_tw_volume, fetch_us_volume
-from fetchers.futures import fetch_tw_futures
-from db import purge_old_data
+from jobs.registry import JOBS
+from repositories.scheduler import insert_default, list_jobs, record_run
 
+logger = logging.getLogger(__name__)
 TST = pytz.timezone("Asia/Taipei")
 
+
+def _wrap(name: str, fn):
+    """Wrap a job callable so each run stamps last_run_at / status."""
+    def runner():
+        try:
+            fn()
+        except Exception as e:
+            logger.exception("scheduler_job_failed name=%s", name)
+            record_run(name, "error", str(e)[:500])
+        else:
+            record_run(name, "ok", None)
+    runner.__name__ = f"job_{name}"
+    return runner
+
+
+def _seed_defaults() -> None:
+    for name, spec in JOBS.items():
+        if insert_default(name, spec.default_cron):
+            logger.info("scheduler_job_seeded name=%s cron=%s", name, spec.default_cron)
+
+
 def start_scheduler() -> BackgroundScheduler:
+    _seed_defaults()
+
     scheduler = BackgroundScheduler(timezone=TST)
-
-    # 台股相關:每日 14:00 TST (台股 13:30 收盤後)
-    scheduler.add_job(fetch_taiex,     CronTrigger(hour=14, minute=0, timezone=TST), id="taiex",     replace_existing=True)
-    scheduler.add_job(fetch_tw_stocks, CronTrigger(hour=14, minute=5, timezone=TST), id="tw_stocks", replace_existing=True)
-
-    # 美股 + 匯率:每日 06:00 TST (美股收盤後)
-    scheduler.add_job(fetch_fx,        CronTrigger(hour=6, minute=0,  timezone=TST), id="fx",        replace_existing=True)
-    scheduler.add_job(fetch_us_stocks, CronTrigger(hour=6, minute=5,  timezone=TST), id="us_stocks", replace_existing=True)
-
-    # Daily 08:00 TST
-    scheduler.add_job(fetch_fear_greed, CronTrigger(hour=8,  minute=0, timezone=TST), id="fear_greed", replace_existing=True)
-
-    # Daily 18:00 TST (after TWSE settlement)
-    scheduler.add_job(fetch_chip_total, CronTrigger(hour=18, minute=0, timezone=TST), id="chip_total", replace_existing=True)
-    scheduler.add_job(fetch_tw_volume,  CronTrigger(hour=18, minute=5, timezone=TST), id="tw_volume",  replace_existing=True)
-
-    # 台指期日線:每日 17:30 TST(期交所一般交易 13:45 收盤,FinMind 約 17:00 後更新)
-    scheduler.add_job(fetch_tw_futures, CronTrigger(hour=17, minute=30, timezone=TST), id="tw_futures", replace_existing=True)
-
-    # Phase 4: watchlist 個股 daily 主動拉(chip + PER),確保警示能觸發
-    scheduler.add_job(
-        fetch_watchlist_stock_daily,
-        CronTrigger(hour=18, minute=30, timezone=TST),
-        id="watchlist_chip_per",
-        replace_existing=True,
-    )
-
-    # 美股每日 06:00 TST (美股收盤後)
-    scheduler.add_job(fetch_us_volume,  CronTrigger(hour=6,  minute=10, timezone=TST), id="us_volume", replace_existing=True)
-
-    # Monthly on the 1st at 09:00 TST
-    scheduler.add_job(fetch_ndc,        CronTrigger(day=1,  hour=9,  minute=0, timezone=TST), id="ndc", replace_existing=True)
-
-    # News: every 30 minutes
-    scheduler.add_job(fetch_news, "interval", minutes=30, id="news", replace_existing=True)
-
-    # Weekly cleanup of data older than 3 years
-    scheduler.add_job(purge_old_data,   CronTrigger(day_of_week="sun", hour=0, timezone=TST), id="cleanup", replace_existing=True)
+    for row in list_jobs():
+        name = row["name"]
+        spec = JOBS.get(name)
+        if spec is None:
+            logger.warning("scheduler_job_unregistered name=%s", name)
+            continue
+        if not row["enabled"]:
+            logger.info("scheduler_job_disabled name=%s", name)
+            continue
+        try:
+            trigger = CronTrigger.from_crontab(row["cron_expr"], timezone=TST)
+        except Exception as e:
+            logger.error(
+                "scheduler_cron_invalid name=%s expr=%r err=%s",
+                name, row["cron_expr"], e,
+            )
+            continue
+        scheduler.add_job(
+            _wrap(name, spec.fn), trigger, id=name, replace_existing=True,
+        )
+        logger.info("scheduler_job_added name=%s cron=%s", name, row["cron_expr"])
 
     scheduler.start()
     return scheduler
