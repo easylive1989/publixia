@@ -25,7 +25,19 @@ def _fake_token():
 
 
 def _fake_user():
-    return {"id": 1, "name": "paul", "created_at": "2026-01-01T00:00:00"}
+    """Bypass auth in tests — returns the seeded paul row.
+
+    Includes the FSE columns that landed in P1 so tests for
+    require_strategy_permission can override per-test by toggling
+    can_use_strategy. Default mirrors a fresh DB row: no permission,
+    no webhook configured."""
+    return {
+        "id":                  1,
+        "name":                "paul",
+        "created_at":          "2026-01-01T00:00:00",
+        "can_use_strategy":    False,
+        "discord_webhook_url": None,
+    }
 
 
 # Module-level overrides: apply to every TestClient(app) request.
