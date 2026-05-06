@@ -180,9 +180,11 @@ def _fetch_for_symbol(symbol: str, *, save_indicator_snapshot: bool,
 
     last_date = parsed[-1].get("date")
     if last_date:
-        # Lazy import — services.strategy_engine pulls in repositories /
-        # services_dsl which would be a startup-time circular if imported
-        # at module top.
+        # Per-call import — keeps `monkeypatch.setattr(
+        # "services.strategy_engine.on_futures_data_written", ...)`
+        # working in tests. With a module-top import we would bind the
+        # function here once and the patch in the engine namespace would
+        # no longer reach this caller.
         from services.strategy_engine import on_futures_data_written
         on_futures_data_written(symbol, last_date)
 

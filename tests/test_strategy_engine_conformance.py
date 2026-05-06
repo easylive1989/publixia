@@ -66,9 +66,27 @@ def _walk_engine(strategy_id: int, bars: list[dict]) -> list[dict]:
             break
         evaluate_one(s, bar)
 
+    # The engine must NOT have errored mid-walk — that would silently
+    # truncate the trade list and a downstream `eng == ref` mismatch
+    # would look like a state-machine bug instead of a runtime crash.
+    final = get_strategy(strategy_id)
+    assert final is not None, f"strategy {strategy_id} disappeared mid-walk"
+    assert final["last_error"] is None, (
+        f"strategy {strategy_id} errored mid-walk: {final['last_error']}"
+    )
+
     # Reconstruct trades from EXIT_FILLED + matching ENTRY_FILLED.
+    # Invariant: signal kinds (filtered to FILLED) must alternate
+    # ENTRY_FILLED, EXIT_FILLED, ENTRY_FILLED, ...
     sigs = list_signals(strategy_id, limit=10_000)
     sigs.reverse()  # oldest first
+    fill_kinds = [s["kind"] for s in sigs
+                  if s["kind"] in ("ENTRY_FILLED", "EXIT_FILLED")]
+    expected = ["ENTRY_FILLED", "EXIT_FILLED"] * (len(fill_kinds) // 2 + 1)
+    assert fill_kinds == expected[:len(fill_kinds)], (
+        f"non-alternating fill kinds: {fill_kinds}"
+    )
+
     trades: list[dict] = []
     pending_entry_date: str | None = None
     for s in sigs:
