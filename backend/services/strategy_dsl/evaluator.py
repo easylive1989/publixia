@@ -91,7 +91,16 @@ def _eval_condition(cond: DSLCondition, bars: Sequence[dict],
 def run_dsl(dsl: EntryDSL, bars: Sequence[dict],
             *, entry_price: float | None = None) -> bool | None:
     """Evaluate the AND-list. Any None propagates; empty AND would be True
-    but the model rejects min_length<1 so we never see it here."""
+    but the model rejects min_length<1 so we never see it here.
+
+    If bars is empty the caller has determined there is insufficient
+    history (e.g. a DSL that only uses const/var expressions and therefore
+    requires 0 bars). Treat this the same as any other short-history
+    case — return None so the engine skips the evaluation instead of
+    firing a spurious signal.
+    """
+    if not bars:
+        return None
     seen_unknown = False
     for cond in dsl.all:
         result = _eval_condition(cond, bars, entry_price=entry_price)
