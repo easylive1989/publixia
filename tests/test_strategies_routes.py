@@ -305,3 +305,64 @@ def test_reset_strategy_clears_all():
     assert after["last_error"] is None
     sigs = client.get(f"/api/strategies/{sid}/signals").json()
     assert sigs == []
+
+
+def test_backtest_endpoint_round_trip():
+    _grant_permission_to_paul()
+    sid = create_strategy(user_id=1, name="bt", direction="long",
+                          contract="TX", contract_size=1, **_good_dsls())
+
+    from repositories.futures import save_futures_daily_rows
+    import datetime
+    base = datetime.date(2026, 1, 1)
+    rows = []
+    for i in range(80):
+        rows.append({
+            "symbol": "TX",
+            "date":   str(base + datetime.timedelta(days=i)),
+            "contract_date": "202604",
+            "open":   100.0 + i,
+            "high":   100.0 + i + 2,
+            "low":    100.0 + i - 2,
+            "close":  100.0 + i,
+            "volume": 1000,
+            "open_interest": None, "settlement": None,
+        })
+    save_futures_daily_rows(rows)
+
+    r = client.post(f"/api/strategies/{sid}/backtest", json={
+        "start_date": "2026-01-01",
+        "end_date":   "2026-03-21",
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "trades" in body
+    assert "summary" in body
+    assert body["summary"]["n_trades"] == len(body["trades"])
+
+
+def test_backtest_endpoint_404_for_other_user():
+    _grant_permission_to_paul()
+    with get_connection() as conn:
+        conn.execute("INSERT INTO users (name) VALUES ('alice')")
+        conn.commit()
+    other = create_strategy(user_id=2, name="alice_only", direction="long",
+                            contract="TX", contract_size=1, **_good_dsls())
+    r = client.post(f"/api/strategies/{other}/backtest", json={
+        "start_date": "2026-01-01", "end_date": "2026-02-01",
+    })
+    assert r.status_code == 404
+
+
+def test_backtest_endpoint_returns_warning_on_no_bars():
+    _grant_permission_to_paul()
+    sid = create_strategy(user_id=1, name="empty_bt", direction="long",
+                          contract="TX", contract_size=1, **_good_dsls())
+    r = client.post(f"/api/strategies/{sid}/backtest", json={
+        "start_date": "2026-01-01", "end_date": "2026-02-01",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["trades"] == []
+    assert body["summary"]["n_trades"] == 0
+    assert any("no bars" in w.lower() for w in body["warnings"])

@@ -6,12 +6,14 @@ via 404. DSL bodies on write go through services.strategy_dsl.validator
 represent fails 422 before it hits the DB.
 """
 import json as _json
+from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import require_strategy_permission
 from api.schemas.strategy import (
     StrategyCreate, StrategyUpdate, StrategyResponse, SignalResponse,
+    BacktestRequest, BacktestResponse, TradeOut, SummaryOut,
 )
 from api.strategy_dsl_schema import DSL_SCHEMA
 from repositories.strategies import (
@@ -19,6 +21,7 @@ from repositories.strategies import (
     delete_strategy, reset_strategy,
 )
 from services.strategy_dsl.validator import validate, DSLValidationError
+from services.strategy_backtest import run_backtest_from_db
 from services.strategy_engine import force_close
 from db.connection import get_connection
 
@@ -147,6 +150,59 @@ def delete_strategy_route(strategy_id: int,
     _own_or_404(strategy_id, user)
     delete_strategy(strategy_id)
     return {"ok": True}
+
+
+@dataclass
+class _StrategyForBacktest:
+    """Adapter that gives services.strategy_backtest.try_translate the
+    fields it expects without depending on a route-layer dataclass."""
+    direction: str
+    contract: str
+    contract_size: int
+    max_hold_days: int | None
+    entry_dsl: dict
+    take_profit_dsl: dict
+    stop_loss_dsl: dict
+
+
+@router.post("/{strategy_id}/backtest", response_model=BacktestResponse)
+def backtest_strategy(strategy_id: int, req: BacktestRequest,
+                      user: dict = Depends(require_strategy_permission)):
+    s = _own_or_404(strategy_id, user)
+    adapter = _StrategyForBacktest(
+        direction=s["direction"],
+        contract=s["contract"],
+        contract_size=s["contract_size"],
+        max_hold_days=s["max_hold_days"],
+        entry_dsl=s["entry_dsl"],
+        take_profit_dsl=s["take_profit_dsl"],
+        stop_loss_dsl=s["stop_loss_dsl"],
+    )
+    result = run_backtest_from_db(
+        adapter,
+        start_date=str(req.start_date),
+        end_date=str(req.end_date),
+        contract_override=req.contract,
+        contract_size_override=req.contract_size,
+    )
+    return BacktestResponse(
+        trades=[
+            TradeOut(
+                entry_date=str(t.entry_date),
+                entry_price=t.entry_price,
+                exit_date=str(t.exit_date),
+                exit_price=t.exit_price,
+                exit_reason=t.exit_reason,
+                held_bars=t.held_bars,
+                pnl_points=t.pnl_points,
+                pnl_amount=t.pnl_amount,
+                from_stop=t.from_stop,
+            )
+            for t in result.trades
+        ],
+        summary=SummaryOut(**vars(result.summary)),
+        warnings=result.warnings,
+    )
 
 
 # ── state actions ───────────────────────────────────────────────────

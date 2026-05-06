@@ -91,3 +91,36 @@ def test_run_backtest_empty_bars_returns_empty_trades(make_strategy):
     result = run_backtest(s, bars=[])
     assert result.trades == []
     assert result.summary.n_trades == 0
+
+
+def test_run_backtest_from_db_pulls_bars_and_runs(make_strategy):
+    """Synthetic bars in futures_daily → end-to-end backtest result."""
+    from repositories.futures import save_futures_daily_rows
+    from services.strategy_backtest import run_backtest_from_db
+
+    import datetime
+    base = datetime.date(2026, 1, 1)
+    rows = []
+    for i in range(60):
+        rows.append({
+            "symbol": "TX",
+            "date":   str(base + datetime.timedelta(days=i)),
+            "contract_date": "202604",
+            "open":   100.0 + i,
+            "high":   100.0 + i + 2,
+            "low":    100.0 + i - 2,
+            "close":  100.0 + i,
+            "volume": 1000,
+            "open_interest": None, "settlement": None,
+        })
+    save_futures_daily_rows(rows)
+
+    s = make_strategy(entry={
+        "version": 1,
+        "all": [{"left": {"field": "close"}, "op": "gt",
+                 "right": {"const": 0}}],
+    })
+    res = run_backtest_from_db(s,
+                               start_date="2026-01-01",
+                               end_date="2026-02-28")
+    assert res.summary.n_trades >= 1
