@@ -383,14 +383,15 @@ def evaluate_one(s: Strategy, today: str) -> None:
 
 ### 5.6 `_try_exit` — 順序：stop_loss → take_profit → max_hold_days
 
-`held = count_trading_days(s.contract, s.entry_fill_date, today_bar.date)` 不含 entry_fill_date 當日（fill 日為 day 0、隔個交易日為 day 1）。`max_hold_days = N` 表示「持倉 N 個交易日後」當日就觸發 TIMEOUT；UI 文字明確標示「進場後第 N 個交易日結束」。
+`held = count_trading_days(s.contract, s.entry_signal_date, today_bar.date)` 不含 entry_signal_date 當日（signal 日為 day 0、fill 當日 day 1、再下一日 day 2…）。`max_hold_days = N` 表示「進場 signal 後第 N 個交易日」當日就觸發 TIMEOUT。
 
+> **為什麼用 entry_signal_date 而不是 entry_fill_date：** Backtrader 的 `_entry_bar_idx` 是設定在 signal 那一根 K 棒（fill 還沒發生），其 `held = len(self) - _entry_bar_idx` 因此也以 signal 為起點。為了讓 live 引擎與回測對相同 fixture 產生相同 trade timeline（spec §4.7 的 round-trip 一致性保證），live 評估也用 signal_date。P3 conformance 測試 (`tests/test_strategy_engine_conformance.py`) 對 50 個 random DSL 驗證了這個對齊。
 
 ```python
 if dsl_check_exit(s.stop_loss_dsl,   ...): return _emit_exit(s, today, 'STOP_LOSS')
 if dsl_check_exit(s.take_profit_dsl, ...): return _emit_exit(s, today, 'TAKE_PROFIT')
 if s.max_hold_days is not None:
-    held = count_trading_days(s.contract, s.entry_fill_date, today_bar.date)
+    held = count_trading_days(s.contract, s.entry_signal_date, today_bar.date)
     if held >= s.max_hold_days:
         return _emit_exit(s, today, 'TIMEOUT')
 ```
