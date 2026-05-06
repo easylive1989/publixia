@@ -277,3 +277,53 @@ def _trading_days_between(contract: str, signal_date: str,
     rows = get_futures_daily_range(contract, signal_date)
     return len([r for r in rows
                 if signal_date < r["date"] <= today_date])
+
+
+def force_close(strategy: dict) -> None:
+    """Manually close a hypothetical position outside the daily cycle.
+
+    Permitted only when state ∈ {open, pending_exit}. Uses the most
+    recent bar's close as the assumed fill price (next-bar open isn't
+    available — the user is acting ad-hoc, not reacting to a fresh
+    fetch). Writes a single EXIT_FILLED row with exit_reason='MANUAL_RESET'
+    and resets state to idle.
+    """
+    if strategy["state"] not in ("open", "pending_exit"):
+        raise ValueError(
+            f"strategy {strategy['id']} not in position "
+            f"(state={strategy['state']!r})"
+        )
+    rows = get_futures_daily_range(strategy["contract"], "1900-01-01")
+    if not rows:
+        raise ValueError(
+            f"no bars in futures_daily for contract={strategy['contract']!r}"
+        )
+    last_bar = rows[-1]
+    fill = float(last_bar["close"])
+    entry_price = strategy["entry_fill_price"] or 0.0
+    direction = strategy["direction"]
+    if direction == "long":
+        pnl_points = fill - entry_price
+    else:
+        pnl_points = entry_price - fill
+    pnl_amount = (
+        pnl_points
+        * MULTIPLIER[strategy["contract"]]
+        * strategy["contract_size"]
+    )
+    write_signal(
+        strategy["id"], kind="EXIT_FILLED",
+        signal_date=last_bar["date"],
+        fill_price=fill,
+        exit_reason="MANUAL_RESET",
+        pnl_points=pnl_points,
+        pnl_amount=pnl_amount,
+    )
+    update_strategy_state(
+        strategy["id"],
+        state="idle",
+        entry_signal_date=None, entry_fill_date=None,
+        entry_fill_price=None,
+        pending_exit_kind=None, pending_exit_signal_date=None,
+    )
+    notify_signal(strategy, "EXIT_FILLED", last_bar)
