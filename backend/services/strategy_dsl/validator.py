@@ -1,11 +1,8 @@
-"""Top-level validate() — pydantic check + entry-only constraint.
-
-Backtrader-translatability check is wired in by Task 7.
-"""
+"""Top-level validate() — pydantic check + entry-only constraint
++ optional Backtrader-translatability probe."""
 from __future__ import annotations
 
 from pydantic import ValidationError
-from typing import Literal
 
 from .models import (
     EntryDSL, ExitDSL,
@@ -15,8 +12,6 @@ from .models import (
 
 
 class DSLValidationError(ValueError):
-    """Raised for any DSL rejection. `errors` carries field-path detail
-    so the API layer can surface a precise message."""
     def __init__(self, message: str, errors: list | None = None):
         super().__init__(message)
         self.errors = errors or []
@@ -25,11 +20,11 @@ class DSLValidationError(ValueError):
 _VALID_KINDS = ("entry", "take_profit", "stop_loss")
 
 
-def validate(dsl_dict: dict, *, kind: str):
-    """Validate `dsl_dict` against the model that matches `kind`.
-
-    Returns the parsed model. Raises DSLValidationError on failure.
-    """
+def validate(dsl_dict: dict, *, kind: str, check_translatability: bool = False):
+    """Validate `dsl_dict`. If `check_translatability` is True, also build a
+    placeholder strategy and run it through the Backtrader translator to
+    confirm there's a path — the route layer turns this on; internal
+    callers (engine, tests) leave it off to avoid a circular import."""
     if kind not in _VALID_KINDS:
         raise ValueError(f"validate(): unknown kind {kind!r}")
 
@@ -46,11 +41,52 @@ def validate(dsl_dict: dict, *, kind: str):
 
     if kind == "entry":
         _reject_entry_price_var(model.all)
-    elif isinstance(model, ExitDSL_Advanced):
-        # entry_price is allowed on advanced exit — no further check.
-        pass
+
+    if check_translatability:
+        try:
+            _try_translate_for(model, kind)
+        except Exception as e:
+            raise DSLValidationError(
+                f"DSL passed schema but Backtrader translation failed: {e}"
+            ) from e
 
     return model
+
+
+def _try_translate_for(model, kind: str):
+    """Build a stub strategy whose only meaningful field is `model` placed
+    into the right slot, then delegate to strategy_backtest.try_translate.
+    Imported lazily to avoid module-level circular dependency."""
+    from services import strategy_backtest
+
+    stub_entry = {
+        "version": 1,
+        "all": [{"left": {"const": 0}, "op": "gte", "right": {"const": 0}}],
+    }
+    stub_pct = {"version": 1, "type": "pct", "value": 1.0}
+
+    class _Stub:
+        direction = "long"
+        contract = "TX"
+        contract_size = 1
+        max_hold_days = None
+        entry_dsl = stub_entry
+        take_profit_dsl = stub_pct
+        stop_loss_dsl = stub_pct
+
+    s = _Stub()
+    if kind == "entry":
+        s.entry_dsl = _model_to_dict(model)
+    elif kind == "take_profit":
+        s.take_profit_dsl = _model_to_dict(model)
+    else:
+        s.stop_loss_dsl = _model_to_dict(model)
+    strategy_backtest.try_translate(s)
+
+
+def _model_to_dict(model) -> dict:
+    """Round-trip a pydantic model back into a dict for try_translate."""
+    return model.model_dump() if hasattr(model, "model_dump") else dict(model)
 
 
 def _reject_entry_price_var(conds: list[DSLCondition]) -> None:

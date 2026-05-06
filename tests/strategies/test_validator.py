@@ -76,3 +76,30 @@ def test_validate_unknown_kind_rejected():
 def test_validate_pydantic_failures_wrapped():
     with pytest.raises(DSLValidationError):
         validate({"version": 1, "all": []}, kind="entry")
+
+
+def test_validate_translatability_rejects_unknown_indicator_param_combo(monkeypatch):
+    """Sanity check: when try_translate raises, validate wraps the failure."""
+    from services.strategy_dsl import validator as v
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("synthetic translation failure")
+
+    monkeypatch.setattr(v, "_try_translate_for", boom)
+
+    with pytest.raises(DSLValidationError, match="translation"):
+        validate(_GOOD_ENTRY, kind="entry", check_translatability=True)
+
+
+def test_validate_default_skips_translatability(monkeypatch):
+    """Without check_translatability=True, validate is the lightweight path —
+    proven by monkeypatching _try_translate_for to fail and showing it's
+    never reached."""
+    from services.strategy_dsl import validator as v
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("should not be called")
+
+    monkeypatch.setattr(v, "_try_translate_for", boom)
+    # Should not raise — translatability check skipped by default.
+    validate(_GOOD_ENTRY, kind="entry")
