@@ -42,6 +42,7 @@ class Trade:
     held_bars:     int
     pnl_points:    float
     pnl_amount:    float
+    from_stop:     bool = False  # True iff synthesised by stop() for open positions
 
 
 @dataclass
@@ -246,6 +247,7 @@ def _build_bt_strategy_class(*, entry, take_profit, stop_loss,
                     held_bars=held,
                     pnl_points=pnl_points,
                     pnl_amount=pnl_points * self._multiplier() * self.p.contract_size,
+                    from_stop=True,
                 ))
 
         def notify_trade(self, trade):
