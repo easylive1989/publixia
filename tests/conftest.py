@@ -42,3 +42,30 @@ def reset_db():
     if db.connection._memory_conn is not None:
         db.connection._memory_conn.close()
         db.connection._memory_conn = None
+
+
+@pytest.fixture
+def synthetic_bars():
+    """A 250-bar deterministic OHLCV series. Mid follows a noisy uptrend
+    (sin + drift); H/L are mid ± 5; volume is constant.
+
+    Dates are sequential calendar days from 2026-01-01 so every date string
+    is a valid ISO-8601 date that pandas can parse without ambiguity.
+
+    Defined here (root conftest) so it's visible to all tests, including
+    those outside tests/strategies/."""
+    import math
+    import datetime
+    base = datetime.date(2026, 1, 1)
+    bars = []
+    for i in range(250):
+        mid = 100.0 + 0.05 * i + 5.0 * math.sin(i / 7.0)
+        bars.append({
+            "date":   str(base + datetime.timedelta(days=i)),
+            "open":   mid,
+            "high":   mid + 5.0,
+            "low":    mid - 5.0,
+            "close":  mid,
+            "volume": 10_000,
+        })
+    return bars
