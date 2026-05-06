@@ -127,13 +127,32 @@ def _user_action_menu(user: dict) -> None:
         elif action == "set_webhook":
             _action_set_webhook(user)
         elif action == "clear_webhook":
-            if questionary.confirm(
-                f"Clear webhook for '{user['name']}'? "
-                "(Strategies that depend on it will fail to send "
-                "notifications until a new URL is set.)",
-                default=False,
-            ).ask():
-                ops.clear_discord_webhook(user["id"])
+            affected = ops.clear_discord_webhook_with_cascade(
+                user["id"], also_disable_strategies=False,
+            )
+            if affected:
+                console.print(
+                    f"[yellow]Warning: {len(affected)} active strategy "
+                    f"row(s) will silently fail to send notifications "
+                    f"until a new webhook is set.[/yellow]"
+                )
+                also = questionary.confirm(
+                    "Auto-disable those strategies now?", default=False,
+                ).ask()
+                if also:
+                    ops.clear_discord_webhook_with_cascade(
+                        user["id"], also_disable_strategies=True,
+                    )
+                    console.print(
+                        f"[green]Webhook cleared and "
+                        f"{len(affected)} strategies disabled.[/green]"
+                    )
+                else:
+                    console.print(
+                        "[green]Webhook cleared "
+                        "(strategies left enabled).[/green]"
+                    )
+            else:
                 console.print("[green]Webhook cleared.[/green]")
 
         # Refresh the row so subsequent menu iterations see new state.
@@ -156,16 +175,26 @@ def _action_set_webhook(user: dict) -> None:
             return
         url = url.strip()
         try:
-            ops.set_discord_webhook(user["id"], url)
+            result = ops.set_discord_webhook(user["id"], url)
         except ValueError as e:
             console.print(f"[red]Rejected:[/red] {e}")
             if not questionary.confirm("Try again?", default=True).ask():
                 return
             continue
         break
+
+    if result.test_ping_sent:
+        console.print(
+            f"[green]Webhook set for '{user['name']}' "
+            f"and test ping delivered.[/green]"
+        )
+    else:
+        console.print(
+            f"[yellow]Webhook saved for '{user['name']}' but the test "
+            f"ping was skipped (user not found?).[/yellow]"
+        )
     console.print(
-        f"[green]Webhook set for '{user['name']}'.[/green] "
-        f"[dim](Strategy notifications will use this URL.)[/dim]"
+        "[dim](Strategy notifications will now use this URL.)[/dim]"
     )
 
 
