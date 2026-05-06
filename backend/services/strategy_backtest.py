@@ -25,9 +25,7 @@ from services.strategy_dsl.models import (
     DSLCondition,
 )
 from services.strategy_dsl.validator import validate
-
-
-MULTIPLIER = {"TX": 200, "MTX": 50, "TMF": 10}
+from core.contracts import MULTIPLIER
 
 
 # ── public dataclasses ──────────────────────────────────────────────
