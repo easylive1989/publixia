@@ -125,11 +125,26 @@ def required_lookback(expr) -> int:
 # ── helpers ──────────────────────────────────────────────────────────
 
 def _compute_rsi(closes: np.ndarray, n: int) -> float:
+    """Wilder-smoothed RSI matching bt.indicators.RSI.
+
+    Seed: simple mean of the first n gains/losses.
+    Steps: avg_gain[i] = (avg_gain[i-1] * (n-1) + gain[i]) / n
+           avg_loss[i] same.
+    Final RSI uses the most recent avg_gain / avg_loss.
+    """
     diffs = np.diff(closes)
-    gains = np.where(diffs > 0, diffs, 0.0)
+    gains  = np.where(diffs > 0, diffs, 0.0)
     losses = np.where(diffs < 0, -diffs, 0.0)
-    avg_gain = gains[-n:].mean()
-    avg_loss = losses[-n:].mean()
+    if len(gains) < n:
+        # required_lookback gates this, but be defensive.
+        avg_gain = gains.mean() if len(gains) else 0.0
+        avg_loss = losses.mean() if len(losses) else 0.0
+    else:
+        avg_gain = float(gains[:n].mean())
+        avg_loss = float(losses[:n].mean())
+        for i in range(n, len(gains)):
+            avg_gain = (avg_gain * (n - 1) + gains[i]) / n
+            avg_loss = (avg_loss * (n - 1) + losses[i]) / n
     if avg_loss == 0:
         return 100.0 if avg_gain > 0 else 50.0
     rs = avg_gain / avg_loss

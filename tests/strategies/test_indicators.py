@@ -182,3 +182,44 @@ def test_required_lookback_bbands_uses_n():
 
 def test_required_lookback_change_pct_uses_n_plus_one():
     assert required_lookback(IndicatorChangePct(indicator="change_pct", n=4)) == 5
+
+
+def test_rsi_wilder_smoothing_matches_bt_indicators_rsi():
+    """RSI(14) of a 30-bar synthetic series should match bt.indicators.RSI
+    within 1e-3. This is the integration check that the math drift
+    between indicators._compute_rsi and bt.indicators.RSI (the gap that
+    excluded RSI from the P2 conformance sweep) is now closed."""
+    import backtrader as bt
+    import pandas as pd
+
+    closes = [100.0]
+    rng = list(range(30))
+    for i in rng[1:]:
+        # Mix of up + down moves so the smoothing actually does something.
+        closes.append(closes[-1] + (1.5 if i % 3 != 0 else -1.0))
+
+    bars = _bars(closes)
+    ours = compute_indicator(IndicatorRSI(indicator="rsi", n=14), bars)
+
+    # Compute via Backtrader.
+    df = pd.DataFrame({
+        "datetime": pd.to_datetime([b["date"] for b in bars]),
+        "open":  closes, "high": [c + 1 for c in closes],
+        "low":   [c - 1 for c in closes],
+        "close": closes, "volume": [1000] * len(closes),
+    }).set_index("datetime")
+
+    class _Probe(bt.Strategy):
+        def __init__(self):
+            self.r = bt.indicators.RSI(self.data.close, period=14)
+            self.last = None
+        def next(self):
+            self.last = float(self.r[0])
+
+    cerebro = bt.Cerebro()
+    cerebro.adddata(bt.feeds.PandasData(dataname=df,
+                                        timeframe=bt.TimeFrame.Days, compression=1))
+    cerebro.addstrategy(_Probe)
+    bt_result = cerebro.run()[0].last
+
+    assert abs(ours - bt_result) < 1e-3, f"ours={ours} bt={bt_result}"

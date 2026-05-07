@@ -321,3 +321,19 @@ def test_evaluate_one_marks_strategy_error_on_exception():
     s = get_strategy(sid)
     assert s["notify_enabled"] is False
     assert s["last_error"] is not None
+
+
+def test_evaluate_one_runtime_error_writes_signal_row_visible_in_history():
+    """When evaluate_one() raises, mark_strategy_error fires + the user
+    sees a RUNTIME_ERROR row in list_signals."""
+    sid = _insert_strategy(state="idle")
+    bad_bar = {"date": "2026-01-15", "open": 1.0, "high": 1.0, "low": 1.0,
+               "volume": 1}    # missing 'close' → KeyError in _try_entry
+    _seed_bars("TX", [_bar("2026-01-15", 1.0)])
+
+    s = get_strategy(sid)
+    evaluate_one(s, bad_bar)
+
+    sigs = list_signals(sid)
+    kinds = [r["kind"] for r in sigs]
+    assert "RUNTIME_ERROR" in kinds

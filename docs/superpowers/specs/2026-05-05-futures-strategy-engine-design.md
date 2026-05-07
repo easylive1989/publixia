@@ -340,6 +340,8 @@ on_futures_data_written(contract: str, date: str)
 
 內部維護一個 `(date, set_of_contracts_done)` 結構（記憶體 + 啟動時讀 `futures_daily` recover）；三商品都寫好才 call `evaluate_all(date)`。避免 race（fetcher 並行）造成重複觸發或 missed run。
 
+**Implementation deviation from the barrier model:** P3 ships a simpler fan-out instead of a true fan-in barrier. Each fetcher's tail-call `on_futures_data_written(contract, date)` independently iterates only the strategies bound to that contract — strategy `s` with `s.contract = "TX"` won't fire from the MTX fetcher's hook, and a TX fetcher failure leaves MTX/TMF strategies untouched. Functionally equivalent to the barrier (each strategy still evaluates exactly once per day on its own contract's fresh bar) and avoids tracking which fetchers have completed.
+
 ### 5.2 `evaluate_all(date)`
 
 ```python
@@ -642,6 +644,8 @@ def notify_runtime_error(s: Strategy, e: Exception) -> None:
 
 User-facing：簡短錯誤訊息 + 「即時通知已暫停，請編輯後重新啟用」。
 Ops-facing：完整 traceback + user_id + strategy_id。
+
+**Signal-history surfacing (P6):** the runtime error is also written as a `kind=RUNTIME_ERROR` row to `strategy_signals` so the user-facing SignalHistoryTable shows "❌ 執行錯誤" alongside the actual signal events. P6 closed this loop; before P6 the only surface was the `strategies.last_error` column visible only on the edit page.
 
 ### 7.5 啟用前 webhook 檢查
 

@@ -213,11 +213,24 @@ def backtest_strategy(strategy_id: int, req: BacktestRequest,
 @router.post("/{strategy_id}/enable")
 def enable_strategy(strategy_id: int,
                     user: dict = Depends(require_strategy_permission)):
-    _own_or_404(strategy_id, user)
+    s = _own_or_404(strategy_id, user)
     if not user.get("discord_webhook_url"):
         raise HTTPException(
             status_code=422,
             detail="discord webhook not set for user; ask admin to set one",
+        )
+    from services.strategy_engine import required_history_for_strategy
+    from repositories.futures import get_futures_daily_range
+    needed = required_history_for_strategy(s)
+    have = len(get_futures_daily_range(s["contract"], "1900-01-01"))
+    if have < needed:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"need {needed} bars of {s['contract']} history to "
+                f"evaluate this strategy, but only {have} bars exist; "
+                f"wait for the fetcher to backfill before enabling."
+            ),
         )
     update_strategy(strategy_id, notify_enabled=True)
     return {"ok": True}

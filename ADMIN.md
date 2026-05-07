@@ -127,6 +127,96 @@ sqlite3 /opt/stock-dashboard/backend/stock_dashboard.db \
   "SELECT id, name, can_use_strategy, discord_webhook_url FROM users"
 ```
 
+## Operating the Futures Strategy Engine
+
+Once a user has `can_use_strategy=1` and a webhook set, they manage their strategies via the `/strategies` page. Operators usually only get involved when something breaks. This section covers the troubleshooting workflows.
+
+### Reading what the engine just did
+
+Each strategy has a signal history (the `strategy_signals` table; UI renders it as 訊號歷史). The full event sequence for a single closed trade is:
+
+1. `ENTRY_SIGNAL` — the engine decided "fire" on bar T (close-of-day). The Discord embed went out at this point.
+2. `ENTRY_FILLED` — bar T+1 opened; entry_fill_price recorded. No embed; this is bookkeeping.
+3. `EXIT_SIGNAL` — stop-loss / take-profit / TIMEOUT triggered on bar E. Discord embed at this point with reason + estimated PnL.
+4. `EXIT_FILLED` — bar E+1 opened; final pnl_amount recorded.
+
+`MANUAL_RESET` shows up only when the user clicked "強制平倉" on the edit page — it's recorded as the `exit_reason` on a synthesised `EXIT_FILLED` row using the latest available bar's close as the assumed fill price. State returns to `idle`. The Discord embed posts.
+
+`RUNTIME_ERROR` shows up when `evaluate_one` raises (e.g. a DSL references a field the bar dict doesn't have). The strategy is auto-disabled (`notify_enabled=0`); the user must edit + re-enable after fixing the cause.
+
+### When a user reports "no signal showed up"
+
+Check, in order:
+
+1. **Was the strategy enabled the day the user expected it to fire?** `SELECT id, name, notify_enabled, last_error FROM strategies WHERE user_id=...`. If `notify_enabled=0` and `last_error` is populated, a runtime error already auto-disabled it.
+
+2. **Did the contract's fetcher run that day?** `SELECT MAX(date) FROM futures_daily WHERE symbol='TX'` (or MTX / TMF). If the latest date isn't the latest trading day, the fetcher failed — check `journalctl -u stock-dashboard.service` for FinMind errors.
+
+3. **Did the engine evaluate the strategy?** Look for log lines: `strategy_notify_signal strategy_id=...` (a signal fired) or `strategy_notify_skip_no_webhook ...` (the user has no webhook).
+
+4. **Does the strategy actually fire on the bar that just landed?** The fastest way is to run a backtest from the user's UI for the range that includes the target date — if the backtest shows no trade on that date, the strategy's logic just didn't trigger; not a bug.
+
+### When a user reports "I'm getting too many false signals"
+
+This is a strategy-design issue, not an ops issue. The user can:
+
+- Tighten the entry conditions in the UI.
+- Raise the take-profit % or lower the stop-loss % to reduce whipsawing.
+- Add a `streak_above`/`streak_below` requirement (N-day persistence).
+
+Operators don't usually intervene; just confirm the engine is working as designed.
+
+### force_close vs reset
+
+- **force_close** (UI: 強制平倉, only available when state ∈ {open, pending_exit}): use when the user wants to "close the trade now" but keep the strategy's history intact. Writes one `EXIT_FILLED` row with `exit_reason='MANUAL_RESET'` using the latest bar's close as the assumed fill price. State returns to `idle`. The Discord embed posts.
+
+- **reset** (UI: 重置, always available): nuclear option. Deletes the strategy's entire `strategy_signals` history, clears all state machine columns + `last_error`, returns state to `idle`. No Discord embed. Use when the strategy got into a wedged state during development or after a runtime error and the user wants a clean slate.
+
+If a user can't decide which to use: force_close preserves the trade record; reset doesn't. Default to reset for runtime-error recovery, force_close for "I just want out of this trade."
+
+### Common runtime errors and what they mean
+
+The engine catches every `evaluate_one` exception and stores a 1000-char-truncated message in `strategies.last_error` + writes a `RUNTIME_ERROR` signal row. The user sees both on their edit page.
+
+| Error pattern                                  | Likely cause                              |
+|------------------------------------------------|-------------------------------------------|
+| `KeyError: 'close'`                            | A fetcher persisted a malformed bar (rare); inspect futures_daily for the date in `last_error_at`. |
+| `pydantic.ValidationError`                     | DSL became invalid after a schema change. The strategy was enabled before P6's enable-time check landed; just re-edit + save. |
+| `ZeroDivisionError` (RSI / change_pct)         | Bar's close was 0 (delisted symbol). Should never happen for TX/MTX/TMF — investigate fetcher. |
+| `RuntimeError: FinMind ...` in fetcher logs    | Not a strategy error; FinMind down. Strategy will just not evaluate today; tomorrow's fetcher recovers. |
+
+### Manually re-running a strategy for a day
+
+If a fetcher backfills a missed day after the engine ran, the user's strategy doesn't auto-replay. To force re-evaluation manually on the VPS:
+
+```bash
+ssh root@$VPS_HOST
+python3 -c "
+import sys; sys.path.insert(0, '/opt/stock-dashboard/backend')
+from services.strategy_engine import on_futures_data_written
+on_futures_data_written('TX', '2026-04-15')
+"
+```
+
+This iterates every notify-enabled strategy on TX and advances each by one bar against the 2026-04-15 row. **Use sparingly** — it doesn't de-dupe against signals already written for that date, so running it twice in a day will double-write.
+
+### Cleaning up after a failed deploy
+
+If `init_db()` fails mid-migration on deploy and `systemctl restart` loops, the DB might be in a partial state. The `db/runner.py` migrations are forward-only and idempotent, so re-running the deploy usually fixes it. If it doesn't, restore the DB from the previous night's backup (the cleanup job at `0 0 * * 0` is the standard backup trigger) and replay any user actions from the journal.
+
+### Where the engine logs
+
+```bash
+journalctl -u stock-dashboard.service -f | grep strategy_
+```
+
+Useful greps:
+- `strategy_notify_signal` — every Discord-bound signal
+- `strategy_notify_skip_no_webhook` — user without webhook
+- `strategy_notify_discord_failed` — webhook 5xx / unreachable
+- `strategy_evaluate_failed` — full traceback before auto-disable
+- `strategy_engine_no_bar` — fetcher hadn't run when engine fired
+
 ## Auto-tracked Taiwan top-100
 
 Taiwan large-caps + popular ETFs are auto-tracked: backend fetchers
