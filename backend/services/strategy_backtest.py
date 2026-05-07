@@ -326,7 +326,7 @@ def _build_bt_indicator(expr, data):
     if isinstance(expr, IndicatorEMA):
         return bt.indicators.EMA(data.close, period=expr.n)
     if isinstance(expr, IndicatorRSI):
-        return bt.indicators.RSI(data.close, period=expr.n)
+        return bt.indicators.RSI(data.close, period=expr.n, safediv=True)
     if isinstance(expr, IndicatorMACD):
         macd = bt.indicators.MACD(data.close,
                                   period_me1=expr.fast,

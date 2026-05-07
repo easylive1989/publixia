@@ -7,15 +7,14 @@ Excluded from the conformance set:
   - cross_above / cross_below: requires off-by-one bookkeeping that the
     two paths do consistently in practice but adds noise to a property
     test. Keep them in the unit tests, exclude from the random sweep.
-  - rsi: Backtrader's bt.indicators.RSI uses Wilder's EMA smoothing
-    (MovAv.Smoothed) while the realtime evaluator uses a simple SMA of
-    gains/losses. They diverge on all bar sequences, not just edge cases.
-    Additionally, RSI(7) triggers a ZeroDivisionError in BT's once-pass
-    optimisation phase (safediv=False default) on this fixture. RSI is
-    covered by unit tests against the realtime evaluator alone.
   - kd, atr, change_pct: slight edge-case drift over the synthetic
     fixture (rounding / wilder smoothing variants). Exclude from sweep;
     covered by unit tests.
+
+Included (re-added after P6 Task 3):
+  - rsi: now uses Wilder smoothing matching bt.indicators.RSI. The RSI
+    conformance gap is closed; RSI(7) and RSI(14) are included in the
+    random sweep with safediv=True set on the bt path.
 """
 from __future__ import annotations
 
@@ -27,6 +26,7 @@ _OPS_SAFE = ["gt", "gte", "lt", "lte"]
 _INDICATOR_BUILDERS = [
     lambda r: {"indicator": "sma", "n": r.choice([5, 10, 20])},
     lambda r: {"indicator": "ema", "n": r.choice([5, 10, 20])},
+    lambda r: {"indicator": "rsi", "n": r.choice([7, 14])},
     lambda r: {"indicator": "highest", "n": r.choice([5, 10, 20])},
     lambda r: {"indicator": "lowest",  "n": r.choice([5, 10, 20])},
     lambda r: {"indicator": "bbands", "n": r.choice([10, 20]), "k": 2.0,
