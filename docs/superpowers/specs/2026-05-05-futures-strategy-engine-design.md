@@ -1,7 +1,7 @@
 # Futures Strategy Engine — Design
 
-- 日期：2026-05-05
-- 狀態：草案 (待 implementation plan)
+- 日期：2026-05-05（spec），2026-05-07（全部 phase 上線）
+- 狀態：**已全部上線**。P1 schema/permissions、P2 DSL+Backtrader、P3 engine+state machine、P4 API+notifier、P5 frontend、P6 integration 已部署到 VPS 並驗證可用。
 - 影響範圍：`backend/`、`frontend/`、`admin/`、`docs/`、`tests/`
 
 ## 0. 摘要
