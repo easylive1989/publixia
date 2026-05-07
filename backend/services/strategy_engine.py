@@ -283,6 +283,25 @@ def _trading_days_between(contract: str, signal_date: str,
                 if signal_date < r["date"] <= today_date])
 
 
+def required_history_for_strategy(strategy: dict) -> int:
+    """Compute the minimum bar count the engine needs to evaluate an
+    entry signal for this strategy. Used by the API enable handler.
+
+    For all-const DSLs the count is 1 — the engine still needs at least
+    one bar to even talk about close/today. For indicator-bearing DSLs
+    we take the maximum lookback across the entry conditions.
+    """
+    entry = EntryDSL.model_validate(strategy["entry_dsl"])
+    n = 1
+    for cond in entry.all:
+        n = max(
+            n,
+            required_lookback(cond.left),
+            required_lookback(cond.right),
+        )
+    return n
+
+
 def force_close(strategy: dict) -> None:
     """Manually close a hypothetical position outside the daily cycle.
 

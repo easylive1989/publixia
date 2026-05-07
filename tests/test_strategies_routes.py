@@ -233,6 +233,13 @@ def test_enable_passes_when_webhook_set():
             ("https://discord.com/api/webhooks/1/" + "x" * 60,),
         )
         conn.commit()
+    # Seed one bar so the new history-sufficiency check (spec §5.11) passes.
+    from repositories.futures import save_futures_daily_rows
+    save_futures_daily_rows([{
+        "symbol": "TX", "date": "2026-01-15", "contract_date": "202604",
+        "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0,
+        "volume": 1000, "open_interest": None, "settlement": None,
+    }])
     sid = create_strategy(user_id=1, name="x", direction="long",
                           contract="TX", contract_size=1, **_good_dsls())
     r = client.post(f"/api/strategies/{sid}/enable")
