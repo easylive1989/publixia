@@ -12,6 +12,7 @@ import { ApiError } from '@/lib/api-client';
 import { StrategyForm } from '@/components/strategy/StrategyForm';
 import { PositionStatusCard } from '@/components/strategy/PositionStatusCard';
 import { SignalHistoryTable } from '@/components/strategy/SignalHistoryTable';
+import { BacktestPanel } from '@/components/strategy/BacktestPanel';
 import type { DslCondition } from '@/components/strategy/ConditionRow';
 import type { ExitDsl } from '@/components/strategy/ExitConditionEditor';
 import { useState } from 'react';
@@ -150,6 +151,17 @@ export default function StrategyEditPage() {
           </CardHeader>
           <CardContent>
             <SignalHistoryTable signals={signals} />
+          </CardContent>
+        </Card>
+      )}
+
+      {isEdit && id !== undefined && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">回測</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BacktestPanel strategyId={id} />
           </CardContent>
         </Card>
       )}
