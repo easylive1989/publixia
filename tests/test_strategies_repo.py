@@ -227,3 +227,14 @@ def test_reset_strategy_clears_state_and_signals_but_keeps_row():
     assert s["entry_fill_price"] is None
     assert s["last_error"] is None
     assert list_signals(sid) == []
+
+
+def test_mark_strategy_error_also_writes_runtime_error_signal():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    mark_strategy_error(sid, "DSL exploded: KeyError 'close'")
+
+    sigs = list_signals(sid)
+    assert len(sigs) == 1
+    assert sigs[0]["kind"] == "RUNTIME_ERROR"
+    assert "DSL exploded" in sigs[0]["message"]
+    assert sigs[0]["signal_date"] is not None

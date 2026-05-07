@@ -107,10 +107,12 @@ def list_signals(strategy_id: int, limit: int = 50) -> list[dict]:
 
 
 def mark_strategy_error(strategy_id: int, error_message: str) -> None:
-    """Set last_error + last_error_at and disable real-time notifications.
-    The message is truncated to 1000 chars to fit a sane log surface."""
+    """Set last_error + last_error_at, disable real-time notifications,
+    AND write a RUNTIME_ERROR signal row so the failure surfaces in the
+    user's signal history."""
     msg = (error_message or "")[:1000]
     now = _now_iso()
+    today = now[:10]   # YYYY-MM-DD slice of the ISO timestamp
     with get_connection() as conn:
         conn.execute(
             "UPDATE strategies SET "
@@ -118,6 +120,12 @@ def mark_strategy_error(strategy_id: int, error_message: str) -> None:
             "  notify_enabled = 0, updated_at = ? "
             "WHERE id = ?",
             (msg, now, now, strategy_id),
+        )
+        conn.execute(
+            "INSERT INTO strategy_signals "
+            "(strategy_id, kind, signal_date, message, created_at) "
+            "VALUES (?, 'RUNTIME_ERROR', ?, ?, ?)",
+            (strategy_id, today, msg, now),
         )
         conn.commit()
 
