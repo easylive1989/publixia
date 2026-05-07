@@ -37,3 +37,53 @@ def test_me_reflects_webhook_set():
     # The route MUST NOT leak the URL itself.
     assert "discord_webhook_url" not in body
     assert "discord.com" not in str(body)
+
+
+from api.dependencies import require_strategy_permission
+
+
+def test_require_strategy_permission_403_when_off():
+    """Default _fake_user has can_use_strategy=False; the dep rejects."""
+    from fastapi import FastAPI, Depends
+    app2 = FastAPI()
+
+    @app2.get("/probe")
+    def probe(user: dict = Depends(require_strategy_permission)):
+        return {"ok": True}
+
+    from api.dependencies import require_user
+    app2.dependency_overrides[require_user] = lambda: {
+        "id": 1, "name": "paul",
+        "can_use_strategy": False, "discord_webhook_url": None,
+    }
+    from fastapi.testclient import TestClient
+    r = TestClient(app2).get("/probe")
+    assert r.status_code == 403
+    assert r.json()["detail"] == "no strategy permission"
+
+
+def test_require_strategy_permission_passes_when_on():
+    from fastapi import FastAPI, Depends
+    from db.connection import get_connection
+
+    # Grant permission to paul in the DB so the dep's get_user_with_settings
+    # call returns can_use_strategy=True.
+    with get_connection() as conn:
+        conn.execute("UPDATE users SET can_use_strategy=1 WHERE id=1")
+        conn.commit()
+
+    app2 = FastAPI()
+
+    @app2.get("/probe")
+    def probe(user: dict = Depends(require_strategy_permission)):
+        return {"name": user["name"]}
+
+    from api.dependencies import require_user
+    app2.dependency_overrides[require_user] = lambda: {
+        "id": 1, "name": "paul",
+        "can_use_strategy": False, "discord_webhook_url": None,
+    }
+    from fastapi.testclient import TestClient
+    r = TestClient(app2).get("/probe")
+    assert r.status_code == 200
+    assert r.json() == {"name": "paul"}

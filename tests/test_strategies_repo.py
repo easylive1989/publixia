@@ -134,3 +134,96 @@ def test_mark_strategy_error_truncates_long_messages():
     mark_strategy_error(sid, "x" * 5000)
     s = get_strategy(sid)
     assert len(s["last_error"]) <= 1000
+
+
+from repositories.strategies import (
+    create_strategy, update_strategy, delete_strategy, reset_strategy,
+)
+
+
+_GOOD_STRATEGY_INPUT = dict(
+    user_id=1,
+    name="rsi_reversion",
+    direction="long",
+    contract="TX",
+    contract_size=1,
+    max_hold_days=10,
+    entry_dsl=_GOOD_ENTRY_DSL,
+    take_profit_dsl=_GOOD_PCT_DSL,
+    stop_loss_dsl=_GOOD_PCT_DSL,
+)
+
+
+def test_create_strategy_round_trip():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    assert sid > 0
+    s = get_strategy(sid)
+    assert s["name"] == "rsi_reversion"
+    assert s["direction"] == "long"
+    assert s["contract"] == "TX"
+    assert s["state"] == "idle"
+    assert s["notify_enabled"] is False
+    assert s["entry_dsl"] == _GOOD_ENTRY_DSL
+
+
+def test_create_strategy_unique_per_user_name():
+    create_strategy(**_GOOD_STRATEGY_INPUT)
+    import sqlite3
+    with pytest.raises(sqlite3.IntegrityError):
+        create_strategy(**_GOOD_STRATEGY_INPUT)
+
+
+def test_update_strategy_partial_fields():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    update_strategy(sid, name="new_name", contract_size=2,
+                    notify_enabled=True)
+    s = get_strategy(sid)
+    assert s["name"] == "new_name"
+    assert s["contract_size"] == 2
+    assert s["notify_enabled"] is True
+    assert s["direction"] == "long"
+    assert s["entry_dsl"] == _GOOD_ENTRY_DSL
+
+
+def test_update_strategy_can_replace_dsl_columns():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    new_dsl = {"version": 1, "all": [
+        {"left": {"field": "high"}, "op": "lt", "right": {"const": 1}}]}
+    update_strategy(sid, entry_dsl=new_dsl)
+    assert get_strategy(sid)["entry_dsl"] == new_dsl
+
+
+def test_update_strategy_rejects_unknown_field():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    with pytest.raises(ValueError, match="unknown"):
+        update_strategy(sid, evil=1)
+
+
+def test_delete_strategy_removes_row_and_signals():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    write_signal(sid, kind="ENTRY_SIGNAL", signal_date="2026-01-15",
+                 close_at_signal=100.0)
+    delete_strategy(sid)
+    assert get_strategy(sid) is None
+    assert list_signals(sid) == []
+
+
+def test_reset_strategy_clears_state_and_signals_but_keeps_row():
+    sid = create_strategy(**_GOOD_STRATEGY_INPUT)
+    update_strategy_state(sid, state="open",
+                          entry_signal_date="2026-01-15",
+                          entry_fill_date="2026-01-16",
+                          entry_fill_price=200.0)
+    write_signal(sid, kind="ENTRY_SIGNAL", signal_date="2026-01-15",
+                 close_at_signal=200.0)
+    mark_strategy_error(sid, "previous failure")
+
+    reset_strategy(sid)
+
+    s = get_strategy(sid)
+    assert s is not None
+    assert s["state"] == "idle"
+    assert s["entry_signal_date"] is None
+    assert s["entry_fill_price"] is None
+    assert s["last_error"] is None
+    assert list_signals(sid) == []

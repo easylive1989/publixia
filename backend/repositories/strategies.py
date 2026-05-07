@@ -120,3 +120,108 @@ def mark_strategy_error(strategy_id: int, error_message: str) -> None:
             (msg, now, now, strategy_id),
         )
         conn.commit()
+
+
+_ALLOWED_UPDATE_FIELDS = {
+    "name", "direction", "contract", "contract_size", "max_hold_days",
+    "entry_dsl", "take_profit_dsl", "stop_loss_dsl",
+    "notify_enabled",
+}
+
+
+def create_strategy(*,
+                    user_id: int,
+                    name: str,
+                    direction: str,
+                    contract: str,
+                    contract_size: int,
+                    entry_dsl: dict,
+                    take_profit_dsl: dict,
+                    stop_loss_dsl: dict,
+                    max_hold_days: int | None = None,
+                    notify_enabled: bool = False) -> int:
+    """Insert a new strategy in `idle` state. Caller is responsible for
+    pre-validating the DSL dicts (route layer does it via
+    services.strategy_dsl.validator.validate)."""
+    now = _now_iso()
+    with get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO strategies "
+            "(user_id, name, direction, contract, contract_size, "
+            " max_hold_days, entry_dsl, take_profit_dsl, stop_loss_dsl, "
+            " notify_enabled, state, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'idle', ?, ?)",
+            (user_id, name, direction, contract, contract_size,
+             max_hold_days,
+             json.dumps(entry_dsl),
+             json.dumps(take_profit_dsl),
+             json.dumps(stop_loss_dsl),
+             1 if notify_enabled else 0,
+             now, now),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def update_strategy(strategy_id: int, **fields) -> None:
+    """Update one or more user-editable fields. Pass keys from
+    _ALLOWED_UPDATE_FIELDS. DSL fields are JSON-serialised; bool fields
+    encoded to 0/1."""
+    bad = set(fields) - _ALLOWED_UPDATE_FIELDS
+    if bad:
+        raise ValueError(f"unknown update fields: {sorted(bad)}")
+    if not fields:
+        return
+    encoded: dict = {}
+    for k, v in fields.items():
+        if k in ("entry_dsl", "take_profit_dsl", "stop_loss_dsl"):
+            encoded[k] = json.dumps(v)
+        elif k == "notify_enabled":
+            encoded[k] = 1 if v else 0
+        else:
+            encoded[k] = v
+    sets = ", ".join(f"{k}=?" for k in encoded) + ", updated_at=?"
+    values = list(encoded.values()) + [_now_iso(), strategy_id]
+    with get_connection() as conn:
+        conn.execute(
+            f"UPDATE strategies SET {sets} WHERE id=?", values,
+        )
+        conn.commit()
+
+
+def delete_strategy(strategy_id: int) -> None:
+    """Hard delete the strategy and its signals.
+
+    SQLite FK cascades require PRAGMA foreign_keys=ON; we delete signals
+    explicitly to stay compatible with connection pools that omit the pragma.
+    """
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM strategy_signals WHERE strategy_id=?",
+            (strategy_id,),
+        )
+        conn.execute("DELETE FROM strategies WHERE id=?", (strategy_id,))
+        conn.commit()
+
+
+def reset_strategy(strategy_id: int) -> None:
+    """Drop all signals + clear state machine columns + clear last_error.
+    Keeps the strategy row itself; user can re-enable afterwards."""
+    now = _now_iso()
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM strategy_signals WHERE strategy_id=?",
+            (strategy_id,),
+        )
+        conn.execute(
+            "UPDATE strategies SET "
+            "  state='idle', "
+            "  entry_signal_date=NULL, entry_fill_date=NULL, "
+            "  entry_fill_price=NULL, "
+            "  pending_exit_kind=NULL, pending_exit_signal_date=NULL, "
+            "  last_error=NULL, last_error_at=NULL, "
+            "  updated_at=? "
+            "WHERE id=?",
+            (now, strategy_id),
+        )
+        conn.commit()

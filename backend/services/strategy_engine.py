@@ -37,7 +37,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from core.contracts import MULTIPLIER
-from repositories.futures import get_futures_daily_range
+from repositories.futures import get_futures_daily_range, get_latest_futures_bar
 from repositories.strategies import (
     list_enabled_strategies, get_strategy,
     update_strategy_state, write_signal, mark_strategy_error,
@@ -179,6 +179,10 @@ def _emit_exit_signal(strategy: dict, today_bar: dict, exit_reason: str) -> None
         pending_exit_kind=exit_reason,
         pending_exit_signal_date=today_bar["date"],
     )
+    # Inject the just-decided reason into the local dict so the notifier
+    # renders the right title/colour. Without this, strategy["pending_exit_kind"]
+    # is still None and every real exit would post as "🔧 手動平倉".
+    strategy = {**strategy, "pending_exit_kind": exit_reason}
     notify_signal(strategy, "EXIT_SIGNAL", today_bar)
 
 
@@ -277,3 +281,55 @@ def _trading_days_between(contract: str, signal_date: str,
     rows = get_futures_daily_range(contract, signal_date)
     return len([r for r in rows
                 if signal_date < r["date"] <= today_date])
+
+
+def force_close(strategy: dict) -> None:
+    """Manually close a hypothetical position outside the daily cycle.
+
+    Permitted only when state ∈ {open, pending_exit}. Uses the most
+    recent bar's close as the assumed fill price (next-bar open isn't
+    available — the user is acting ad-hoc, not reacting to a fresh
+    fetch). Writes a single EXIT_FILLED row with exit_reason='MANUAL_RESET'
+    and resets state to idle.
+    """
+    if strategy["state"] not in ("open", "pending_exit"):
+        raise ValueError(
+            f"strategy {strategy['id']} not in position "
+            f"(state={strategy['state']!r}); use /reset for pending_entry"
+        )
+    last_bar = get_latest_futures_bar(strategy["contract"])
+    if last_bar is None:
+        raise ValueError(
+            f"no bars in futures_daily for contract={strategy['contract']!r}"
+        )
+    fill = float(last_bar["close"])
+    entry_price = strategy["entry_fill_price"] or 0.0
+    direction = strategy["direction"]
+    if direction == "long":
+        pnl_points = fill - entry_price
+    else:
+        pnl_points = entry_price - fill
+    pnl_amount = (
+        pnl_points
+        * MULTIPLIER[strategy["contract"]]
+        * strategy["contract_size"]
+    )
+    write_signal(
+        strategy["id"], kind="EXIT_FILLED",
+        signal_date=last_bar["date"],
+        fill_price=fill,
+        exit_reason="MANUAL_RESET",
+        pnl_points=pnl_points,
+        pnl_amount=pnl_amount,
+    )
+    update_strategy_state(
+        strategy["id"],
+        state="idle",
+        entry_signal_date=None, entry_fill_date=None,
+        entry_fill_price=None,
+        pending_exit_kind=None, pending_exit_signal_date=None,
+    )
+    # Tag the in-memory dict so the notifier renders "🔧 手動平倉"
+    # regardless of what kind was pending before force_close ran.
+    strategy = {**strategy, "pending_exit_kind": "MANUAL_RESET"}
+    notify_signal(strategy, "EXIT_FILLED", last_bar)

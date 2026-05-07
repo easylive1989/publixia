@@ -419,6 +419,50 @@ def run_backtest(strategy, *, bars: Sequence[dict]) -> BacktestResult:
     return BacktestResult(trades=trades, summary=summary)
 
 
+def run_backtest_from_db(
+    strategy,
+    *,
+    start_date: str,
+    end_date: str,
+    contract_override: str | None = None,
+    contract_size_override: int | None = None,
+) -> BacktestResult:
+    """Load bars from futures_daily for the requested range + contract,
+    then call run_backtest. Returns an empty BacktestResult with a warning
+    if no bars are present in the range."""
+    from repositories.futures import get_futures_daily_range
+
+    contract = contract_override or strategy.contract
+    rows = get_futures_daily_range(contract, start_date)
+    bars = [
+        {"date": r["date"],
+         "open": r["open"], "high": r["high"], "low": r["low"],
+         "close": r["close"], "volume": r["volume"]}
+        for r in rows
+        if start_date <= r["date"] <= end_date
+    ]
+    if not bars:
+        empty = BacktestResult(
+            trades=[],
+            summary=Summary(
+                total_pnl_amount=0.0, win_rate=0.0,
+                avg_win_points=0.0, avg_loss_points=0.0,
+                profit_factor=0.0, max_drawdown_amt=0.0,
+                max_drawdown_pct=0.0, n_trades=0, avg_held_bars=0.0,
+            ),
+        )
+        empty.warnings.append(
+            f"no bars in futures_daily for contract={contract} "
+            f"between {start_date} and {end_date}"
+        )
+        return empty
+
+    if contract_size_override is not None:
+        from dataclasses import replace
+        strategy = replace(strategy, contract_size=contract_size_override)
+    return run_backtest(strategy, bars=bars)
+
+
 def _summarise(trades: list[Trade]) -> Summary:
     if not trades:
         return Summary(
