@@ -37,6 +37,28 @@ def test_dashboard_returns_all_indicators():
         assert "timestamp" in data[key]
 
 
+def test_dashboard_includes_next_update_at_per_indicator():
+    """Each indicator slot exposes the next scheduled update time so the
+    frontend can render '下次更新 …' on each card. The scheduler isn't
+    started in tests, so we seed the rows the way it would on boot."""
+    from repositories.scheduler import insert_default
+    insert_default("taiex", "0 14 * * *")
+    insert_default("chip_total", "0 18 * * *")
+
+    r = client.get("/api/dashboard")
+    assert r.status_code == 200
+    data = r.json()
+    assert "next_update_at" in data["taiex"]
+    assert data["taiex"]["next_update_at"] is not None
+    # ISO 8601 with offset, e.g. "2026-05-08T14:00:00+08:00".
+    assert "T" in data["taiex"]["next_update_at"]
+    # margin_balance is wired to the chip_total job, which we seeded above.
+    assert data["margin_balance"]["next_update_at"] is not None
+    assert "T" in data["margin_balance"]["next_update_at"]
+    # Indicators whose job has no row return None instead of crashing.
+    assert data["fx"]["next_update_at"] is None
+
+
 def test_history_returns_list():
     r = client.get("/api/history/taiex?time_range=3M")
     assert r.status_code == 200

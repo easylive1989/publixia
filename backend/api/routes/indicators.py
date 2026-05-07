@@ -5,11 +5,12 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api._constants import INDICATOR_NAMES, RANGE_DELTAS
+from api._constants import INDICATOR_JOB_MAP, INDICATOR_NAMES, RANGE_DELTAS
 from api.dependencies import require_token
 from repositories.indicators import (
     get_indicator_history, get_latest_indicator,
 )
+from services.scheduler_info import next_run_at
 from fetchers.yfinance_fetcher import fetch_taiex, fetch_fx, fetch_all_stocks
 from fetchers.fear_greed import fetch_fear_greed
 from fetchers.chip_total import fetch_chip_total
@@ -35,14 +36,28 @@ FETCHERS: dict[str, Callable] = {
 
 @router.get("/dashboard")
 def dashboard():
+    # Cache job → next_run_at lookups across the loop so chip_total fans
+    # out to its six indicators with a single CronTrigger evaluation.
+    next_run_cache: dict[str, str | None] = {}
+
+    def _next_for(indicator: str) -> str | None:
+        job = INDICATOR_JOB_MAP.get(indicator)
+        if job is None:
+            return None
+        if job not in next_run_cache:
+            dt = next_run_at(job)
+            next_run_cache[job] = dt.isoformat() if dt else None
+        return next_run_cache[job]
+
     result = {}
     for name in INDICATOR_NAMES:
         row = get_latest_indicator(name)
         if row:
             result[name] = {
-                "value":     row["value"],
-                "timestamp": row["timestamp"],
-                "extra":     json.loads(row["extra_json"]) if row["extra_json"] else {},
+                "value":          row["value"],
+                "timestamp":      row["timestamp"],
+                "extra":          json.loads(row["extra_json"]) if row["extra_json"] else {},
+                "next_update_at": _next_for(name),
             }
     return result
 

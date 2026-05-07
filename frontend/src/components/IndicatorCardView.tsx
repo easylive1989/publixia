@@ -16,6 +16,7 @@ interface Props {
   title: string;
   value?: string;
   sub?: string;
+  nextUpdate?: string;
   badge?: BadgeInfo | null;
   valueClass?: string;
   loading?: boolean;
@@ -33,7 +34,7 @@ const TONE_CLASS: Record<BadgeInfo['tone'], string> = {
 const SPARK_STROKE = '#3b82f6';
 
 export function IndicatorCardView({
-  title, value, sub, badge, valueClass, loading, error, series, formatSparkValue,
+  title, value, sub, nextUpdate, badge, valueClass, loading, error, series, formatSparkValue,
 }: Props) {
   const hasSpark = !!series && series.length >= 2;
   return (
@@ -55,6 +56,9 @@ export function IndicatorCardView({
           <p className={cn('text-2xl font-bold', valueClass)}>{value}</p>
         )}
         {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+        {nextUpdate && (
+          <p className="text-xs text-muted-foreground">下次更新 {nextUpdate}</p>
+        )}
         {hasSpark && (
           <div className="h-40 pt-1" data-testid="spark">
             <ResponsiveContainer width="100%" height="100%">

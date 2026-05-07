@@ -17,3 +17,22 @@ INDICATOR_NAMES: list[str] = [
     "total_foreign_net", "total_trust_net", "total_dealer_net",
     "ndc", "tw_volume", "us_volume", "tw_futures",
 ]
+
+
+# Indicator key → scheduler job name responsible for refreshing it.
+# Used by /api/dashboard to surface each card's next scheduled update time.
+INDICATOR_JOB_MAP: dict[str, str] = {
+    "taiex":              "taiex",
+    "fx":                 "fx",
+    "fear_greed":         "fear_greed",
+    "margin_balance":     "chip_total",
+    "short_balance":      "chip_total",
+    "short_margin_ratio": "chip_total",
+    "total_foreign_net":  "chip_total",
+    "total_trust_net":    "chip_total",
+    "total_dealer_net":   "chip_total",
+    "ndc":                "ndc",
+    "tw_volume":          "tw_volume",
+    "us_volume":          "us_volume",
+    "tw_futures":         "tw_futures",
+}
