@@ -4,6 +4,7 @@ import { RANGES, useRangeStore, type RangeKey } from '@/store/range-store';
 import { DashboardSettingsDialog } from '@/components/DashboardSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { StrategiesNavLink } from '@/components/strategy/NavLink';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '1M': '1 個月',
@@ -46,7 +47,10 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <StrategiesNavLink />
+        </div>
         <DashboardSettingsDialog />
       </div>
       <RangeBar />
