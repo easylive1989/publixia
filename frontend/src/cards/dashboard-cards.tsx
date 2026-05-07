@@ -21,6 +21,17 @@ function fmtDate(iso: string): string {
   return iso ? iso.slice(0, 10) : '';
 }
 
+// Render a backend-supplied ISO timestamp (in TST, e.g. `2026-05-08T14:00:00+08:00`)
+// as `MM-DD HH:MM` for display under each card. Returns '' on parse failure or
+// when the value is missing.
+function fmtNextUpdate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const m = iso.match(/^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return '';
+  const [, mm, dd, hh, mi] = m;
+  return `${mm}-${dd} ${hh}:${mi}`;
+}
+
 function asNumber(v: unknown): number | null {
   return typeof v === 'number' ? v : null;
 }
@@ -173,6 +184,7 @@ function makeCard(cfg: IndicatorConfig): FC {
       : data && !slot
         ? '尚無資料'
         : undefined;
+    const nextUpdate = slot ? fmtNextUpdate(slot.next_update_at) : '';
     return (
       <IndicatorCardView
         title={cfg.label}
@@ -181,6 +193,7 @@ function makeCard(cfg: IndicatorConfig): FC {
         value={slot ? cfg.formatValue(slot.value, slot.extra) : undefined}
         valueClass={slot ? cfg.valueClass?.(slot.value, slot.extra) : undefined}
         sub={slot ? cfg.formatSub(slot.extra, slot.timestamp) : undefined}
+        nextUpdate={nextUpdate || undefined}
         badge={slot ? cfg.formatBadge?.(slot.extra, slot.value) ?? null : null}
         series={history.data}
         formatSparkValue={(v) => cfg.formatValue(v, EMPTY_EXTRA)}
