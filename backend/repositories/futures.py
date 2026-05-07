@@ -40,6 +40,18 @@ def get_futures_daily_range(symbol: str, since_date: str) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def get_latest_futures_bar(symbol: str) -> dict | None:
+    """Return the most recent OHLCV row for the symbol, or None if empty.
+    Used by force_close to pick a fill price without scanning history."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT date, open, high, low, close, volume, open_interest "
+            "FROM futures_daily WHERE symbol=? ORDER BY date DESC LIMIT 1",
+            (symbol,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
 def get_latest_futures_date(symbol: str) -> str | None:
     with get_connection() as conn:
         row = conn.execute(

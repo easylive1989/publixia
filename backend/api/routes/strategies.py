@@ -124,6 +124,9 @@ def update_strategy_route(strategy_id: int, req: StrategyUpdate,
         return {"ok": True}
 
     in_position = s["state"] != "idle"
+    # notify_enabled deliberately NOT in this set — pausing notifications
+    # mid-position is the only graceful way to silence a strategy without
+    # cancelling its hypothetical position. Spec §9d3 covers this.
     dsl_keys = {"entry_dsl", "take_profit_dsl", "stop_loss_dsl",
                 "direction", "contract", "max_hold_days"}
     if in_position and (set(fields) & dsl_keys):

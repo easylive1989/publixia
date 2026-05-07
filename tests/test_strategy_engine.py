@@ -159,6 +159,41 @@ def test_open_with_stop_loss_triggered_emits_exit_signal():
     assert signals[0]["exit_reason"] == "STOP_LOSS"
 
 
+def test_engine_emits_exit_passes_real_kind_to_notifier():
+    """Regression for C1: _emit_exit_signal must pass the just-decided
+    exit_reason to the notifier so the embed renders the correct title /
+    colour. Without this, every real take-profit / stop-loss would
+    render as "🔧 手動平倉" because strategy["pending_exit_kind"] is
+    still None at notify time."""
+    from unittest.mock import patch
+    sid = _insert_strategy(
+        state="open",
+        entry_signal_date="2026-01-15",
+        entry_fill_date="2026-01-16",
+        entry_fill_price=200.0,
+        take_profit_dsl={"version": 1, "type": "pct", "value": 1.0},
+        stop_loss_dsl  ={"version": 1, "type": "pct", "value": 5.0},
+    )
+    today = _bar("2026-01-20", close=205.0)   # +2.5% triggers TP@1%
+    _seed_bars("TX", [today])
+
+    captured = {}
+    real_notify = None
+    from services import strategy_engine as eng
+    real_notify = eng.notify_signal
+
+    def spy(strategy, kind, today_bar):
+        captured["strategy"] = dict(strategy)   # snapshot
+        captured["kind"]     = kind
+
+    with patch.object(eng, "notify_signal", side_effect=spy):
+        s = get_strategy(sid)
+        evaluate_one(s, today)
+
+    assert captured["kind"] == "EXIT_SIGNAL"
+    assert captured["strategy"]["pending_exit_kind"] == "TAKE_PROFIT"
+
+
 def test_open_max_hold_days_uses_signal_date_not_fill_date():
     """held = trading-days from entry_signal_date to today_date (inclusive
     of today, exclusive of signal_date). This matches BT's

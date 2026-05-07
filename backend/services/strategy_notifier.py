@@ -66,7 +66,12 @@ def _build_signal_payload(strategy: dict, kind: str, today_bar: dict) -> dict:
         reason = strategy.get("pending_exit_kind") or "MANUAL_RESET"
         icon_title, color = _EXIT_TITLES.get(reason, ("⚠️ 出場", 0x95A5A6))
         title = f"{icon_title} — {name}"
-        description = "**明日 open 假想出場**(手動平倉用最新 close 結算)。"
+        if kind == "EXIT_FILLED":
+            # force_close path: the trade is already settled at today's close.
+            description = "**已用最新 close 假想結算。**"
+        else:
+            # EXIT_SIGNAL path: actual fill happens next bar at open.
+            description = "**明日 open 假想出場。**"
         entry_price = strategy.get("entry_fill_price")
         if entry_price is not None and close is not None:
             if direction == "long":

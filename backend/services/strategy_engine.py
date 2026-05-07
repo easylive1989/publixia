@@ -37,7 +37,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from core.contracts import MULTIPLIER
-from repositories.futures import get_futures_daily_range
+from repositories.futures import get_futures_daily_range, get_latest_futures_bar
 from repositories.strategies import (
     list_enabled_strategies, get_strategy,
     update_strategy_state, write_signal, mark_strategy_error,
@@ -179,6 +179,10 @@ def _emit_exit_signal(strategy: dict, today_bar: dict, exit_reason: str) -> None
         pending_exit_kind=exit_reason,
         pending_exit_signal_date=today_bar["date"],
     )
+    # Inject the just-decided reason into the local dict so the notifier
+    # renders the right title/colour. Without this, strategy["pending_exit_kind"]
+    # is still None and every real exit would post as "🔧 手動平倉".
+    strategy = {**strategy, "pending_exit_kind": exit_reason}
     notify_signal(strategy, "EXIT_SIGNAL", today_bar)
 
 
@@ -291,14 +295,13 @@ def force_close(strategy: dict) -> None:
     if strategy["state"] not in ("open", "pending_exit"):
         raise ValueError(
             f"strategy {strategy['id']} not in position "
-            f"(state={strategy['state']!r})"
+            f"(state={strategy['state']!r}); use /reset for pending_entry"
         )
-    rows = get_futures_daily_range(strategy["contract"], "1900-01-01")
-    if not rows:
+    last_bar = get_latest_futures_bar(strategy["contract"])
+    if last_bar is None:
         raise ValueError(
             f"no bars in futures_daily for contract={strategy['contract']!r}"
         )
-    last_bar = rows[-1]
     fill = float(last_bar["close"])
     entry_price = strategy["entry_fill_price"] or 0.0
     direction = strategy["direction"]
@@ -326,4 +329,7 @@ def force_close(strategy: dict) -> None:
         entry_fill_price=None,
         pending_exit_kind=None, pending_exit_signal_date=None,
     )
+    # Tag the in-memory dict so the notifier renders "🔧 手動平倉"
+    # regardless of what kind was pending before force_close ran.
+    strategy = {**strategy, "pending_exit_kind": "MANUAL_RESET"}
     notify_signal(strategy, "EXIT_FILLED", last_bar)
