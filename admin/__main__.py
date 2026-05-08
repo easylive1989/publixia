@@ -32,6 +32,7 @@ def _render_users_table(users: list[dict]) -> None:
     table.add_column("TOKEN EXPIRES")
     table.add_column("STATUS")
     table.add_column("STRATEGY")
+    table.add_column("TOP100")
     table.add_column("WEBHOOK")
 
     status_color = {
@@ -42,6 +43,10 @@ def _render_users_table(users: list[dict]) -> None:
     for u in users:
         strategy_cell = (
             "[green]✓[/green]" if u.get("can_use_strategy")
+            else "[dim]✗[/dim]"
+        )
+        top100_cell = (
+            "[green]✓[/green]" if u.get("can_view_top100")
             else "[dim]✗[/dim]"
         )
         webhook_cell = u.get("webhook_display", "—")
@@ -55,6 +60,7 @@ def _render_users_table(users: list[dict]) -> None:
             (u["token_expires_at"] or "never") if u["token_id"] else "-",
             status_color.get(u["token_status"], u["token_status"]),
             strategy_cell,
+            top100_cell,
             webhook_cell,
         )
     console.print(table)
@@ -86,7 +92,8 @@ def _user_action_menu(user: dict) -> None:
         action = questionary.select(
             f"User '{user['name']}' (id={user['id']}, "
             f"token={user['token_status']}, "
-            f"strategy={'on' if user.get('can_use_strategy') else 'off'}):",
+            f"strategy={'on' if user.get('can_use_strategy') else 'off'}, "
+            f"top100={'on' if user.get('can_view_top100') else 'off'}):",
             choices=[
                 questionary.Choice("Refresh token", value="refresh"),
                 questionary.Choice(
@@ -95,6 +102,7 @@ def _user_action_menu(user: dict) -> None:
                     disabled=None if user["token_status"] == "active" else "no active token",
                 ),
                 questionary.Choice("Toggle strategy permission", value="toggle_strategy"),
+                questionary.Choice("Toggle top-100 permission", value="toggle_top100"),
                 questionary.Choice("Set Discord webhook URL", value="set_webhook"),
                 questionary.Choice(
                     "Clear Discord webhook URL",
@@ -122,6 +130,13 @@ def _user_action_menu(user: dict) -> None:
             ops.set_strategy_permission(user["id"], new_state)
             console.print(
                 f"[green]Strategy permission for '{user['name']}' = "
+                f"{'ON' if new_state else 'OFF'}[/green]"
+            )
+        elif action == "toggle_top100":
+            new_state = not bool(user.get("can_view_top100"))
+            ops.set_top100_permission(user["id"], new_state)
+            console.print(
+                f"[green]Top-100 permission for '{user['name']}' = "
                 f"{'ON' if new_state else 'OFF'}[/green]"
             )
         elif action == "set_webhook":

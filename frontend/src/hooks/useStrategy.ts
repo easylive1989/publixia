@@ -7,6 +7,7 @@ export interface MeResponse {
   user_id: number;
   name: string;
   can_use_strategy: boolean;
+  can_view_top100: boolean;
   has_webhook: boolean;
 }
 

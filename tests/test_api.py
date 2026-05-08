@@ -108,10 +108,19 @@ def test_get_stocks_returns_watchlist():
     assert "0050.TW" in tickers
 
 
+def test_get_auto_tracked_403_without_permission():
+    """Default seeded user has can_view_top100=False; gate must reject."""
+    r = client.get("/api/stocks/auto-tracked")
+    assert r.status_code == 403
+    assert r.json()["detail"] == "no top100 permission"
+
+
 def test_get_auto_tracked_returns_top100_with_snapshots():
-    """Auto-tracked endpoint exposes the seeded Taiwan top-100 list and
-    enriches rows that have a snapshot. Tickers without a snapshot
+    """Once granted, the endpoint exposes the seeded Taiwan top-100 list
+    and enriches rows that have a snapshot. Tickers without a snapshot
     fall back to ticker-as-name and price=None."""
+    from repositories.users import set_top100_permission
+    set_top100_permission(1, True)
     db.save_stock_snapshot("2330.TW", 1100.0, 5.0, 0.45, "TWD", "台積電")
 
     r = client.get("/api/stocks/auto-tracked")

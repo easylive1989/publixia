@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from api._constants import RANGE_DELTAS
-from api.dependencies import require_token, require_user
+from api.dependencies import require_token, require_top100_permission, require_user
 from api.schemas.stocks import AddStockRequest
 from repositories.auto_tracked import is_auto_tracked, list_auto_tracked_tickers
 from repositories.chip import get_chip_daily_range
@@ -54,7 +54,7 @@ def get_stocks(user: dict = Depends(require_user)):
 
 
 @router.get("/stocks/auto-tracked")
-def get_auto_tracked_stocks(user: dict = Depends(require_user)):
+def get_auto_tracked_stocks(user: dict = Depends(require_top100_permission)):
     """Taiwan top-100 by market cap, seeded from auto_tracked_stocks.
 
     Same row shape as GET /api/stocks; rows without a snapshot fall back

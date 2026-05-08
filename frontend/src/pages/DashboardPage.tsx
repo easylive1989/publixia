@@ -4,8 +4,8 @@ import { RANGES, useRangeStore, type RangeKey } from '@/store/range-store';
 import { DashboardSettingsDialog } from '@/components/DashboardSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
 import { StrategiesNavLink } from '@/components/strategy/NavLink';
+import { Top100NavLink } from '@/components/top100/NavLink';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '1M': '1 個月',
@@ -51,12 +51,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <StrategiesNavLink />
-          <Link
-            to="/tw-top100"
-            className="text-sm font-medium hover:underline text-muted-foreground"
-          >
-            台股百大
-          </Link>
+          <Top100NavLink />
         </div>
         <DashboardSettingsDialog />
       </div>

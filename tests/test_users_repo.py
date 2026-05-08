@@ -2,6 +2,7 @@ from repositories.users import (
     create_user, get_user_by_id, get_user_by_name, list_users,
     get_user_with_settings,
     set_strategy_permission,
+    set_top100_permission,
     set_discord_webhook,
     clear_discord_webhook,
 )
@@ -25,11 +26,12 @@ def test_list_users_includes_seed_and_new():
 
 
 def test_get_user_with_settings_defaults():
-    """Newly seeded `paul` should have can_use_strategy=False and no webhook."""
+    """Newly seeded `paul` should have both feature flags off and no webhook."""
     u = get_user_with_settings(1)
     assert u is not None
     assert u["name"] == "paul"
     assert u["can_use_strategy"] is False
+    assert u["can_view_top100"] is False
     assert u["discord_webhook_url"] is None
 
 
@@ -42,6 +44,25 @@ def test_set_strategy_permission_toggles():
 
 def test_set_strategy_permission_unknown_user_returns_false():
     assert set_strategy_permission(99999, True) is False
+
+
+def test_set_top100_permission_toggles():
+    set_top100_permission(1, True)
+    assert get_user_with_settings(1)["can_view_top100"] is True
+    set_top100_permission(1, False)
+    assert get_user_with_settings(1)["can_view_top100"] is False
+
+
+def test_set_top100_permission_unknown_user_returns_false():
+    assert set_top100_permission(99999, True) is False
+
+
+def test_top100_and_strategy_permissions_are_independent():
+    """Granting one flag must not flip the other — they're separate features."""
+    set_top100_permission(1, True)
+    u = get_user_with_settings(1)
+    assert u["can_view_top100"] is True
+    assert u["can_use_strategy"] is False
 
 
 def test_set_and_clear_discord_webhook():
