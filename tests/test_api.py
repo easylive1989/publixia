@@ -108,6 +108,32 @@ def test_get_stocks_returns_watchlist():
     assert "0050.TW" in tickers
 
 
+def test_get_auto_tracked_returns_top100_with_snapshots():
+    """Auto-tracked endpoint exposes the seeded Taiwan top-100 list and
+    enriches rows that have a snapshot. Tickers without a snapshot
+    fall back to ticker-as-name and price=None."""
+    db.save_stock_snapshot("2330.TW", 1100.0, 5.0, 0.45, "TWD", "台積電")
+
+    r = client.get("/api/stocks/auto-tracked")
+    assert r.status_code == 200
+    rows = r.json()
+    # Seed file (`backend/seeds/auto_tracked_taiwan.txt`) currently lists
+    # ~90+ Taiwan top-cap tickers — assert a healthy lower bound rather
+    # than a moving target.
+    assert len(rows) >= 50
+    by_ticker = {row["ticker"]: row for row in rows}
+    assert "2330.TW" in by_ticker
+    assert by_ticker["2330.TW"]["name"] == "台積電"
+    assert by_ticker["2330.TW"]["price"] == 1100.0
+
+    # A seeded ticker without a snapshot still appears, with price=None.
+    no_snap = next(
+        row for row in rows
+        if row["ticker"] != "2330.TW" and row["price"] is None
+    )
+    assert no_snap["name"] == no_snap["ticker"]
+
+
 def test_add_and_delete_stock():
     r = client.post("/api/stocks", json={"ticker": "2330.tw"})
     assert r.status_code == 200
