@@ -79,9 +79,9 @@ def _action_list_users() -> None:
         )
         for u in users
     ]
-    choices.append(questionary.Choice("[back]", value=None))
+    choices.append(questionary.Choice("[back]", value="back"))
     picked = questionary.select("Pick a user:", choices=choices).ask()
-    if picked is None:
+    if picked in (None, "back"):
         return
 
     _user_action_menu(picked)
@@ -340,9 +340,9 @@ def _action_scheduler_menu() -> None:
             )
             for j in jobs
         ]
-        choices.append(questionary.Choice("[back]", value=None))
+        choices.append(questionary.Choice("[back]", value="back"))
         picked = questionary.select("Pick a job:", choices=choices).ask()
-        if picked is None:
+        if picked in (None, "back"):
             return
         _job_action_menu(picked)
 
@@ -469,9 +469,9 @@ def main() -> int:
                             value=u,
                         )
                         for u in users
-                    ] + [questionary.Choice("[back]", value=None)],
+                    ] + [questionary.Choice("[back]", value="back")],
                 ).ask()
-                if picked is not None:
+                if picked not in (None, "back"):
                     _action_refresh_token(picked)
             elif action == "scheduler":
                 _action_scheduler_menu()
