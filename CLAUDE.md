@@ -53,6 +53,7 @@ cd frontend && npm test                     # frontend (vitest)
 - **Push to master** triggers the relevant GitHub Action by path:
   - `frontend/**` → `deploy-frontend.yml` → GitHub Pages
   - `backend/**` or `stock-dashboard.service` → `deploy-backend.yml` → rsync to VPS + systemd restart
+  - `admin/**` → `deploy-admin.yml` → rsync admin CLI to VPS + refresh `admin/.venv` (no service restart; admin CLI is interactive, not a daemon)
 - VPS path is fixed at `/opt/stock-dashboard/`; this is decoupled from the repo name.
 - `init_db()` runs every backend startup → migrations are auto-applied.
 - Manual deploy fallback: `./deploy.sh` from repo root (requires `VPS_HOST` env var).
