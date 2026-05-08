@@ -2,6 +2,7 @@
 // Order here drives dashboard rendering order (see registry's _registry array).
 import './WatchlistCard';
 import './dashboard-cards';
+import './total-three-investors';
 import './NewsCard';
 import './AlertsCard';
 import './stock-charts';

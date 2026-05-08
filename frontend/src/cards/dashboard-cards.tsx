@@ -49,9 +49,6 @@ function changePctBadge(extra: Extra): BadgeInfo | null {
   return { text, tone };
 }
 
-const SIGNED_OKU = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2) + ' 億';
-const SIGNED_CLASS = (v: number) => (v >= 0 ? 'text-green-600' : 'text-red-600');
-
 const CONFIGS: IndicatorConfig[] = [
   {
     key: 'taiex',
@@ -142,24 +139,6 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'short_margin_ratio',
     label: '券資比',
     formatValue: (v) => v.toFixed(2) + ' %',
-  },
-  {
-    key: 'total_foreign_net',
-    label: '外資淨買超',
-    formatValue: SIGNED_OKU,
-    valueClass: SIGNED_CLASS,
-  },
-  {
-    key: 'total_trust_net',
-    label: '投信淨買超',
-    formatValue: SIGNED_OKU,
-    valueClass: SIGNED_CLASS,
-  },
-  {
-    key: 'total_dealer_net',
-    label: '自營商淨買超',
-    formatValue: SIGNED_OKU,
-    valueClass: SIGNED_CLASS,
   },
 ];
 

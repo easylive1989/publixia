@@ -28,8 +28,10 @@ beforeEach(() => {
 });
 
 describe('dashboard-cards', () => {
-  it('registers 13 cards on the dashboard page', () => {
-    expect(listCards('dashboard').length).toBe(13);
+  it('registers 10 indicator cards from dashboard-cards.tsx', () => {
+    // The combined three-investors card lives in total-three-investors.tsx
+    // and isn't imported here, so it doesn't show up in this count.
+    expect(listCards('dashboard').length).toBe(10);
   });
 
   it('taiex renders main value + change_pct badge + prev_close in sub', async () => {
@@ -49,20 +51,6 @@ describe('dashboard-cards', () => {
       expect(screen.getByText('18,234.56')).toBeInTheDocument();
       expect(screen.getByText('▲ +1.23%')).toBeInTheDocument();
       expect(screen.getByText(/前收 18,011/)).toBeInTheDocument();
-    });
-  });
-
-  it('total_foreign_net colors red when negative', async () => {
-    server.use(
-      http.get('*/api/dashboard', () =>
-        HttpResponse.json({
-          total_foreign_net: { value: -5.5, timestamp: '2026-05-02T00:00:00Z', extra: {} },
-        }),
-      ),
-    );
-    renderCard('total_foreign_net');
-    await waitFor(() => {
-      expect(screen.getByText('-5.50 億')).toHaveClass('text-red-600');
     });
   });
 
