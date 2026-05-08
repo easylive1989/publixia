@@ -12,13 +12,14 @@ interface IndicatorConfig {
   key: string;
   label: string;
   formatValue: (v: number, extra: Extra) => string;
-  formatSub:   (extra: Extra, ts: string) => string;
+  // Optional now — undefined means "no sub line, just rely on the
+  // 'next update' annotation for temporal info". Cards that have
+  // genuinely useful sub info (prev_close, contract, period…) keep
+  // returning a string; pure "更新 YYYY-MM-DD" subs were removed since
+  // the next-update annotation makes them redundant.
+  formatSub?:  (extra: Extra) => string;
   formatBadge?: (extra: Extra, value: number) => BadgeInfo | null;
   valueClass?: (v: number, extra: Extra) => string | undefined;
-}
-
-function fmtDate(iso: string): string {
-  return iso ? iso.slice(0, 10) : '';
 }
 
 // Render a backend-supplied ISO timestamp (in TST, e.g. `2026-05-08T14:00:00+08:00`)
@@ -50,16 +51,15 @@ function changePctBadge(extra: Extra): BadgeInfo | null {
 
 const SIGNED_OKU = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2) + ' 億';
 const SIGNED_CLASS = (v: number) => (v >= 0 ? 'text-green-600' : 'text-red-600');
-const UPDATED_SUB = (_e: Extra, ts: string) => `更新 ${fmtDate(ts)}`;
 
 const CONFIGS: IndicatorConfig[] = [
   {
     key: 'taiex',
     label: '加權指數',
     formatValue: (v) => v.toLocaleString(),
-    formatSub: (extra, ts) => {
+    formatSub: (extra) => {
       const prev = asNumber(extra.prev_close);
-      return `前收 ${prev != null ? prev.toLocaleString() : '—'} · 更新 ${fmtDate(ts)}`;
+      return `前收 ${prev != null ? prev.toLocaleString() : '—'}`;
     },
     formatBadge: (extra) => changePctBadge(extra),
   },
@@ -67,14 +67,13 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'tw_futures',
     label: '台指期 (TX)',
     formatValue: (v) => v.toLocaleString(),
-    formatSub: (extra, ts) => {
+    formatSub: (extra) => {
       const prev = asNumber(extra.prev_close);
       const contract = asString(extra.contract);
       const parts = [
         `前收 ${prev != null ? prev.toLocaleString() : '—'}`,
       ];
       if (contract) parts.push(`近月 ${contract}`);
-      parts.push(`更新 ${fmtDate(ts)}`);
       return parts.join(' · ');
     },
     formatBadge: (extra) => changePctBadge(extra),
@@ -83,9 +82,9 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'fx',
     label: '台幣兌美金',
     formatValue: (v) => v.toFixed(2),
-    formatSub: (extra, ts) => {
+    formatSub: (extra) => {
       const prev = asNumber(extra.prev_close);
-      return `前收 ${prev != null ? prev.toFixed(2) : '—'} · 更新 ${fmtDate(ts)}`;
+      return `前收 ${prev != null ? prev.toFixed(2) : '—'}`;
     },
     formatBadge: (extra) => changePctBadge(extra),
   },
@@ -93,9 +92,9 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'tw_volume',
     label: '台股成交金額',
     formatValue: (v) => v.toLocaleString() + ' 億',
-    formatSub: (extra, ts) => {
+    formatSub: (extra) => {
       const prev = asNumber(extra.prev_value);
-      return `前日 ${prev != null ? prev.toLocaleString() : '—'} 億 · 更新 ${fmtDate(ts)}`;
+      return `前日 ${prev != null ? prev.toLocaleString() : '—'} 億`;
     },
     formatBadge: (extra) => changePctBadge(extra),
   },
@@ -103,9 +102,9 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'us_volume',
     label: '美股 S&P500 成交量',
     formatValue: (v) => v.toLocaleString() + ' 億股',
-    formatSub: (extra, ts) => {
+    formatSub: (extra) => {
       const prev = asNumber(extra.prev_value);
-      return `前日 ${prev != null ? prev.toLocaleString() : '—'} 億股 · 更新 ${fmtDate(ts)}`;
+      return `前日 ${prev != null ? prev.toLocaleString() : '—'} 億股`;
     },
     formatBadge: (extra) => changePctBadge(extra),
   },
@@ -113,7 +112,6 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'fear_greed',
     label: '恐懼貪婪指數',
     formatValue: (v) => String(v),
-    formatSub: UPDATED_SUB,
     formatBadge: (extra) => {
       const label = asString(extra.label);
       return label ? { text: label, tone: 'neutral' } : null;
@@ -134,39 +132,33 @@ const CONFIGS: IndicatorConfig[] = [
     key: 'margin_balance',
     label: '融資餘額',
     formatValue: (v) => v.toFixed(0) + ' 億',
-    formatSub: UPDATED_SUB,
   },
   {
     key: 'short_balance',
     label: '融券餘額',
     formatValue: (v) => (v / 1000).toFixed(0) + ' 千張',
-    formatSub: UPDATED_SUB,
   },
   {
     key: 'short_margin_ratio',
     label: '券資比',
     formatValue: (v) => v.toFixed(2) + ' %',
-    formatSub: UPDATED_SUB,
   },
   {
     key: 'total_foreign_net',
     label: '外資淨買超',
     formatValue: SIGNED_OKU,
-    formatSub: UPDATED_SUB,
     valueClass: SIGNED_CLASS,
   },
   {
     key: 'total_trust_net',
     label: '投信淨買超',
     formatValue: SIGNED_OKU,
-    formatSub: UPDATED_SUB,
     valueClass: SIGNED_CLASS,
   },
   {
     key: 'total_dealer_net',
     label: '自營商淨買超',
     formatValue: SIGNED_OKU,
-    formatSub: UPDATED_SUB,
     valueClass: SIGNED_CLASS,
   },
 ];
@@ -192,7 +184,7 @@ function makeCard(cfg: IndicatorConfig): FC {
         error={error}
         value={slot ? cfg.formatValue(slot.value, slot.extra) : undefined}
         valueClass={slot ? cfg.valueClass?.(slot.value, slot.extra) : undefined}
-        sub={slot ? cfg.formatSub(slot.extra, slot.timestamp) : undefined}
+        sub={slot ? cfg.formatSub?.(slot.extra) : undefined}
         nextUpdate={nextUpdate || undefined}
         badge={slot ? cfg.formatBadge?.(slot.extra, slot.value) ?? null : null}
         series={history.data}

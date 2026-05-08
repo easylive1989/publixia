@@ -86,7 +86,7 @@ function WatchlistCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>自選股票 / ETF / 虛擬幣</CardTitle>
+        <CardTitle>自選股票</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
@@ -123,7 +123,7 @@ function WatchlistCard() {
 
 registerCard({
   id: 'watchlist',
-  label: '自選股票 / ETF / 虛擬幣',
+  label: '自選股票',
   defaultPage: 'dashboard',
   component: WatchlistCard,
   cols: 3,
