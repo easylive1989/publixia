@@ -22,5 +22,6 @@ def get_me(user: dict = Depends(require_user)) -> MeResponse:
         user_id          = settings["id"],
         name             = settings["name"],
         can_use_strategy = settings["can_use_strategy"],
+        can_view_top100  = settings["can_view_top100"],
         has_webhook      = settings["discord_webhook_url"] is not None,
     )

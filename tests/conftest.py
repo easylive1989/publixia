@@ -36,6 +36,7 @@ def _fake_user():
         "name":                "paul",
         "created_at":          "2026-01-01T00:00:00",
         "can_use_strategy":    False,
+        "can_view_top100":     False,
         "discord_webhook_url": None,
     }
 

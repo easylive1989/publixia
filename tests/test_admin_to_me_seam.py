@@ -23,6 +23,19 @@ def test_admin_grant_visible_to_me():
     assert body["can_use_strategy"] is True
 
 
+def test_admin_top100_grant_visible_to_me():
+    body = client.get("/api/me").json()
+    assert body["can_view_top100"] is False
+
+    ops.set_top100_permission(1, True)
+    body = client.get("/api/me").json()
+    assert body["can_view_top100"] is True
+
+    ops.set_top100_permission(1, False)
+    body = client.get("/api/me").json()
+    assert body["can_view_top100"] is False
+
+
 def test_admin_set_webhook_flips_has_webhook():
     body = client.get("/api/me").json()
     assert body["has_webhook"] is False

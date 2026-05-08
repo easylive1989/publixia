@@ -78,6 +78,7 @@ def list_users_with_token() -> list[dict]:
     status ∈ {"active", "expired", "none"}.
     Each row also carries:
       - can_use_strategy: bool
+      - can_view_top100:  bool
       - webhook_display:  str   (masked URL or "—")
     """
     now = _now_iso()
@@ -86,6 +87,7 @@ def list_users_with_token() -> list[dict]:
             """
             SELECT u.id, u.name, u.created_at,
                    u.can_use_strategy,
+                   u.can_view_top100,
                    u.discord_webhook_url,
                    t.id          AS token_id,
                    t.prefix      AS token_prefix,
@@ -108,6 +110,7 @@ def list_users_with_token() -> list[dict]:
         else:
             d["token_status"] = "active"
         d["can_use_strategy"] = bool(d["can_use_strategy"])
+        d["can_view_top100"] = bool(d["can_view_top100"])
         d["webhook_display"] = _mask_webhook(d["discord_webhook_url"])
         out.append(d)
     return out
@@ -175,6 +178,17 @@ def set_strategy_permission(user_id: int, granted: bool) -> bool:
     with connect() as conn:
         cur = conn.execute(
             "UPDATE users SET can_use_strategy = ? WHERE id = ?",
+            (1 if granted else 0, user_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def set_top100_permission(user_id: int, granted: bool) -> bool:
+    """Set can_view_top100 for `user_id`. Returns True iff a row was updated."""
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET can_view_top100 = ? WHERE id = ?",
             (1 if granted else 0, user_id),
         )
         conn.commit()

@@ -5,6 +5,7 @@ import { DashboardSettingsDialog } from '@/components/DashboardSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StrategiesNavLink } from '@/components/strategy/NavLink';
+import { Top100NavLink } from '@/components/top100/NavLink';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '1M': '1 個月',
@@ -50,6 +51,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <StrategiesNavLink />
+          <Top100NavLink />
         </div>
         <DashboardSettingsDialog />
       </div>

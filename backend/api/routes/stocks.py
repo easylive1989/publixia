@@ -5,9 +5,9 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from api._constants import RANGE_DELTAS
-from api.dependencies import require_token, require_user
+from api.dependencies import require_token, require_top100_permission, require_user
 from api.schemas.stocks import AddStockRequest
-from repositories.auto_tracked import is_auto_tracked
+from repositories.auto_tracked import is_auto_tracked, list_auto_tracked_tickers
 from repositories.chip import get_chip_daily_range
 from repositories.stocks import (
     add_watched_ticker, get_latest_stock, get_watched_tickers, remove_watched_ticker,
@@ -37,6 +37,31 @@ router = APIRouter(prefix="/api", tags=["stocks"], dependencies=[Depends(require
 def get_stocks(user: dict = Depends(require_user)):
     result = []
     for ticker in get_watched_tickers(user["id"]):
+        row = get_latest_stock(ticker)
+        if row:
+            result.append({
+                "ticker":     ticker,
+                "name":       row["name"],
+                "price":      row["price"],
+                "change":     row["change"],
+                "change_pct": row["change_pct"],
+                "currency":   row["currency"],
+                "timestamp":  row["timestamp"],
+            })
+        else:
+            result.append({"ticker": ticker, "name": ticker, "price": None})
+    return result
+
+
+@router.get("/stocks/auto-tracked")
+def get_auto_tracked_stocks(user: dict = Depends(require_top100_permission)):
+    """Taiwan top-100 by market cap, seeded from auto_tracked_stocks.
+
+    Same row shape as GET /api/stocks; rows without a snapshot fall back
+    to ticker-as-name and price=None (display "—" on the client).
+    """
+    result = []
+    for ticker in list_auto_tracked_tickers():
         row = get_latest_stock(ticker)
         if row:
             result.append({
