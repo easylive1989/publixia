@@ -31,7 +31,12 @@ export default function StrategiesListPage() {
   return (
     <div className="container mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">策略列表</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">策略列表</h1>
+          <Link to="/" className="text-sm text-muted-foreground hover:underline">
+            ← 返回 Dashboard
+          </Link>
+        </div>
         <Button asChild>
           <Link to="/strategies/new">
             <Plus className="h-4 w-4 mr-1" />
