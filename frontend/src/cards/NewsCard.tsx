@@ -6,11 +6,11 @@ import { registerCard } from './registry';
 function NewsCard() {
   const { data, isLoading, isError } = useNews();
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>最新財經新聞</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 min-h-0 overflow-y-auto">
         {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
         {isError && <p className="text-sm text-destructive">無法載入</p>}
         {data && (
