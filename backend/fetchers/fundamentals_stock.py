@@ -175,13 +175,6 @@ def fetch_stock_per(ticker: str, lookback_days: int = DEFAULT_PER_LOOKBACK_DAYS)
 
     rows = parse_per_rows(raw, ticker)
     save_per_daily_rows(rows)
-    # Phase 4 alert 觸發:只在「最新一天有寫入」時針對 3 個估值指標檢查
-    today_str = today.strftime("%Y-%m-%d")
-    max_date = max((r["date"] for r in rows), default=None)
-    if max_date == today_str:
-        from alerts import check_alerts
-        for key in ("per", "pbr", "dividend_yield"):
-            check_alerts("stock_indicator", ticker, indicator_key=key)
     print(f"[fundamentals] {ticker} PER {start_date}~{end_date}: {len(rows)} rows")
     return True
 
@@ -213,14 +206,6 @@ def fetch_stock_revenue(ticker: str, months: int = DEFAULT_REVENUE_LOOKBACK_MONT
 
     rows = parse_revenue_rows(raw, ticker)
     save_revenue_monthly_rows(rows)
-
-    # Phase 4 follow-up alert 觸發:只在「實際拉到新月」時針對 revenue 指標檢查。
-    # latest_ym 是 fetch 開始前的最新月(已在函式上方算出);post-fetch 比對。
-    new_max_ym = max(((r["year"], r["month"]) for r in rows), default=None)
-    if new_max_ym and (latest_ym is None or new_max_ym > latest_ym):
-        from alerts import check_alerts
-        check_alerts("stock_indicator", ticker, indicator_key="revenue")
-
     print(f"[fundamentals] {ticker} revenue {start_date}~{end_date}: {len(rows)} rows")
     return True
 
@@ -259,20 +244,6 @@ def fetch_stock_financial(ticker: str, report_type: str,
 
     rows = parse_financial_rows(raw, ticker, report_type)
     save_financial_quarterly_rows(rows)
-
-    # Phase 4 alert 觸發:只在拉到新季時針對對應 quarterly indicator 檢查
-    new_max_date = max((r["date"] for r in rows), default=None)
-    if new_max_date and (latest is None or new_max_date > latest):
-        from alerts import check_alerts
-        triggered_keys: list[str] = []
-        if report_type == "income":
-            triggered_keys = ["q_eps", "q_revenue", "q_operating_income", "q_net_income"]
-        elif report_type == "cash_flow":
-            triggered_keys = ["q_operating_cf"]
-        # balance 不觸發(範圍外)
-        for key in triggered_keys:
-            check_alerts("stock_indicator", ticker, indicator_key=key)
-
     print(f"[fundamentals] {ticker} {report_type} {start_date}~{end_date}: {len(rows)} rows")
     return True
 
@@ -294,8 +265,6 @@ def fetch_stock_dividend(ticker: str, years: int = DEFAULT_DIVIDEND_LOOKBACK_YEA
     else:
         start = today - timedelta(days=years * 366)
 
-    from db import get_dividend_history
-    pre_dividend_history = get_dividend_history(ticker)
     start_date = start.strftime("%Y-%m-%d")
     if start_date > end_date:
         return True
@@ -308,24 +277,6 @@ def fetch_stock_dividend(ticker: str, years: int = DEFAULT_DIVIDEND_LOOKBACK_YEA
 
     rows = parse_dividend_rows(raw, ticker)
     save_dividend_history_rows(rows)
-
-    # Phase 4 alert 觸發:只在拉到新西元年才觸發 yearly indicator
-    import re
-    def _max_ce_year(items):
-        years = []
-        for r in items:
-            m = re.match(r"^(\d{2,3})年", r.get("year") or "")
-            if m:
-                years.append(int(m.group(1)) + 1911)
-        return max(years, default=None)
-
-    pre_year = _max_ce_year(pre_dividend_history)
-    new_year = _max_ce_year(rows)
-    if new_year and (pre_year is None or new_year > pre_year):
-        from alerts import check_alerts
-        for key in ("y_cash_dividend", "y_stock_dividend"):
-            check_alerts("stock_indicator", ticker, indicator_key=key)
-
     print(f"[fundamentals] {ticker} dividend {start_date}~{end_date}: {len(rows)} rows")
     return True
 

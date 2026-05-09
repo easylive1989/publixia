@@ -1,4 +1,4 @@
-"""Tiny Discord webhook helper used by alert + token services."""
+"""Tiny Discord webhook helper used by strategy + token services."""
 import requests
 
 

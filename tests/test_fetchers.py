@@ -215,37 +215,3 @@ def test_fetch_fear_greed_saves_indicator():
     assert extra["label"] == "貪婪"
     assert extra["rating_en"] == "greed"
 
-
-def test_fetch_tw_volume_calls_check_alerts():
-    """fetch_tw_volume 寫入後呼叫 check_alerts(Phase 4 follow-up)。"""
-    db.init_db()
-    sample = {"Date": "20260501", "TradeValue": "500000000000"}
-    with patch("fetchers.volume.requests.get") as mock_get, \
-         patch("fetchers.volume.check_alerts") as mock_check:
-        mock_get.return_value.json.return_value = [sample]
-        mock_get.return_value.raise_for_status = lambda: None
-        from fetchers.volume import fetch_tw_volume
-        fetch_tw_volume()
-    mock_check.assert_called_once()
-    args = mock_check.call_args[0]
-    assert args[0] == "indicator"
-    assert args[1] == "tw_volume"
-
-
-def test_fetch_us_volume_calls_check_alerts():
-    """fetch_us_volume 寫入後呼叫 check_alerts(Phase 4 follow-up)。"""
-    db.init_db()
-    import pandas as pd
-    fake_hist = pd.DataFrame(
-        {"Volume": [1_000_000_000]},
-        index=pd.to_datetime(["2026-05-01"]),
-    )
-    with patch("yfinance.Ticker") as mock_ticker, \
-         patch("fetchers.volume.check_alerts") as mock_check:
-        mock_ticker.return_value.history.return_value = fake_hist
-        from fetchers.volume import fetch_us_volume
-        fetch_us_volume()
-    mock_check.assert_called_once()
-    args = mock_check.call_args[0]
-    assert args[0] == "indicator"
-    assert args[1] == "us_volume"

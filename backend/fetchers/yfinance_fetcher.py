@@ -6,7 +6,6 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import save_indicator, save_stock_snapshot, get_watched_tickers
-from alerts import check_alerts
 
 
 # yfinance period strings, with extra warm-up so MA60/MACD have values at the
@@ -76,7 +75,6 @@ def fetch_taiex():
         }),
         date=data["date"],
     )
-    check_alerts("indicator", "taiex", data["price"])
 
 
 def fetch_fx():
@@ -94,7 +92,6 @@ def fetch_fx():
         }),
         date=data["date"],
     )
-    check_alerts("indicator", "fx", fx_value)
 
 
 def _safe_float(v) -> float | None:
@@ -228,7 +225,6 @@ def _fetch_stocks(tickers: list[str]):
                 name,
                 date=data["date"],
             )
-            check_alerts("stock", ticker, price, display_name=name)
         except Exception as e:
             print(f"[yfinance] Error fetching {ticker}: {e}")
 

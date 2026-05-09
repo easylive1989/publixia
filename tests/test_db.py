@@ -98,66 +98,6 @@ def test_save_and_get_stock_snapshot():
     assert row["name"] == "元大台灣50"
 
 
-def test_alert_crud_and_lifecycle():
-    db.init_db()
-    aid = db.add_alert(1, "indicator", "taiex", "above", 22000.0)
-    assert aid > 0
-
-    alerts = db.list_alerts()
-    assert len(alerts) == 1
-    assert alerts[0]["target"] == "taiex"
-    assert alerts[0]["enabled"] == 1
-
-    active = db.get_active_alerts("indicator", "taiex")
-    assert len(active) == 1
-
-    db.mark_alert_triggered(aid, 22150.5)
-    after = db.list_alerts()[0]
-    assert after["enabled"] == 0
-    assert after["triggered_value"] == 22150.5
-    assert after["triggered_at"] is not None
-    assert db.get_active_alerts("indicator", "taiex") == []
-
-    db.set_alert_enabled(1, aid, True)
-    re_armed = db.list_alerts()[0]
-    assert re_armed["enabled"] == 1
-    assert re_armed["triggered_at"] is None
-
-    db.delete_alert(1, aid)
-    assert db.list_alerts() == []
-
-
-def test_remove_watched_ticker_disables_stock_indicator_alerts():
-    """移除 watchlist ticker 應同時停用該 ticker 的 stock_indicator alerts(Phase 4 follow-up)。"""
-    db.init_db()
-    db.add_watched_ticker(1, "2330.TW")
-    a1 = db.add_alert(1, "stock_indicator", "2330.TW", "above", 30,
-                      indicator_key="per", window_n=None)
-    a2 = db.add_alert(1, "indicator", "margin_balance", "above", 5000,
-                      indicator_key=None, window_n=None)
-    a3 = db.add_alert(1, "stock_indicator", "2454.TW", "above", 50,
-                      indicator_key="per", window_n=None)
-
-    db.remove_watched_ticker(1, "2330.TW")
-
-    alerts = {a["id"]: a for a in db.list_alerts()}
-    assert alerts[a1]["enabled"] == 0
-    assert alerts[a2]["enabled"] == 1
-    assert alerts[a3]["enabled"] == 1
-
-
-def test_remove_watched_ticker_does_not_affect_stock_price_alerts():
-    """移除 ticker 不應該動到 'stock' (價格)類型 alerts — 跟 stock_indicator 分開處理。"""
-    db.init_db()
-    db.add_watched_ticker(1, "2330.TW")
-    a1 = db.add_alert(1, "stock", "2330.TW", "above", 1000)
-
-    db.remove_watched_ticker(1, "2330.TW")
-
-    alerts = {a["id"]: a for a in db.list_alerts()}
-    assert alerts[a1]["enabled"] == 1
-
-
 def test_seed_loader_is_idempotent():
     """init_db() seeds auto-tracked once; running it again does not duplicate."""
     from repositories.auto_tracked import list_auto_tracked_tickers

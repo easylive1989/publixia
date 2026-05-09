@@ -77,10 +77,6 @@ from repositories.stocks import (  # noqa: E402,F401
     save_stock_snapshot, get_latest_stock, get_watched_tickers,
     add_watched_ticker, remove_watched_ticker,
 )
-from repositories.alerts import (  # noqa: E402,F401
-    list_alerts, add_alert, delete_alert, set_alert_enabled,
-    get_active_alerts, mark_alert_triggered,
-)
 from repositories.chip import (  # noqa: E402,F401
     save_broker_daily_rows, get_broker_daily_range, get_latest_broker_date,
     save_chip_daily_rows, get_chip_daily_range, get_latest_chip_date,

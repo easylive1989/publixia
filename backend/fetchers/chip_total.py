@@ -17,7 +17,6 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import save_indicator
-from alerts import check_alerts
 from core.settings import settings
 
 FINMIND_URL = "https://api.finmindtrade.com/api/v4/data"
@@ -137,8 +136,6 @@ def fetch_chip_total(start_date: str | None = None, end_date: str | None = None)
                                json.dumps({"unit": margin_units[key], "date": d}), timestamp=ts)
         if margin_by_day:
             latest = max(margin_by_day.keys())
-            for key in ("margin_balance", "short_balance", "short_margin_ratio"):
-                check_alerts("indicator", key, margin_by_day[latest][key])
             print(f"[chip_total] margin {latest}: balance={margin_by_day[latest]['margin_balance']} 億, "
                   f"short={margin_by_day[latest]['short_balance']:.0f} 張, "
                   f"ratio={margin_by_day[latest]['short_margin_ratio']:.2f}%")
@@ -157,8 +154,6 @@ def fetch_chip_total(start_date: str | None = None, end_date: str | None = None)
                                json.dumps({"unit": "億元", "date": d}), timestamp=ts)
         if inst_by_day:
             latest = max(inst_by_day.keys())
-            for key in ("total_foreign_net", "total_trust_net", "total_dealer_net"):
-                check_alerts("indicator", key, inst_by_day[latest][key])
             print(f"[chip_total] inst {latest}: foreign={inst_by_day[latest]['total_foreign_net']} 億, "
                   f"trust={inst_by_day[latest]['total_trust_net']} 億, "
                   f"dealer={inst_by_day[latest]['total_dealer_net']} 億")

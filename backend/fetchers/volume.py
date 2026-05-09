@@ -9,7 +9,6 @@ import yfinance as yf
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import save_indicator
-from alerts import check_alerts
 
 TWSE_FMTQIK_URL = "https://openapi.twse.com.tw/v1/exchangeReport/FMTQIK"
 
@@ -36,7 +35,6 @@ def fetch_tw_volume():
             "unit": "億元",
             "date": latest["Date"],
         }))
-        check_alerts("indicator", "tw_volume", value_yi)
         print(f"[tw_volume] {latest['Date']} {value_yi} 億元 ({change_pct:+}%)")
     except Exception as e:
         print(f"[tw_volume] Error: {e}")
@@ -64,7 +62,6 @@ def fetch_us_volume():
             "prev_value": prev_yi,
             "unit": "億股",
         }))
-        check_alerts("indicator", "us_volume", latest_yi)
         print(f"[us_volume] {latest_yi} 億股 ({change_pct:+}%)")
     except Exception as e:
         print(f"[us_volume] Error: {e}")

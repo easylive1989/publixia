@@ -7,7 +7,6 @@ import cloudscraper
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import save_indicator
-from alerts import check_alerts
 
 NDC_PAGE_URL = "https://index.ndc.gov.tw/n/zh_tw/data/eco"
 NDC_API_URL = "https://index.ndc.gov.tw/n/json/data/eco/indicators"
@@ -65,7 +64,6 @@ def fetch_ndc():
             "light_code": light_code,
             "period": period,
         }))
-        check_alerts("indicator", "ndc", float(score))
         print(f"[ndc] {period} 分數={score} {light_name}")
 
     except Exception as e:

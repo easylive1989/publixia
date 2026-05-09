@@ -166,13 +166,5 @@ def fetch_stock_chip(ticker: str, lookback_days: int = DEFAULT_LOOKBACK_DAYS) ->
     if not merged:
         return True
     save_chip_daily_rows(merged)
-    # Phase 4 alert 觸發:只在「最新一天有寫入」時針對 5 個籌碼指標檢查
-    today_str = today.strftime("%Y-%m-%d")
-    max_date = max((r["date"] for r in merged), default=None)
-    if max_date == today_str:
-        from alerts import check_alerts
-        for key in ("foreign_net", "trust_net", "dealer_net",
-                    "margin_balance", "short_balance"):
-            check_alerts("stock_indicator", ticker, indicator_key=key)
     print(f"[chip_stock] {ticker} {start_date}~{end_date}: {len(merged)} chip-day rows")
     return True

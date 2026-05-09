@@ -80,20 +80,8 @@ def add_watched_ticker(user_id: int, ticker: str):
 
 
 def remove_watched_ticker(user_id: int, ticker: str):
-    """Remove ticker (for this user) AND disable any of this user's
-    stock_indicator alerts targeting it.
-
-    The cross-table side effect (disabling alerts) is preserved from the
-    pre-USER implementation but now scoped to the user — a different
-    user's alerts on the same ticker stay enabled.
-    """
     with get_connection() as conn:
         conn.execute(
             "DELETE FROM watched_stocks WHERE user_id=? AND ticker=?",
-            (user_id, ticker),
-        )
-        conn.execute(
-            "UPDATE price_alerts SET enabled=0 "
-            "WHERE user_id=? AND target_type='stock_indicator' AND target=?",
             (user_id, ticker),
         )
