@@ -4,7 +4,6 @@ import './WatchlistCard';
 import './dashboard-cards';
 import './total-three-investors';
 import './NewsCard';
-import './AlertsCard';
 import './stock-charts';
 import './stock-chip';
 import './stock-valuation';
