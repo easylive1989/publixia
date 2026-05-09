@@ -23,8 +23,8 @@ function renderCard() {
 }
 
 describe('WatchlistCard (read-only)', () => {
-  it('registers as cols=3 dashboard card', () => {
-    expect(listCards('dashboard').find((c) => c.id === 'watchlist')?.cols).toBe(3);
+  it('registers as cols=2 dashboard card', () => {
+    expect(listCards('dashboard').find((c) => c.id === 'watchlist')?.cols).toBe(2);
   });
 
   it('renders rows with ticker as a link to /stock/:code', async () => {

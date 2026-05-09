@@ -126,5 +126,5 @@ registerCard({
   label: '自選股票',
   defaultPage: 'dashboard',
   component: WatchlistCard,
-  cols: 3,
+  cols: 2,
 });

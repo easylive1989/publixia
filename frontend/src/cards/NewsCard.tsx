@@ -42,5 +42,5 @@ registerCard({
   label: '最新財經新聞',
   defaultPage: 'dashboard',
   component: NewsCard,
-  cols: 3,
+  cols: 1,
 });

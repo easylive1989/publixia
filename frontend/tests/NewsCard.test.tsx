@@ -18,9 +18,9 @@ function renderCard() {
 }
 
 describe('NewsCard', () => {
-  it('registers as a wide (cols=3) dashboard card', () => {
+  it('registers as a narrow (cols=1) dashboard card', () => {
     const spec = listCards('dashboard').find((c) => c.id === 'news');
-    expect(spec?.cols).toBe(3);
+    expect(spec?.cols).toBe(1);
   });
 
   it('renders items as external anchor tags', async () => {
