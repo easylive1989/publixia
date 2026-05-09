@@ -82,27 +82,3 @@ def refresh(indicator: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True}
-
-
-@router.get("/indicators/spec")
-def indicators_spec():
-    """Return alert-able indicator specs grouped by target_type.
-
-    Frontend (Phase 5) uses this to render the alert creation form.
-    """
-    from services.alert_registry import all_indicators
-    from services import indicators as _indicators_pkg  # noqa: F401  ← trigger auto-register
-
-    def _to_dict(spec):
-        return {
-            "key": spec.key,
-            "label": spec.label,
-            "unit": spec.unit,
-            "supported_conditions": sorted(spec.supported_conditions),
-        }
-
-    bundle = all_indicators()
-    return {
-        "indicator":       [_to_dict(s) for s in bundle["indicator"]],
-        "stock_indicator": [_to_dict(s) for s in bundle["stock_indicator"]],
-    }

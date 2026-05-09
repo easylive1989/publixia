@@ -13,7 +13,6 @@ from api.routes import (
     indicators, stocks, fundamentals, news, futures, me,
     strategies,
 )
-from api.routes import alerts as alerts_routes
 from core.errors import (
     AuthError, FetcherError, RepositoryError, StockDashboardError,
 )
@@ -33,7 +32,6 @@ app.add_middleware(
 app.include_router(indicators.router)
 app.include_router(stocks.router)
 app.include_router(fundamentals.router)
-app.include_router(alerts_routes.router)
 app.include_router(news.router)
 app.include_router(futures.router)
 app.include_router(me.router)
