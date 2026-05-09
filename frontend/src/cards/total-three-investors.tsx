@@ -73,7 +73,7 @@ function ThreeInvestorsCard() {
   };
 
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="text-sm font-medium text-muted-foreground">
           三大法人淨買超 (億)

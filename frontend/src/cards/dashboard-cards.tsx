@@ -183,7 +183,7 @@ function withDetailLink(Inner: FC, href: string): FC {
     return (
       <Link
         to={href}
-        className="block rounded-xl transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="block h-full rounded-xl transition hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Inner />
       </Link>
