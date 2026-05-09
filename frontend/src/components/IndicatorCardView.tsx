@@ -1,4 +1,7 @@
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar, BarChart, Line, LineChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +26,7 @@ interface Props {
   error?: string;
   series?: SparkPoint[];
   formatSparkValue?: (v: number) => string;
+  chartType?: 'line' | 'bar';
 }
 
 const TONE_CLASS: Record<BadgeInfo['tone'], string> = {
@@ -34,9 +38,48 @@ const TONE_CLASS: Record<BadgeInfo['tone'], string> = {
 const SPARK_STROKE = '#3b82f6';
 
 export function IndicatorCardView({
-  title, value, sub, nextUpdate, badge, valueClass, loading, error, series, formatSparkValue,
+  title, value, sub, nextUpdate, badge, valueClass, loading, error,
+  series, formatSparkValue, chartType = 'line',
 }: Props) {
   const hasSpark = !!series && series.length >= 2;
+
+  // Replace ASCII spaces with NBSP so recharts' SVG renderer doesn't
+  // word-wrap the unit onto a second line (e.g. "13,053 億").
+  const tickFormatter = (v: number) => {
+    const formatted = formatSparkValue ? formatSparkValue(v) : v.toLocaleString();
+    return formatted.replace(/ /g, ' ');
+  };
+
+  const tooltipContent = ({ active, payload, label }: {
+    active?: boolean;
+    payload?: ReadonlyArray<{ value?: unknown }>;
+    label?: unknown;
+  }) => {
+    if (!active || !payload?.length) return null;
+    const v = payload[0].value;
+    const formatted =
+      typeof v === 'number'
+        ? (formatSparkValue?.(v) ?? v.toLocaleString())
+        : String(v);
+    return (
+      <div className="rounded border bg-background px-2 py-1 text-xs shadow-sm">
+        <div className="text-muted-foreground">
+          {String(label).slice(0, 10)}
+        </div>
+        <div className="font-medium">{formatted}</div>
+      </div>
+    );
+  };
+
+  const yAxisProps = {
+    domain: ['auto', 'auto'] as ['auto', 'auto'],
+    width: 100,
+    tick: { fontSize: 10, fill: '#71717a' },
+    tickLine: false,
+    axisLine: false,
+    tickFormatter,
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -62,51 +105,38 @@ export function IndicatorCardView({
         {hasSpark && (
           <div className="h-40 pt-1" data-testid="spark">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={series} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <XAxis dataKey="timestamp" hide />
-                <YAxis
-                  domain={['auto', 'auto']}
-                  width={100}
-                  tick={{ fontSize: 10, fill: '#71717a' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v: number) => {
-                    // Avoid recharts' SVG word-wrap by replacing the space
-                    // between value and unit with a non-breaking space.
-                    const formatted = formatSparkValue
-                      ? formatSparkValue(v)
-                      : v.toLocaleString();
-                    return formatted.replace(/ /g, ' ');
-                  }}
-                />
-                <Tooltip
-                  cursor={{ stroke: '#a1a1aa', strokeWidth: 1 }}
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    const v = payload[0].value;
-                    const formatted =
-                      typeof v === 'number'
-                        ? (formatSparkValue?.(v) ?? v.toLocaleString())
-                        : String(v);
-                    return (
-                      <div className="rounded border bg-background px-2 py-1 text-xs shadow-sm">
-                        <div className="text-muted-foreground">
-                          {String(label).slice(0, 10)}
-                        </div>
-                        <div className="font-medium">{formatted}</div>
-                      </div>
-                    );
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={SPARK_STROKE}
-                  strokeWidth={1.5}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
+              {chartType === 'bar' ? (
+                <BarChart data={series} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="timestamp" hide />
+                  <YAxis {...yAxisProps} />
+                  <Tooltip
+                    cursor={{ fill: '#a1a1aa', fillOpacity: 0.15 }}
+                    content={tooltipContent}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill={SPARK_STROKE}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              ) : (
+                <LineChart data={series} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="timestamp" hide />
+                  <YAxis {...yAxisProps} />
+                  <Tooltip
+                    cursor={{ stroke: '#a1a1aa', strokeWidth: 1 }}
+                    content={tooltipContent}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke={SPARK_STROKE}
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              )}
             </ResponsiveContainer>
           </div>
         )}

@@ -20,6 +20,7 @@ interface IndicatorConfig {
   formatSub?:  (extra: Extra) => string;
   formatBadge?: (extra: Extra, value: number) => BadgeInfo | null;
   valueClass?: (v: number, extra: Extra) => string | undefined;
+  chartType?: 'line' | 'bar';
 }
 
 // Render a backend-supplied ISO timestamp (in TST, e.g. `2026-05-08T14:00:00+08:00`)
@@ -94,6 +95,7 @@ const CONFIGS: IndicatorConfig[] = [
       return `前日 ${prev != null ? prev.toLocaleString() : '—'} 億`;
     },
     formatBadge: (extra) => changePctBadge(extra),
+    chartType: 'bar',
   },
   {
     key: 'us_volume',
@@ -168,6 +170,7 @@ function makeCard(cfg: IndicatorConfig): FC {
         badge={slot ? cfg.formatBadge?.(slot.extra, slot.value) ?? null : null}
         series={history.data}
         formatSparkValue={(v) => cfg.formatValue(v, EMPTY_EXTRA)}
+        chartType={cfg.chartType}
       />
     );
   };
