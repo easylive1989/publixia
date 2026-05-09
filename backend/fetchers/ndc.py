@@ -54,16 +54,31 @@ def fetch_ndc():
         score = int(latest_score["y"])
         light_code = int(latest_light["y"]) if latest_light else 0
         light_name = LIGHT_NAMES.get(light_code, "未知")
-        period = latest_score.get("x", "")
-        # x 格式為 YYYYMM，轉換成 YYYY/MM
-        if len(period) == 6:
-            period = f"{period[:4]}/{period[4:]}"
+        raw_period = latest_score.get("x", "")
+        # x 格式為 YYYYMM,轉換成 YYYY/MM 顯示用
+        period = (
+            f"{raw_period[:4]}/{raw_period[4:]}"
+            if len(raw_period) == 6
+            else raw_period
+        )
+        # 月度指標:date 用期別月初(YYYY-MM-01),圖表才會以「每期一點」呈現,
+        # 而不是每次 fetch 一點。raw_period 不是預期格式時 fall back 成今天。
+        period_date = (
+            f"{raw_period[:4]}-{raw_period[4:]}-01"
+            if len(raw_period) == 6
+            else None
+        )
 
-        save_indicator("ndc", float(score), json.dumps({
-            "light": light_name,
-            "light_code": light_code,
-            "period": period,
-        }))
+        save_indicator(
+            "ndc",
+            float(score),
+            json.dumps({
+                "light": light_name,
+                "light_code": light_code,
+                "period": period,
+            }),
+            date=period_date,
+        )
         print(f"[ndc] {period} 分數={score} {light_name}")
 
     except Exception as e:
