@@ -16,9 +16,19 @@ def save_indicator(
     `date` defaults to the date portion of `timestamp` (or now). Caller can
     pass an explicit trading-date string when the snapshot does not correspond
     to "today" — e.g. fetched on a holiday but representing the previous
-    trading day's close.
+    trading day's close, or backfilling years of historical data.
+
+    When the caller passes `date` but no `timestamp`, the trading date is the
+    source of truth: derive timestamp from it (midnight) instead of "now".
+    Otherwise a bulk backfill stamps every row with insertion-time, breaking
+    any reader that orders/filters by timestamp.
     """
-    ts_dt = timestamp or datetime.now(timezone.utc).replace(tzinfo=None)
+    if timestamp is not None:
+        ts_dt = timestamp
+    elif date is not None:
+        ts_dt = datetime.fromisoformat(date)
+    else:
+        ts_dt = datetime.now(timezone.utc).replace(tzinfo=None)
     ts = ts_dt.isoformat()
     d = date or ts[:10]
     with get_connection() as conn:
@@ -43,10 +53,17 @@ def get_latest_indicator(indicator: str) -> dict | None:
 
 
 def get_indicator_history(indicator: str, since: datetime) -> list[dict]:
+    """Return one row per trading day, ordered chronologically.
+
+    Filter + order use `date` (the trading-day source of truth). `timestamp`
+    on these rows is the wall clock when the row was first written and can be
+    very wrong for bulk-backfilled data (every historical row stamped with
+    "today" when the fetcher first ran).
+    """
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT timestamp, value, extra_json FROM indicator_snapshots "
-            "WHERE indicator=? AND timestamp>=? ORDER BY timestamp",
-            (indicator, since.isoformat()),
+            "SELECT date, value, extra_json FROM indicator_snapshots "
+            "WHERE indicator=? AND date>=? ORDER BY date",
+            (indicator, since.strftime("%Y-%m-%d")),
         ).fetchall()
         return [dict(r) for r in rows]

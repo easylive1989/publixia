@@ -69,7 +69,7 @@ def history(indicator: str, time_range: str = "3M"):
     delta = RANGE_DELTAS.get(time_range, RANGE_DELTAS["3M"])
     since = datetime.now(timezone.utc).replace(tzinfo=None) - delta
     rows = get_indicator_history(indicator, since)
-    return [{"timestamp": r["timestamp"], "value": r["value"]} for r in rows]
+    return [{"timestamp": r["date"], "value": r["value"]} for r in rows]
 
 
 @router.post("/refresh/{indicator}")
