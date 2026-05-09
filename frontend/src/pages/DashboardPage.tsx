@@ -61,7 +61,7 @@ export default function DashboardPage() {
           <div
             key={id}
             className={cn(
-              'h-full',
+              'relative h-full',
               cols === 3 && 'lg:col-span-3',
               cols === 2 && 'lg:col-span-2',
             )}

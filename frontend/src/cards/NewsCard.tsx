@@ -6,7 +6,7 @@ import { registerCard } from './registry';
 function NewsCard() {
   const { data, isLoading, isError } = useNews();
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full sm:absolute sm:inset-0 flex flex-col">
       <CardHeader>
         <CardTitle>最新財經新聞</CardTitle>
       </CardHeader>
