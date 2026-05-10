@@ -9,6 +9,30 @@ export interface ForeignFuturesCandle {
   volume: number | null;
 }
 
+export type OptionsIdentity = 'foreign' | 'investment_trust' | 'dealer';
+export type OptionsPutCall = 'CALL' | 'PUT';
+
+export interface OptionsDetailRow {
+  identity: OptionsIdentity;
+  put_call: OptionsPutCall;
+  long_oi: number;
+  short_oi: number;
+  /** 千元 (TAIFEX native unit; convert to 億元 at render time = ÷ 100,000) */
+  long_amount: number;
+  short_amount: number;
+}
+
+export interface OptionsBlock {
+  /** TXO 外資 買權 多方未平倉契約金額 (千元), aligned with dates[] */
+  foreign_call_long_amount: (number | null)[];
+  foreign_call_short_amount: (number | null)[];
+  foreign_put_long_amount: (number | null)[];
+  foreign_put_short_amount: (number | null)[];
+  /** Date → all rows for that date (3 identities × CALL/PUT). Dates
+   *  with no TXO data are absent from this map. */
+  detail_by_date: Record<string, OptionsDetailRow[]>;
+}
+
 export interface ForeignFuturesResponse {
   symbol: string;
   name: string;
@@ -30,6 +54,9 @@ export interface ForeignFuturesResponse {
   retail_ratio: (number | null)[];
   /** 結算日 (YYYY-MM-DD) inside the visible window */
   settlement_dates: string[];
+  /** TXO 三大法人選擇權買賣權分計 — 圖表序列以外資為主軸，
+   *  明細表用 detail_by_date 呈現 3 身份 × CALL/PUT 完整資料 */
+  options?: OptionsBlock;
 }
 
 export function useForeignFutures(

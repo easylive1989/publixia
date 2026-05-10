@@ -3,6 +3,8 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useForeignFutures } from '@/hooks/useForeignFutures';
 import { ForeignFuturesChart } from '@/components/foreign-futures/ForeignFuturesChart';
+import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignOptionsAmountChart';
+import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y'] as const;
 type Range = (typeof RANGES)[number];
@@ -58,7 +60,17 @@ export default function ForeignFuturesPage() {
 
       {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
       {isError   && <p className="text-sm text-destructive">無法載入外資動向資料</p>}
-      {data && data.dates.length > 0 && <ForeignFuturesChart data={data} />}
+      {data && data.dates.length > 0 && (
+        <>
+          <ForeignFuturesChart data={data} />
+          {data.options && (
+            <>
+              <ForeignOptionsAmountChart data={data} />
+              <ForeignOptionsDetailTable data={data} />
+            </>
+          )}
+        </>
+      )}
       {data && data.dates.length === 0 && (
         <p className="text-sm text-muted-foreground">此區間尚無資料。</p>
       )}

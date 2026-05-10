@@ -5,13 +5,9 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ForeignFuturesResponse } from '@/hooks/useForeignFutures';
-
-const SYNC_ID = 'foreign-futures-flow';
-const POSITIVE = '#16a34a';
-const NEGATIVE = '#dc2626';
-const COST_LINE = '#3b82f6';
-const NET_LINE = '#f59e0b';
-const RETAIL_LINE = '#a855f7';
+import {
+  POSITIVE, NEGATIVE, COST_LINE, NET_LINE, RETAIL_LINE, SYNC_ID,
+} from './colors';
 
 interface Row {
   date: string;
