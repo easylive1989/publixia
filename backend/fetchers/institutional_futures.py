@@ -48,11 +48,16 @@ _PRODUCT_TO_SYMBOL = {
 _FOREIGN_LABELS = {"外資", "外資及陸資"}  # post-2020 label includes 陸資
 
 INITIAL_LOOKBACK_DAYS = 365 * 5
-BACKFILL_THROTTLE_SEC = 0.5
+# 0.5s was empirically too tight — TAIFEX silently dropped the final
+# chunk of a 21-request backfill burst, leaving the most recent ~25
+# days unwritten. 2.0s + 60-day chunks keeps the backfill under ~2 min
+# while staying inside the rate limit.
+BACKFILL_THROTTLE_SEC = 2.0
 REQUEST_TIMEOUT = 30
-# TAIFEX accepts up to ~3 months per request without timing out; we chunk
-# longer ranges in BACKFILL_CHUNK_DAYS day blocks during backfill.
-BACKFILL_CHUNK_DAYS = 90
+BACKFILL_CHUNK_DAYS = 60
+# When a recent-date chunk comes back with 0 rows (often a soft block
+# from upstream), retry once after a longer cool-down before moving on.
+EMPTY_RETRY_SLEEP_SEC = 8.0
 
 
 # ── HTTP / parsing primitives ──────────────────────────────────────────
@@ -251,15 +256,22 @@ def _backfill_chunked(start_date: str, end_date: str) -> int:
     cursor = start_dt
     while cursor <= end_dt:
         window_end = min(cursor + timedelta(days=BACKFILL_CHUNK_DAYS - 1), end_dt)
+        s = cursor.strftime("%Y-%m-%d")
+        e = window_end.strftime("%Y-%m-%d")
         try:
-            total += fetch_for_range(
-                cursor.strftime("%Y-%m-%d"),
-                window_end.strftime("%Y-%m-%d"),
-            )
-        except Exception as e:             # noqa: BLE001
+            saved = fetch_for_range(s, e)
+            # Empty response on a recent date is suspicious — TAIFEX
+            # occasionally soft-blocks burst traffic and replies with an
+            # empty CSV. Sleep a bit longer and try the same window once
+            # more before giving up on it.
+            if saved == 0:
+                time.sleep(EMPTY_RETRY_SLEEP_SEC)
+                saved = fetch_for_range(s, e)
+            total += saved
+        except Exception as exc:           # noqa: BLE001
             logger.warning(
                 "institutional_futures backfill chunk %s~%s failed: %s",
-                cursor, window_end, e,
+                s, e, exc,
             )
         cursor = window_end + timedelta(days=1)
         if cursor <= end_dt:
