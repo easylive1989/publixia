@@ -20,5 +20,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     cors_origins: list[str] = ["https://stock.paul-learning.dev"]
 
+    r2_access_key_id: SecretStr | None = None
+    r2_secret_access_key: SecretStr | None = None
+    r2_endpoint_url: str | None = None
+    r2_bucket: str | None = None
+
 
 settings = Settings()

@@ -23,6 +23,7 @@ from fetchers.volume import fetch_tw_volume, fetch_us_volume
 from fetchers.futures import (
     fetch_tw_futures, fetch_tw_futures_mtx, fetch_tw_futures_tmf,
 )
+from services.backup import backup_db_to_r2
 from db import purge_old_data
 
 
@@ -49,4 +50,5 @@ JOBS: dict[str, JobSpec] = {
     "ndc":                JobSpec(fetch_ndc,                  "0 9 1 * *",    "國發會景氣對策信號"),
     "news":               JobSpec(fetch_news,                 "*/30 * * * *", "新聞 (每 30 分鐘)"),
     "cleanup":            JobSpec(purge_old_data,             "0 0 * * 0",    "舊資料清理 (週日)"),
+    "backup_db":          JobSpec(backup_db_to_r2,            "0 3 * * *",    "DB 備份至 Cloudflare R2"),
 }
