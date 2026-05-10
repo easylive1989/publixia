@@ -13,6 +13,7 @@ from repositories.futures import save_futures_daily_rows
 from repositories.institutional_futures import (
     save_institutional_futures_rows, save_settlement_dates,
 )
+from repositories.large_trader import save_large_trader_rows
 
 
 client = TestClient(app)
@@ -43,14 +44,23 @@ def _seed_minimum():
     save_settlement_dates("TX", [
         {"year_month": "2025-05", "settlement_date": "2025-05-21"},
     ])
+    save_large_trader_rows([
+        {"date": "2025-05-01", "market_oi": 100_000,
+         "top5_long_oi": 0, "top5_short_oi": 0,
+         "top10_long_oi": 60_000, "top10_short_oi": 70_000},
+        {"date": "2025-05-02", "market_oi": 100_000,
+         "top5_long_oi": 0, "top5_short_oi": 0,
+         "top10_long_oi": 65_000, "top10_short_oi": 60_000},
+    ])
 
 
 def _bypass_lazy_fetch(monkeypatch):
     """The route's best-effort lazy-fetch hits the network; stub it out."""
     import api.routes.foreign_futures as route_mod
-    monkeypatch.setattr(route_mod, "fetch_tw_futures",     lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_tw_futures_mtx", lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_inst_latest",    lambda: True)
+    monkeypatch.setattr(route_mod, "fetch_tw_futures",            lambda: True)
+    monkeypatch.setattr(route_mod, "fetch_tw_futures_mtx",        lambda: True)
+    monkeypatch.setattr(route_mod, "fetch_inst_latest",           lambda: True)
+    monkeypatch.setattr(route_mod, "fetch_large_trader_latest",   lambda: True)
 
 
 def test_403_when_user_lacks_permission(monkeypatch):
@@ -83,7 +93,7 @@ def test_200_response_shape(monkeypatch):
         "dates", "candles",
         "cost", "net_position", "net_change",
         "unrealized_pnl", "realized_pnl",
-        "settlement_dates",
+        "retail_ratio", "settlement_dates",
     ):
         assert key in body, f"missing key {key}"
     assert body["symbol"] == "TX"
@@ -93,8 +103,13 @@ def test_200_response_shape(monkeypatch):
     assert len(body["candles"]) == 2
     assert len(body["cost"])    == 2
     assert len(body["net_position"]) == 2
+    assert len(body["retail_ratio"]) == 2
     # Cost on day 1 = 320_000_000 / (100 × 200) = 16_000
     assert body["cost"][0] == 16_000
+    # retail_ratio[0]: (70_000 - 60_000) / 100_000 × 100 = +10.0
+    # retail_ratio[1]: (60_000 - 65_000) / 100_000 × 100 = -5.0
+    assert body["retail_ratio"][0] == 10.0
+    assert body["retail_ratio"][1] == -5.0
     # Settlement date inside window
     assert "2025-05-21" in body["settlement_dates"]
 

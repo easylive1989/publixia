@@ -26,6 +26,8 @@ export interface ForeignFuturesResponse {
   unrealized_pnl: (number | null)[];
   /** 已實現損益 (NTD) —近似算法 */
   realized_pnl: number[];
+  /** 散戶多空比 (%) — null on days without 大額交易人 data */
+  retail_ratio: (number | null)[];
   /** 結算日 (YYYY-MM-DD) inside the visible window */
   settlement_dates: string[];
 }

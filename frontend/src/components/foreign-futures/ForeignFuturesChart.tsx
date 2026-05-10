@@ -11,6 +11,7 @@ const POSITIVE = '#16a34a';
 const NEGATIVE = '#dc2626';
 const COST_LINE = '#3b82f6';
 const NET_LINE = '#f59e0b';
+const RETAIL_LINE = '#a855f7';
 
 interface Row {
   date: string;
@@ -23,6 +24,7 @@ interface Row {
   net_change: number | null;
   unrealized_pnl: number | null;
   realized_pnl: number;
+  retail_ratio: number | null;
 }
 
 // Shared CandleShape — same idea as PriceCharts.tsx but inlined to keep
@@ -68,6 +70,8 @@ const POINTS_FMT = (v: number | null) =>
 /** NT$ → 萬元 (TWD ÷ 10,000), no decimals — matches the reference figure. */
 const TENK_FMT = (v: number | null) =>
   v == null ? '—' : Math.round(v / 10_000).toLocaleString();
+const PCT_FMT = (v: number | null) =>
+  v == null ? '—' : `${v.toFixed(2)}%`;
 
 interface SeriesValue {
   name: string;
@@ -90,6 +94,7 @@ function SharedTooltip({ active, label, payload }: any) {
     { name: '日變動',         value: row.net_change,     formatter: LOTS_FMT },
     { name: '未實現損益(萬元)', value: row.unrealized_pnl, formatter: TENK_FMT },
     { name: '已實現損益(萬元)', value: row.realized_pnl,   formatter: TENK_FMT },
+    { name: '散戶多空比',       value: row.retail_ratio,   formatter: PCT_FMT, color: RETAIL_LINE },
   ];
   return (
     <div className="rounded-md border bg-background/95 px-3 py-2 text-xs shadow-md">
@@ -146,6 +151,7 @@ export function ForeignFuturesChart({ data }: { data: ForeignFuturesResponse }) 
     net_change:     data.net_change[i] ?? null,
     unrealized_pnl: data.unrealized_pnl[i] ?? null,
     realized_pnl:   data.realized_pnl[i] ?? 0,
+    retail_ratio:   data.retail_ratio?.[i] ?? null,
   })), [data]);
 
   const last = rows[rows.length - 1];
@@ -180,6 +186,9 @@ export function ForeignFuturesChart({ data }: { data: ForeignFuturesResponse }) 
     : undefined;
   const subtitleR4 = last
     ? `已實現損益(萬元) ${TENK_FMT(last.realized_pnl)}`
+    : undefined;
+  const subtitleR5 = last
+    ? `當日散戶多空比 ${PCT_FMT(last.retail_ratio)}`
     : undefined;
 
   // Pre-compute settlement existence for ReferenceLine label suppression.
@@ -260,7 +269,7 @@ export function ForeignFuturesChart({ data }: { data: ForeignFuturesResponse }) 
           <ComposedChart data={rows} syncId={SYNC_ID}
             margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
+            <XAxis dataKey="date" hide />
             <YAxis width={60}
               tickFormatter={(v: number) => Math.round(v / 10_000).toLocaleString()} />
             <Tooltip content={<SharedTooltip />} />
@@ -271,6 +280,22 @@ export function ForeignFuturesChart({ data }: { data: ForeignFuturesResponse }) 
                   fill={r.realized_pnl >= 0 ? POSITIVE : NEGATIVE} />
               ))}
             </Bar>
+          </ComposedChart>
+        </ResponsiveContainer>
+      ))}
+
+      {chartCard('散戶多空比 (%)', subtitleR5, (
+        <ResponsiveContainer width="100%" height={160}>
+          <ComposedChart data={rows} syncId={SYNC_ID}
+            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis width={60}
+              tickFormatter={(v: number) => `${v.toFixed(0)}%`} />
+            <Tooltip content={<SharedTooltip />} />
+            <ReferenceLine y={0} stroke="#94a3b8" />
+            <Line dataKey="retail_ratio" stroke={RETAIL_LINE} dot={false}
+              strokeWidth={1.5} name="散戶多空比" connectNulls />
           </ComposedChart>
         </ResponsiveContainer>
       ))}

@@ -134,3 +134,24 @@ def compute_metrics(
         prev_cost = cost if cost is not None else prev_cost
 
     return out
+
+
+def compute_retail_ratio(rows: list[dict]) -> dict[str, float]:
+    """散戶多空比 from TAIFEX 大額交易人未沖銷部位結構表 (TX combined).
+
+    rows: ordered list of dicts from `get_large_trader_range()`.
+    Returns {date: ratio_percent} where
+        retail_long  = market_oi - top10_long_oi
+        retail_short = market_oi - top10_short_oi
+        ratio        = (retail_long - retail_short) / market_oi × 100
+                     = (top10_short_oi - top10_long_oi) / market_oi × 100
+    Days with market_oi == 0 are skipped.
+    """
+    out: dict[str, float] = {}
+    for r in rows:
+        market = r.get("market_oi") or 0
+        if market <= 0:
+            continue
+        ratio = (r["top10_short_oi"] - r["top10_long_oi"]) / market * 100.0
+        out[r["date"]] = ratio
+    return out

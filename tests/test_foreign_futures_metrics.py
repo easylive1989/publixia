@@ -5,7 +5,7 @@ The formulas under test are documented in
 `docs/superpowers/specs/<this-feature>.md`.
 """
 from services.foreign_futures_metrics import (
-    MULT_TX, MULT_MTX, MTX_TO_TX_LOT, compute_metrics,
+    MULT_TX, MULT_MTX, MTX_TO_TX_LOT, compute_metrics, compute_retail_ratio,
 )
 
 
@@ -145,3 +145,55 @@ def test_short_position_shrink_realized_pnl_sign():
     # closed_lots = (50 - 30) × sign(-) = -20
     # realized = -20 × (15000 - 16000) × 200 = +4_000_000
     assert out[1]["realized_pnl"] == 4_000_000
+
+
+# ── compute_retail_ratio ──────────────────────────────────────────────
+
+def test_retail_ratio_balanced_market_is_zero():
+    """When top10 long equals top10 short, retail long/short cancel."""
+    rows = [{
+        "date": "2025-05-01",
+        "market_oi": 100_000,
+        "top10_long_oi": 60_000,
+        "top10_short_oi": 60_000,
+    }]
+    assert compute_retail_ratio(rows) == {"2025-05-01": 0.0}
+
+
+def test_retail_ratio_long_skew_when_top10_is_short():
+    """If top10 hold more shorts than longs, retail are net long."""
+    # retail_long  = 100_000 - 60_000 = 40_000
+    # retail_short = 100_000 - 70_000 = 30_000
+    # ratio = (40_000 - 30_000) / 100_000 × 100 = +10%
+    rows = [{
+        "date": "2025-05-01",
+        "market_oi": 100_000,
+        "top10_long_oi": 60_000,
+        "top10_short_oi": 70_000,
+    }]
+    out = compute_retail_ratio(rows)
+    assert out["2025-05-01"] == 10.0
+
+
+def test_retail_ratio_matches_taifex_2026_05_08_sample():
+    """Sanity check against the live TAIFEX figure used during design."""
+    rows = [{
+        "date": "2026-05-08",
+        "market_oi": 106_157,
+        "top10_long_oi": 66_097,
+        "top10_short_oi": 67_682,
+    }]
+    out = compute_retail_ratio(rows)
+    assert abs(out["2026-05-08"] - 1.4931) < 1e-3
+
+
+def test_retail_ratio_skips_zero_market_oi():
+    rows = [
+        {"date": "2025-05-01", "market_oi": 0,
+         "top10_long_oi": 0, "top10_short_oi": 0},
+        {"date": "2025-05-02", "market_oi": 100,
+         "top10_long_oi": 60, "top10_short_oi": 70},
+    ]
+    out = compute_retail_ratio(rows)
+    assert "2025-05-01" not in out
+    assert "2025-05-02" in out
