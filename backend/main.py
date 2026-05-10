@@ -11,7 +11,7 @@ import db  # noqa: F401
 
 from api.routes import (
     indicators, stocks, fundamentals, news, futures, me,
-    strategies,
+    strategies, foreign_futures,
 )
 from core.errors import (
     AuthError, FetcherError, RepositoryError, StockDashboardError,
@@ -34,6 +34,7 @@ app.include_router(stocks.router)
 app.include_router(fundamentals.router)
 app.include_router(news.router)
 app.include_router(futures.router)
+app.include_router(foreign_futures.router)
 app.include_router(me.router)
 app.include_router(strategies.router)
 

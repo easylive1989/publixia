@@ -10,8 +10,9 @@ class MeResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    user_id:          int
-    name:             str
-    can_use_strategy: bool
-    can_view_top100:  bool
-    has_webhook:      bool
+    user_id:                  int
+    name:                     str
+    can_use_strategy:         bool
+    can_view_top100:          bool
+    can_view_foreign_futures: bool
+    has_webhook:              bool

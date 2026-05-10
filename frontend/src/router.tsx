@@ -6,9 +6,11 @@ import FuturesDetailPage from './pages/FuturesDetailPage';
 import Top100Page from './pages/Top100Page';
 import { PermissionGate } from './components/strategy/PermissionGate';
 import { Top100PermissionGate } from './components/top100/PermissionGate';
+import { ForeignFuturesPermissionGate } from './components/foreign-futures/PermissionGate';
 
 const StrategiesListPage = lazy(() => import('./pages/StrategiesListPage'));
 const StrategyEditPage   = lazy(() => import('./pages/StrategyEditPage'));
+const ForeignFuturesPage = lazy(() => import('./pages/ForeignFuturesPage'));
 
 function gated(node: React.ReactNode) {
   return (
@@ -25,6 +27,16 @@ export function createRouter() {
     { path: '/', element: <DashboardPage /> },
     { path: '/stock/:code', element: <StockDetailPage /> },
     { path: '/futures/tw', element: <FuturesDetailPage /> },
+    {
+      path: '/futures/tw/foreign-flow',
+      element: (
+        <ForeignFuturesPermissionGate>
+          <Suspense fallback={<div className="p-8 text-muted-foreground">載入中…</div>}>
+            <ForeignFuturesPage />
+          </Suspense>
+        </ForeignFuturesPermissionGate>
+      ),
+    },
     { path: '/tw-top100', element: <Top100PermissionGate><Top100Page /></Top100PermissionGate> },
     { path: '/strategies',         element: gated(<StrategiesListPage />) },
     { path: '/strategies/new',     element: gated(<StrategyEditPage />) },

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFuturesHistory } from '@/hooks/useFuturesHistory';
+import { useMe } from '@/hooks/useStrategy';
 import { flattenHistory } from '@/lib/flatten-history';
 import {
   KLineChart, VolumeChart, RSIChart, MACDChart,
@@ -21,6 +22,7 @@ export default function FuturesDetailPage() {
   const range: FuturesRange = isRange(raw) ? raw : '1Y';
 
   const { data, isLoading, isError } = useFuturesHistory(range);
+  const { data: me } = useMe();
   const rows = useMemo(
     () => (data ? flattenHistory({ ...data, ticker: data.symbol }) : []),
     [data],
@@ -47,6 +49,14 @@ export default function FuturesDetailPage() {
                 } · TWD`
               : '—'}
           </p>
+          {me?.can_view_foreign_futures && (
+            <Button asChild variant="link" size="sm" className="px-0 h-auto mt-1 gap-1">
+              <Link to="/futures/tw/foreign-flow">
+                外資動向
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          )}
         </div>
         <div className="flex gap-1">
           {RANGES.map((r) => (

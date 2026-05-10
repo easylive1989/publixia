@@ -23,6 +23,8 @@ from fetchers.volume import fetch_tw_volume, fetch_us_volume
 from fetchers.futures import (
     fetch_tw_futures, fetch_tw_futures_mtx, fetch_tw_futures_tmf,
 )
+from fetchers.institutional_futures import fetch_latest as fetch_inst_futures
+from fetchers.futures_settlement import fetch_settlement_refresh
 from services.backup import backup_db_to_r2
 from db import purge_old_data
 
@@ -41,6 +43,8 @@ JOBS: dict[str, JobSpec] = {
     "us_stocks":          JobSpec(fetch_us_stocks,            "5 6 * * *",    "美股 watchlist 收盤快照"),
     "fear_greed":         JobSpec(fetch_fear_greed,           "0 8 * * *",    "Fear & Greed Index"),
     "chip_total":         JobSpec(fetch_chip_total,           "0 18 * * *",   "整體市場籌碼面"),
+    "inst_futures":       JobSpec(fetch_inst_futures,         "0 18 * * *",   "外資台指期/小台未平倉"),
+    "futures_settlement": JobSpec(fetch_settlement_refresh,   "0 2 1 * *",    "TX 結算日 (每月補未來 12 個月)"),
     "tw_volume":          JobSpec(fetch_tw_volume,            "5 18 * * *",   "台股大盤量能"),
     "tw_futures":         JobSpec(fetch_tw_futures,           "30 17 * * *",  "台指期 (TX) 日線"),
     "tw_futures_mtx":     JobSpec(fetch_tw_futures_mtx,       "30 17 * * *",  "小台指期 (MTX) 日線"),

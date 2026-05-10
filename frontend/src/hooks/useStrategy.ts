@@ -8,6 +8,7 @@ export interface MeResponse {
   name: string;
   can_use_strategy: boolean;
   can_view_top100: boolean;
+  can_view_foreign_futures: boolean;
   has_webhook: boolean;
 }
 

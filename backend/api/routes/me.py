@@ -19,9 +19,10 @@ def get_me(user: dict = Depends(require_user)) -> MeResponse:
     if settings is None:                       # defensive — should not happen
         raise HTTPException(status_code=401, detail="Token user not found")
     return MeResponse(
-        user_id          = settings["id"],
-        name             = settings["name"],
-        can_use_strategy = settings["can_use_strategy"],
-        can_view_top100  = settings["can_view_top100"],
-        has_webhook      = settings["discord_webhook_url"] is not None,
+        user_id                  = settings["id"],
+        name                     = settings["name"],
+        can_use_strategy         = settings["can_use_strategy"],
+        can_view_top100          = settings["can_view_top100"],
+        can_view_foreign_futures = settings["can_view_foreign_futures"],
+        has_webhook              = settings["discord_webhook_url"] is not None,
     )

@@ -33,6 +33,7 @@ def _render_users_table(users: list[dict]) -> None:
     table.add_column("STATUS")
     table.add_column("STRATEGY")
     table.add_column("TOP100")
+    table.add_column("FFUT")
     table.add_column("WEBHOOK")
 
     status_color = {
@@ -49,6 +50,10 @@ def _render_users_table(users: list[dict]) -> None:
             "[green]✓[/green]" if u.get("can_view_top100")
             else "[dim]✗[/dim]"
         )
+        ffut_cell = (
+            "[green]✓[/green]" if u.get("can_view_foreign_futures")
+            else "[dim]✗[/dim]"
+        )
         webhook_cell = u.get("webhook_display", "—")
         if webhook_cell == "—":
             webhook_cell = "[dim]—[/dim]"
@@ -61,6 +66,7 @@ def _render_users_table(users: list[dict]) -> None:
             status_color.get(u["token_status"], u["token_status"]),
             strategy_cell,
             top100_cell,
+            ffut_cell,
             webhook_cell,
         )
     console.print(table)
@@ -93,7 +99,8 @@ def _user_action_menu(user: dict) -> None:
             f"User '{user['name']}' (id={user['id']}, "
             f"token={user['token_status']}, "
             f"strategy={'on' if user.get('can_use_strategy') else 'off'}, "
-            f"top100={'on' if user.get('can_view_top100') else 'off'}):",
+            f"top100={'on' if user.get('can_view_top100') else 'off'}, "
+            f"ffut={'on' if user.get('can_view_foreign_futures') else 'off'}):",
             choices=[
                 questionary.Choice("Refresh token", value="refresh"),
                 questionary.Choice(
@@ -103,6 +110,7 @@ def _user_action_menu(user: dict) -> None:
                 ),
                 questionary.Choice("Toggle strategy permission", value="toggle_strategy"),
                 questionary.Choice("Toggle top-100 permission", value="toggle_top100"),
+                questionary.Choice("Toggle foreign-futures permission", value="toggle_ffut"),
                 questionary.Choice("Set Discord webhook URL", value="set_webhook"),
                 questionary.Choice(
                     "Clear Discord webhook URL",
@@ -137,6 +145,13 @@ def _user_action_menu(user: dict) -> None:
             ops.set_top100_permission(user["id"], new_state)
             console.print(
                 f"[green]Top-100 permission for '{user['name']}' = "
+                f"{'ON' if new_state else 'OFF'}[/green]"
+            )
+        elif action == "toggle_ffut":
+            new_state = not bool(user.get("can_view_foreign_futures"))
+            ops.set_foreign_futures_permission(user["id"], new_state)
+            console.print(
+                f"[green]Foreign-futures permission for '{user['name']}' = "
                 f"{'ON' if new_state else 'OFF'}[/green]"
             )
         elif action == "set_webhook":

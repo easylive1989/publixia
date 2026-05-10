@@ -52,7 +52,8 @@ def get_user_with_settings(user_id: int) -> Optional[dict]:
     """
     row = get_connection().execute(
         "SELECT id, name, created_at, "
-        "       can_use_strategy, can_view_top100, discord_webhook_url "
+        "       can_use_strategy, can_view_top100, can_view_foreign_futures, "
+        "       discord_webhook_url "
         "FROM users WHERE id = ?",
         (user_id,),
     ).fetchone()
@@ -61,6 +62,7 @@ def get_user_with_settings(user_id: int) -> Optional[dict]:
     d = dict(row)
     d["can_use_strategy"] = bool(d["can_use_strategy"])
     d["can_view_top100"] = bool(d["can_view_top100"])
+    d["can_view_foreign_futures"] = bool(d["can_view_foreign_futures"])
     return d
 
 
@@ -80,6 +82,17 @@ def set_top100_permission(user_id: int, granted: bool) -> bool:
     conn = get_connection()
     cur = conn.execute(
         "UPDATE users SET can_view_top100 = ? WHERE id = ?",
+        (1 if granted else 0, user_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def set_foreign_futures_permission(user_id: int, granted: bool) -> bool:
+    """Set can_view_foreign_futures to `granted`. Returns True iff updated."""
+    conn = get_connection()
+    cur = conn.execute(
+        "UPDATE users SET can_view_foreign_futures = ? WHERE id = ?",
         (1 if granted else 0, user_id),
     )
     conn.commit()

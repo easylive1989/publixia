@@ -17,11 +17,12 @@ def test_me_defaults_for_seeded_user():
     assert r.status_code == 200
     body = r.json()
     assert body == {
-        "user_id":          1,
-        "name":             "paul",
-        "can_use_strategy": False,
-        "can_view_top100":  False,
-        "has_webhook":      False,
+        "user_id":                  1,
+        "name":                     "paul",
+        "can_use_strategy":         False,
+        "can_view_top100":          False,
+        "can_view_foreign_futures": False,
+        "has_webhook":              False,
     }
 
 
@@ -56,6 +57,7 @@ def test_require_strategy_permission_403_when_off():
     app2.dependency_overrides[require_user] = lambda: {
         "id": 1, "name": "paul",
         "can_use_strategy": False, "can_view_top100": False,
+        "can_view_foreign_futures": False,
         "discord_webhook_url": None,
     }
     from fastapi.testclient import TestClient
@@ -84,6 +86,7 @@ def test_require_strategy_permission_passes_when_on():
     app2.dependency_overrides[require_user] = lambda: {
         "id": 1, "name": "paul",
         "can_use_strategy": False, "can_view_top100": False,
+        "can_view_foreign_futures": False,
         "discord_webhook_url": None,
     }
     from fastapi.testclient import TestClient
