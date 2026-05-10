@@ -38,9 +38,11 @@ TAIFEX_URL = "https://www.taifex.com.tw/cht/3/largeTraderFutDown"
 
 INITIAL_LOOKBACK_DAYS = 365 * 5
 REQUEST_TIMEOUT = 60
-# Multi-day spans work, but we cap each request at ~6 months so a
-# 5-year backfill stays well under the per-response size limits.
-CHUNK_DAYS = 180
+# TAIFEX largeTraderFutDown silently returns an empty CSV when the
+# query span exceeds ~100 days (no error — just zero rows). 90 days
+# works in probes, 120 doesn't; 60 keeps a safety margin so a
+# 5-year backfill walks ~30 chunks at 1s throttle ≈ 30s wall time.
+CHUNK_DAYS = 60
 BACKFILL_THROTTLE_SEC = 1.0
 
 
