@@ -32,7 +32,7 @@ export default function StrategiesListPage() {
     <div className="container mx-auto p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">策略列表</h1>
+          <h1 className="text-2xl font-bold">期貨策略列表</h1>
           <Link to="/" className="text-sm text-muted-foreground hover:underline">
             ← 返回 Dashboard
           </Link>
