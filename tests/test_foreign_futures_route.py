@@ -13,6 +13,7 @@ from repositories.futures import save_futures_daily_rows
 from repositories.institutional_futures import (
     save_institutional_futures_rows, save_settlement_dates,
 )
+from repositories.institutional_options import save_institutional_options_rows
 from repositories.large_trader import save_large_trader_rows
 
 
@@ -60,6 +61,7 @@ def _bypass_lazy_fetch(monkeypatch):
     monkeypatch.setattr(route_mod, "fetch_tw_futures",            lambda: True)
     monkeypatch.setattr(route_mod, "fetch_tw_futures_mtx",        lambda: True)
     monkeypatch.setattr(route_mod, "fetch_inst_latest",           lambda: True)
+    monkeypatch.setattr(route_mod, "fetch_options_latest",        lambda: True)
     monkeypatch.setattr(route_mod, "fetch_large_trader_latest",   lambda: True)
 
 
@@ -94,8 +96,19 @@ def test_200_response_shape(monkeypatch):
         "cost", "net_position", "net_change",
         "unrealized_pnl", "realized_pnl",
         "retail_ratio", "settlement_dates",
+        "options",
     ):
         assert key in body, f"missing key {key}"
+    # options block always present (empty arrays/dict if no rows).
+    opt = body["options"]
+    for k in (
+        "foreign_call_long_amount", "foreign_call_short_amount",
+        "foreign_put_long_amount",  "foreign_put_short_amount",
+        "detail_by_date",
+    ):
+        assert k in opt, f"missing options key {k}"
+    # All chart series align with dates length.
+    assert len(opt["foreign_call_long_amount"]) == len(body["dates"])
     assert body["symbol"] == "TX"
     assert body["time_range"] == "3Y"
     # Two seeded TX bars → two-element aligned arrays.
@@ -120,3 +133,48 @@ def test_404_when_no_tx_history(monkeypatch):
     # No futures_daily rows seeded.
     r = client.get("/api/futures/tw/foreign-flow?time_range=6M")
     assert r.status_code == 404
+
+
+def test_options_block_projected_onto_kline_timeline(monkeypatch):
+    _bypass_lazy_fetch(monkeypatch)
+    _grant()
+    _seed_minimum()
+    # Seed TXO options rows for one of the two K-line dates only —
+    # the other date should land as None in the aligned chart series.
+    save_institutional_options_rows([
+        {"symbol": "TXO", "date": "2025-05-02",
+         "identity": "foreign", "put_call": "CALL",
+         "long_oi": 13_000, "short_oi": 12_000,
+         "long_amount": 2_400_000.0, "short_amount": 2_200_000.0},
+        {"symbol": "TXO", "date": "2025-05-02",
+         "identity": "foreign", "put_call": "PUT",
+         "long_oi": 18_000, "short_oi": 15_000,
+         "long_amount":   180_000.0, "short_amount":   160_000.0},
+        {"symbol": "TXO", "date": "2025-05-02",
+         "identity": "investment_trust", "put_call": "CALL",
+         "long_oi": 10, "short_oi": 5,
+         "long_amount": 1_000.0, "short_amount": 500.0},
+        {"symbol": "TXO", "date": "2025-05-02",
+         "identity": "dealer", "put_call": "PUT",
+         "long_oi": 20_000, "short_oi": 18_000,
+         "long_amount": 200_000.0, "short_amount": 190_000.0},
+    ])
+    r = client.get("/api/futures/tw/foreign-flow?time_range=3Y")
+    assert r.status_code == 200
+    body = r.json()
+    opt = body["options"]
+    # Two K-line dates → arrays of length 2; first day is None (no rows).
+    assert opt["foreign_call_long_amount"]  == [None, 2_400_000.0]
+    assert opt["foreign_call_short_amount"] == [None, 2_200_000.0]
+    assert opt["foreign_put_long_amount"]   == [None,   180_000.0]
+    assert opt["foreign_put_short_amount"]  == [None,   160_000.0]
+    # detail_by_date only contains dates with rows; identity coverage
+    # is whatever was seeded for that date.
+    assert "2025-05-01" not in opt["detail_by_date"]
+    rows_2 = opt["detail_by_date"]["2025-05-02"]
+    assert len(rows_2) == 4
+    by_key = {(r["identity"], r["put_call"]): r for r in rows_2}
+    assert by_key[("foreign", "CALL")]["long_oi"]      == 13_000
+    assert by_key[("foreign", "PUT")]["short_amount"]  == 160_000.0
+    assert by_key[("dealer",  "PUT")]["short_oi"]      == 18_000
+    assert by_key[("investment_trust", "CALL")]["long_amount"] == 1_000.0

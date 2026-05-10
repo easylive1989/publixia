@@ -16,14 +16,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import require_foreign_futures_permission
 from fetchers.futures import fetch_tw_futures, fetch_tw_futures_mtx
 from fetchers.institutional_futures import fetch_latest as fetch_inst_latest
+from fetchers.institutional_options import fetch_latest as fetch_options_latest
 from fetchers.large_trader import fetch_latest as fetch_large_trader_latest
 from repositories.futures import get_futures_daily_range
 from repositories.institutional_futures import (
     get_institutional_futures_range,
     get_settlement_dates_in_range,
 )
+from repositories.institutional_options import get_institutional_options_range
 from repositories.large_trader import get_large_trader_range
 from services.foreign_futures_metrics import compute_metrics, compute_retail_ratio
+from services.foreign_options_view import build_options_block
 
 router = APIRouter(
     prefix="/api",
@@ -56,6 +59,7 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         (fetch_tw_futures,            "tw_futures"),
         (fetch_tw_futures_mtx,        "tw_futures_mtx"),
         (fetch_inst_latest,           "institutional_futures"),
+        (fetch_options_latest,        "institutional_options"),
         (fetch_large_trader_latest,   "large_trader"),
     ):
         try:
@@ -123,6 +127,11 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         "TX", window_start_str, today_str,
     )
 
+    # 6) TXO options block — chart series projected onto the same date
+    # timeline plus a per-date detail map for the breakdown table.
+    txo_rows = get_institutional_options_range("TXO", window_start_str)
+    options = build_options_block(dates, txo_rows)
+
     return {
         "symbol":           "TX",
         "name":             "台指期 (TX) — 外資動向",
@@ -137,4 +146,5 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         "realized_pnl":     realized_pnl,
         "retail_ratio":     retail_ratio,
         "settlement_dates": settlement_dates,
+        "options":          options,
     }
