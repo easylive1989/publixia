@@ -48,16 +48,14 @@ _PRODUCT_TO_SYMBOL = {
 _FOREIGN_LABELS = {"外資", "外資及陸資"}  # post-2020 label includes 陸資
 
 INITIAL_LOOKBACK_DAYS = 365 * 5
-# 0.5s was empirically too tight — TAIFEX silently dropped the final
-# chunk of a 21-request backfill burst, leaving the most recent ~25
-# days unwritten. 2.0s + 60-day chunks keeps the backfill under ~2 min
-# while staying inside the rate limit.
+# TAIFEX `futContractsDateDown` rejects multi-day query spans whose
+# end date is too close to today (it returns an HTML page with a
+# "DateTime error" JS alert). Empirically the only span that always
+# works is single-day, so we issue one request per trading day.
+# 2.0s between requests is comfortably inside the rate limit; weekends
+# are skipped client-side so a 5-year backfill is ~22 minutes.
 BACKFILL_THROTTLE_SEC = 2.0
 REQUEST_TIMEOUT = 30
-BACKFILL_CHUNK_DAYS = 60
-# When a recent-date chunk comes back with 0 rows (often a soft block
-# from upstream), retry once after a longer cool-down before moving on.
-EMPTY_RETRY_SLEEP_SEC = 8.0
 
 
 # ── HTTP / parsing primitives ──────────────────────────────────────────
@@ -195,17 +193,52 @@ def parse_csv(text: str) -> list[dict]:
 
 # ── Public entrypoints ────────────────────────────────────────────────
 
-def fetch_for_range(start_date: str, end_date: str) -> int:
-    """Fetch + persist one date range (≤ ~3 months). Returns row count."""
-    text = _request_csv(start_date, end_date)
+def fetch_for_date(date: str) -> int:
+    """Fetch + persist one specific date. Returns rows saved (0 on
+    holidays/weekends or when TAIFEX has not yet published the date).
+    """
+    text = _request_csv(date, date)
     parsed = parse_csv(text)
     if parsed:
         save_institutional_futures_rows(parsed)
     logger.info(
-        "institutional_futures: %s~%s → %d row(s) saved",
-        start_date, end_date, len(parsed),
+        "institutional_futures: %s → %d row(s) saved", date, len(parsed),
     )
     return len(parsed)
+
+
+def fetch_for_range(start_date: str, end_date: str) -> int:
+    """Iterate per trading day across [start, end].
+
+    TAIFEX's `futContractsDateDown` rejects multi-day query spans, so
+    we walk the range one day at a time. Saturdays/Sundays are skipped
+    client-side to cut request volume; non-trading weekdays simply
+    return 0 rows from TAIFEX and roll on.
+    """
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_dt   = datetime.strptime(end_date,   "%Y-%m-%d").date()
+    if start_dt > end_dt:
+        return 0
+
+    total = 0
+    cursor = start_dt
+    while cursor <= end_dt:
+        # Skip weekends — TAIFEX has no data for Sat/Sun and the
+        # request just wastes throttle budget.
+        if cursor.weekday() >= 5:
+            cursor += timedelta(days=1)
+            continue
+        d = cursor.strftime("%Y-%m-%d")
+        try:
+            total += fetch_for_date(d)
+        except Exception as exc:           # noqa: BLE001
+            logger.warning(
+                "institutional_futures fetch %s failed: %s", d, exc,
+            )
+        cursor += timedelta(days=1)
+        if cursor <= end_dt:
+            time.sleep(BACKFILL_THROTTLE_SEC)
+    return total
 
 
 def fetch_latest() -> bool:
@@ -231,49 +264,15 @@ def fetch_latest() -> bool:
         start = today - timedelta(days=INITIAL_LOOKBACK_DAYS)
 
     try:
-        return _backfill_chunked(start.strftime("%Y-%m-%d"), end_date) > 0
+        return fetch_for_range(start.strftime("%Y-%m-%d"), end_date) > 0
     except Exception as e:                 # noqa: BLE001 — keep scheduler alive
         logger.exception("institutional_futures fetch_latest error: %s", e)
         return False
 
 
 def backfill(start_date: str, end_date: str) -> int:
-    """Manual backfill helper — chunks long ranges + throttles politely.
+    """Manual backfill helper — same per-day iteration as fetch_for_range.
 
     Use from the scripts/ entrypoint when bringing a fresh DB online.
     """
-    return _backfill_chunked(start_date, end_date)
-
-
-def _backfill_chunked(start_date: str, end_date: str) -> int:
-    """Walk [start_date, end_date] in BACKFILL_CHUNK_DAYS-day windows."""
-    start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
-    end_dt   = datetime.strptime(end_date,   "%Y-%m-%d").date()
-    if start_dt > end_dt:
-        return 0
-
-    total = 0
-    cursor = start_dt
-    while cursor <= end_dt:
-        window_end = min(cursor + timedelta(days=BACKFILL_CHUNK_DAYS - 1), end_dt)
-        s = cursor.strftime("%Y-%m-%d")
-        e = window_end.strftime("%Y-%m-%d")
-        try:
-            saved = fetch_for_range(s, e)
-            # Empty response on a recent date is suspicious — TAIFEX
-            # occasionally soft-blocks burst traffic and replies with an
-            # empty CSV. Sleep a bit longer and try the same window once
-            # more before giving up on it.
-            if saved == 0:
-                time.sleep(EMPTY_RETRY_SLEEP_SEC)
-                saved = fetch_for_range(s, e)
-            total += saved
-        except Exception as exc:           # noqa: BLE001
-            logger.warning(
-                "institutional_futures backfill chunk %s~%s failed: %s",
-                s, e, exc,
-            )
-        cursor = window_end + timedelta(days=1)
-        if cursor <= end_dt:
-            time.sleep(BACKFILL_THROTTLE_SEC)
-    return total
+    return fetch_for_range(start_date, end_date)
