@@ -13,8 +13,8 @@ function isRange(v: string): v is Range {
 
 export default function ForeignFuturesPage() {
   const [params, setParams] = useSearchParams();
-  const raw = params.get('range') || '6M';
-  const range: Range = isRange(raw) ? raw : '6M';
+  const raw = params.get('range') || '3M';
+  const range: Range = isRange(raw) ? raw : '3M';
 
   const { data, isLoading, isError } = useForeignFutures(range);
   const lastDate = data?.dates[data.dates.length - 1] ?? '';
