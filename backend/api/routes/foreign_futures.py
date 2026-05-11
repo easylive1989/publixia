@@ -14,11 +14,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import require_foreign_futures_permission
-from fetchers.futures import fetch_tw_futures, fetch_tw_futures_mtx
-from fetchers.institutional_futures import fetch_latest as fetch_inst_latest
-from fetchers.institutional_options import fetch_latest as fetch_options_latest
-from fetchers.txo_strike_oi import fetch_latest as fetch_strike_oi_latest
-from fetchers.large_trader import fetch_latest as fetch_large_trader_latest
 from repositories.futures import get_futures_daily_range
 from repositories.indicators import get_indicator_history
 from repositories.institutional_futures import (
@@ -58,22 +53,6 @@ _METRICS_WARMUP_DAYS = 14
 def tw_futures_foreign_flow(time_range: str = "6M"):
     if time_range not in RANGE_LOOKBACK_DAYS:
         raise HTTPException(status_code=400, detail="Unknown time_range")
-
-    # Best-effort lazy fetch — failures fall through to whatever the DB
-    # already has so the page never goes blank purely on a transient
-    # upstream blip.
-    for fn, label in (
-        (fetch_tw_futures,            "tw_futures"),
-        (fetch_tw_futures_mtx,        "tw_futures_mtx"),
-        (fetch_inst_latest,           "institutional_futures"),
-        (fetch_options_latest,        "institutional_options"),
-        (fetch_strike_oi_latest,      "txo_strike_oi"),
-        (fetch_large_trader_latest,   "large_trader"),
-    ):
-        try:
-            fn()
-        except Exception as e:
-            print(f"[foreign-flow] lazy fetch {label} error: {e}")
 
     today = datetime.now(timezone.utc).astimezone().date()
     days = RANGE_LOOKBACK_DAYS[time_range]

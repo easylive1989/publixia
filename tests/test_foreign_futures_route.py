@@ -57,34 +57,20 @@ def _seed_minimum():
     ])
 
 
-def _bypass_lazy_fetch(monkeypatch):
-    """The route's best-effort lazy-fetch hits the network; stub it out."""
-    import api.routes.foreign_futures as route_mod
-    monkeypatch.setattr(route_mod, "fetch_tw_futures",            lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_tw_futures_mtx",        lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_inst_latest",           lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_options_latest",        lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_strike_oi_latest",      lambda: True)
-    monkeypatch.setattr(route_mod, "fetch_large_trader_latest",   lambda: True)
-
-
-def test_403_when_user_lacks_permission(monkeypatch):
-    _bypass_lazy_fetch(monkeypatch)
+def test_403_when_user_lacks_permission():
     # Seeded user defaults to can_view_foreign_futures = 0
     r = client.get("/api/futures/tw/foreign-flow?time_range=6M")
     assert r.status_code == 403
     assert r.json()["detail"] == "no foreign futures permission"
 
 
-def test_400_on_unknown_time_range(monkeypatch):
-    _bypass_lazy_fetch(monkeypatch)
+def test_400_on_unknown_time_range():
     _grant()
     r = client.get("/api/futures/tw/foreign-flow?time_range=2W")
     assert r.status_code == 400
 
 
-def test_200_response_shape(monkeypatch):
-    _bypass_lazy_fetch(monkeypatch)
+def test_200_response_shape():
     _grant()
     _seed_minimum()
     # Pin "today" in the route by giving everything dates that fall
@@ -138,9 +124,8 @@ def test_200_response_shape(monkeypatch):
     assert "2025-05-21" in body["settlement_dates"]
 
 
-def test_foreign_spot_net_projected_onto_kline_timeline(monkeypatch):
+def test_foreign_spot_net_projected_onto_kline_timeline():
     from datetime import datetime
-    _bypass_lazy_fetch(monkeypatch)
     _grant()
     _seed_minimum()
     save_indicator(
@@ -158,16 +143,14 @@ def test_foreign_spot_net_projected_onto_kline_timeline(monkeypatch):
     assert len(body["foreign_spot_net"]) == len(body["dates"])
 
 
-def test_404_when_no_tx_history(monkeypatch):
-    _bypass_lazy_fetch(monkeypatch)
+def test_404_when_no_tx_history():
     _grant()
     # No futures_daily rows seeded.
     r = client.get("/api/futures/tw/foreign-flow?time_range=6M")
     assert r.status_code == 404
 
 
-def test_options_block_projected_onto_kline_timeline(monkeypatch):
-    _bypass_lazy_fetch(monkeypatch)
+def test_options_block_projected_onto_kline_timeline():
     _grant()
     _seed_minimum()
     # Seed TXO options rows for one of the two K-line dates only —
@@ -211,8 +194,7 @@ def test_options_block_projected_onto_kline_timeline(monkeypatch):
     assert by_key[("investment_trust", "CALL")]["long_amount"] == 1_000.0
 
 
-def test_strike_oi_block_uses_latest_available_date(monkeypatch):
-    _bypass_lazy_fetch(monkeypatch)
+def test_strike_oi_block_uses_latest_available_date():
     _grant()
     _seed_minimum()
     # Seed two trading days of strike OI; the route should surface only
