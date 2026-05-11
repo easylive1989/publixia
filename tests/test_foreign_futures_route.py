@@ -15,6 +15,7 @@ from repositories.institutional_futures import (
 )
 from repositories.institutional_options import save_institutional_options_rows
 from repositories.large_trader import save_large_trader_rows
+from repositories.indicators import save_indicator
 
 
 client = TestClient(app)
@@ -95,7 +96,8 @@ def test_200_response_shape(monkeypatch):
         "dates", "candles",
         "cost", "net_position", "net_change",
         "unrealized_pnl", "realized_pnl",
-        "retail_ratio", "settlement_dates",
+        "retail_ratio", "foreign_spot_net",
+        "settlement_dates",
         "options",
     ):
         assert key in body, f"missing key {key}"
@@ -123,8 +125,30 @@ def test_200_response_shape(monkeypatch):
     # retail_ratio[1]: (60_000 - 65_000) / 100_000 × 100 = -5.0
     assert body["retail_ratio"][0] == 10.0
     assert body["retail_ratio"][1] == -5.0
+    # foreign_spot_net aligns with dates; no indicator rows seeded → all None
+    assert body["foreign_spot_net"] == [None, None]
     # Settlement date inside window
     assert "2025-05-21" in body["settlement_dates"]
+
+
+def test_foreign_spot_net_projected_onto_kline_timeline(monkeypatch):
+    from datetime import datetime
+    _bypass_lazy_fetch(monkeypatch)
+    _grant()
+    _seed_minimum()
+    save_indicator(
+        "total_foreign_net", 12.34,
+        timestamp=datetime(2025, 5, 1), date="2025-05-01",
+    )
+    save_indicator(
+        "total_foreign_net", -5.67,
+        timestamp=datetime(2025, 5, 2), date="2025-05-02",
+    )
+    r = client.get("/api/futures/tw/foreign-flow?time_range=3Y")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["foreign_spot_net"] == [12.34, -5.67]
+    assert len(body["foreign_spot_net"]) == len(body["dates"])
 
 
 def test_404_when_no_tx_history(monkeypatch):

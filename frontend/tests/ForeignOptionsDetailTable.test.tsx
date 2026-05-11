@@ -20,6 +20,7 @@ function makeData(): ForeignFuturesResponse {
     unrealized_pnl: [null, null],
     realized_pnl: [0, 0],
     retail_ratio: [null, null],
+    foreign_spot_net: [null, null],
     settlement_dates: [],
     options: {
       foreign_call_long_amount:  [null, 2_488_000],

@@ -19,6 +19,7 @@ from fetchers.institutional_futures import fetch_latest as fetch_inst_latest
 from fetchers.institutional_options import fetch_latest as fetch_options_latest
 from fetchers.large_trader import fetch_latest as fetch_large_trader_latest
 from repositories.futures import get_futures_daily_range
+from repositories.indicators import get_indicator_history
 from repositories.institutional_futures import (
     get_institutional_futures_range,
     get_settlement_dates_in_range,
@@ -93,6 +94,13 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
     lt_rows = get_large_trader_range(window_start_str)
     retail_ratio_by_date = compute_retail_ratio(lt_rows)
 
+    # 3c) Foreign-investor spot net buy/sell (TWSE 整體外資現貨, 億元)
+    spot_rows = get_indicator_history(
+        "total_foreign_net",
+        datetime.combine(window_start, datetime.min.time()),
+    )
+    spot_by_date = {r["date"]: r["value"] for r in spot_rows}
+
     # 4) Project metrics onto the K-line timeline.
     visible = [b for b in tx_bars if b["date"] >= window_start_str]
     dates: list[str] = []
@@ -103,6 +111,7 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
     unrealized_pnl: list[float | None] = []
     realized_pnl: list[float] = []
     retail_ratio: list[float | None] = []
+    foreign_spot_net: list[float | None] = []
 
     for b in visible:
         d = b["date"]
@@ -121,6 +130,7 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         unrealized_pnl.append(m["unrealized_pnl"] if m else None)
         realized_pnl.append(m["realized_pnl"] if m else 0.0)
         retail_ratio.append(retail_ratio_by_date.get(d))
+        foreign_spot_net.append(spot_by_date.get(d))
 
     # 5) Settlement-date markers inside the visible window.
     settlement_dates = get_settlement_dates_in_range(
@@ -145,6 +155,7 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         "unrealized_pnl":   unrealized_pnl,
         "realized_pnl":     realized_pnl,
         "retail_ratio":     retail_ratio,
+        "foreign_spot_net": foreign_spot_net,
         "settlement_dates": settlement_dates,
         "options":          options,
     }

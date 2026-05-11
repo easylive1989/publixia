@@ -147,6 +147,25 @@ function buildOptionsTable(data: ForeignFuturesResponse, slice: SliceResult): st
   return lines.join('\n');
 }
 
+function buildSpotTable(data: ForeignFuturesResponse, slice: SliceResult): string {
+  const lines: string[] = [];
+  lines.push('## 外資現貨淨買賣超 (TWSE 整體, 億元)');
+  lines.push('');
+  const hasAny = slice.indices.some((i) => data.foreign_spot_net[i] != null);
+  if (!hasAny) {
+    lines.push('> 此期間無外資現貨資料');
+    return lines.join('\n');
+  }
+  lines.push('| 日期 | 外資現貨淨額 (億) |');
+  lines.push('|---|---:|');
+  for (const i of slice.indices) {
+    lines.push(`| ${data.dates[i]} | ${fmtSigned(data.foreign_spot_net[i], 2)} |`);
+  }
+  lines.push('');
+  lines.push('> 正值=外資現貨買超;負值=外資現貨賣超');
+  return lines.join('\n');
+}
+
 function buildRetailTable(data: ForeignFuturesResponse, slice: SliceResult): string {
   const lines: string[] = [];
   lines.push('## 散戶多空比 (%)');
@@ -190,6 +209,7 @@ export function buildForeignFlowMarkdown(
 
   const sections: string[] = [];
   sections.push(buildKlineTable(data, slice, settlementSet));
+  sections.push(buildSpotTable(data, slice));
   sections.push(buildForeignFuturesTable(data, slice));
   const optionsTable = buildOptionsTable(data, slice);
   if (optionsTable) sections.push(optionsTable);

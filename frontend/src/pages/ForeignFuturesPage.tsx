@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useForeignFutures } from '@/hooks/useForeignFutures';
 import { ForeignFuturesChart } from '@/components/foreign-futures/ForeignFuturesChart';
+import { ForeignSpotChart } from '@/components/foreign-futures/ForeignSpotChart';
 import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignOptionsAmountChart';
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
 import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
@@ -69,6 +70,7 @@ export default function ForeignFuturesPage() {
       {isError   && <p className="text-sm text-destructive">無法載入外資動向資料</p>}
       {data && data.dates.length > 0 && (
         <>
+          <ForeignSpotChart data={data} />
           <ForeignFuturesChart data={data} />
           {data.options && (
             <>

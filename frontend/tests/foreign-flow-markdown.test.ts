@@ -26,6 +26,7 @@ function makeData(overrides: Partial<ForeignFuturesResponse> = {}): ForeignFutur
     unrealized_pnl: [50000, 60000, -30000, -200000, 80000],
     realized_pnl:   [0, 1000, -2000, 3000, -4000],
     retail_ratio:   [-5.2, -4.1, 3.0, 0, -2.5],
+    foreign_spot_net: [12.34, -5.67, 0, 100.5, -88.21],
     settlement_dates: ['2026-05-07'],
     options: {
       foreign_call_long_amount:  dates.map(() => 2_488_000),
@@ -120,6 +121,23 @@ describe('buildForeignFlowMarkdown', () => {
     expect(md).toContain('## 散戶多空比 (%)');
     expect(md).toContain('| 2026-05-05 | -5.20 |');
     expect(md).toContain('| 2026-05-08 | 0.00 |');
+  });
+
+  it('renders foreign spot net section with signed 億 values', () => {
+    const md = buildForeignFlowMarkdown(makeData(), '2026-05-11');
+    expect(md).toContain('## 外資現貨淨買賣超 (TWSE 整體, 億元)');
+    expect(md).toContain('| 2026-05-05 | +12.34 |');
+    expect(md).toContain('| 2026-05-06 | -5.67 |');
+    expect(md).toContain('| 2026-05-07 | 0.00 |');
+    expect(md).toContain('| 2026-05-09 | -88.21 |');
+  });
+
+  it('shows fallback message when foreign_spot_net is all null', () => {
+    const data = makeData({ foreign_spot_net: [null, null, null, null, null] });
+    const md = buildForeignFlowMarkdown(data, '2026-05-11');
+    expect(md).toContain('## 外資現貨淨買賣超');
+    expect(md).toContain('此期間無外資現貨資料');
+    expect(md).not.toMatch(/\| 日期 \| 外資現貨淨額/);
   });
 
   it('shows fallback message when retail_ratio is all null', () => {
