@@ -14,6 +14,7 @@ from repositories.institutional_futures import (
     save_institutional_futures_rows, save_settlement_dates,
 )
 from repositories.institutional_options import save_institutional_options_rows
+from repositories.txo_strike_oi import save_txo_strike_oi_rows
 from repositories.large_trader import save_large_trader_rows
 from repositories.indicators import save_indicator
 
@@ -63,6 +64,7 @@ def _bypass_lazy_fetch(monkeypatch):
     monkeypatch.setattr(route_mod, "fetch_tw_futures_mtx",        lambda: True)
     monkeypatch.setattr(route_mod, "fetch_inst_latest",           lambda: True)
     monkeypatch.setattr(route_mod, "fetch_options_latest",        lambda: True)
+    monkeypatch.setattr(route_mod, "fetch_strike_oi_latest",      lambda: True)
     monkeypatch.setattr(route_mod, "fetch_large_trader_latest",   lambda: True)
 
 
@@ -111,6 +113,11 @@ def test_200_response_shape(monkeypatch):
         assert k in opt, f"missing options key {k}"
     # All chart series align with dates length.
     assert len(opt["foreign_call_long_amount"]) == len(body["dates"])
+    # oi_by_strike block always present (empty shape when no rows).
+    assert "oi_by_strike" in opt
+    assert set(opt["oi_by_strike"].keys()) == {
+        "date", "expiry_months", "near_month", "by_expiry",
+    }
     assert body["symbol"] == "TX"
     assert body["time_range"] == "3Y"
     # Two seeded TX bars → two-element aligned arrays.
@@ -202,3 +209,36 @@ def test_options_block_projected_onto_kline_timeline(monkeypatch):
     assert by_key[("foreign", "PUT")]["short_amount"]  == 160_000.0
     assert by_key[("dealer",  "PUT")]["short_oi"]      == 18_000
     assert by_key[("investment_trust", "CALL")]["long_amount"] == 1_000.0
+
+
+def test_strike_oi_block_uses_latest_available_date(monkeypatch):
+    _bypass_lazy_fetch(monkeypatch)
+    _grant()
+    _seed_minimum()
+    # Seed two trading days of strike OI; the route should surface only
+    # the latest one in the oi_by_strike block.
+    save_txo_strike_oi_rows([
+        {"symbol": "TXO", "date": "2025-05-01", "expiry_month": "202505",
+         "strike": 17000.0, "put_call": "CALL", "open_interest": 100,
+         "settle_price": None},
+        {"symbol": "TXO", "date": "2025-05-02", "expiry_month": "202505",
+         "strike": 17000.0, "put_call": "CALL", "open_interest": 400,
+         "settle_price": None},
+        {"symbol": "TXO", "date": "2025-05-02", "expiry_month": "202505",
+         "strike": 17000.0, "put_call": "PUT",  "open_interest": 700,
+         "settle_price": None},
+        {"symbol": "TXO", "date": "2025-05-02", "expiry_month": "202505W2",
+         "strike": 17000.0, "put_call": "CALL", "open_interest": 50,
+         "settle_price": None},
+    ])
+    r = client.get("/api/futures/tw/foreign-flow?time_range=3Y")
+    assert r.status_code == 200
+    block = r.json()["options"]["oi_by_strike"]
+    assert block["date"] == "2025-05-02"
+    # near_month picks the monthly contract, not the weekly.
+    assert block["near_month"] == "202505"
+    assert set(block["expiry_months"]) == {"202505", "202505W2"}
+    monthly = block["by_expiry"]["202505"]
+    assert monthly["strikes"] == [17000.0]
+    assert monthly["call_oi"] == [400]
+    assert monthly["put_oi"]  == [700]

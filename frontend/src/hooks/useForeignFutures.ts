@@ -22,6 +22,25 @@ export interface OptionsDetailRow {
   short_amount: number;
 }
 
+/** 一個到期月份 (e.g. '202506' 或 '202506W2') 的履約價 OI 分布。
+ *  strikes / call_oi / put_oi 為等長的平行陣列。市場合計，沒有身份別
+ *  維度 — TAIFEX 不公開各身份別的 strike-level 資料。 */
+export interface StrikeOiByExpiry {
+  strikes: number[];
+  call_oi: number[];
+  put_oi: number[];
+}
+
+export interface StrikeOiBlock {
+  /** 最新一筆 strike-OI 的交易日；無資料時為 null */
+  date: string | null;
+  /** 該日 TAIFEX 公開的所有到期月份 (含週選)，已排序 */
+  expiry_months: string[];
+  /** 圖表預設選用的近月期月份；無月選資料時為 null */
+  near_month: string | null;
+  by_expiry: Record<string, StrikeOiByExpiry>;
+}
+
 export interface OptionsBlock {
   /** TXO 外資 買權 多方未平倉契約金額 (千元), aligned with dates[] */
   foreign_call_long_amount: (number | null)[];
@@ -31,6 +50,8 @@ export interface OptionsBlock {
   /** Date → all rows for that date (3 identities × CALL/PUT). Dates
    *  with no TXO data are absent from this map. */
   detail_by_date: Record<string, OptionsDetailRow[]>;
+  /** 各履約價市場合計未平倉量分布 (最新一日) */
+  oi_by_strike?: StrikeOiBlock;
 }
 
 export interface ForeignFuturesResponse {

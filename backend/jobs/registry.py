@@ -25,6 +25,7 @@ from fetchers.futures import (
 )
 from fetchers.institutional_futures import fetch_latest as fetch_inst_futures
 from fetchers.institutional_options import fetch_latest as fetch_inst_options
+from fetchers.txo_strike_oi import fetch_latest as fetch_txo_strike_oi
 from fetchers.large_trader import fetch_latest as fetch_large_trader
 from fetchers.futures_settlement import fetch_settlement_refresh
 from services.backup import backup_db_to_r2
@@ -47,6 +48,7 @@ JOBS: dict[str, JobSpec] = {
     "chip_total":         JobSpec(fetch_chip_total,           "0 18 * * *",   "整體市場籌碼面"),
     "inst_futures":       JobSpec(fetch_inst_futures,         "0 18 * * *",   "外資台指期/小台未平倉"),
     "inst_options":       JobSpec(fetch_inst_options,         "10 18 * * *",  "三大法人 TXO 選擇權買賣權分計"),
+    "txo_strike_oi":      JobSpec(fetch_txo_strike_oi,        "15 18 * * *",  "TXO 各履約價未沖銷量"),
     "large_trader":       JobSpec(fetch_large_trader,         "5 18 * * *",   "大額交易人 (散戶多空比)"),
     "futures_settlement": JobSpec(fetch_settlement_refresh,   "0 2 1 * *",    "TX 結算日 (每月補未來 12 個月)"),
     "tw_volume":          JobSpec(fetch_tw_volume,            "5 18 * * *",   "台股大盤量能"),
