@@ -52,6 +52,8 @@ export interface ForeignFuturesResponse {
   realized_pnl: number[];
   /** 散戶多空比 (%) — null on days without 大額交易人 data */
   retail_ratio: (number | null)[];
+  /** TWSE 整體外資現貨淨買賣超 (億元) — null on days without indicator data */
+  foreign_spot_net: (number | null)[];
   /** 結算日 (YYYY-MM-DD) inside the visible window */
   settlement_dates: string[];
   /** TXO 三大法人選擇權買賣權分計 — 圖表序列以外資為主軸，
