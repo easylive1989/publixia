@@ -6,6 +6,7 @@ import { ForeignFuturesChart } from '@/components/foreign-futures/ForeignFutures
 import { ForeignSpotChart } from '@/components/foreign-futures/ForeignSpotChart';
 import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignOptionsAmountChart';
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
+import { ForeignOptionsStrikeDistribution } from '@/components/foreign-futures/ForeignOptionsStrikeDistribution';
 import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y'] as const;
@@ -76,6 +77,9 @@ export default function ForeignFuturesPage() {
             <>
               <ForeignOptionsAmountChart data={data} />
               <ForeignOptionsDetailTable data={data} />
+              {data.options.oi_by_strike && (
+                <ForeignOptionsStrikeDistribution data={data} />
+              )}
             </>
           )}
         </>

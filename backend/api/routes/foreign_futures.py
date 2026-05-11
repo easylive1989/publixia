@@ -17,6 +17,7 @@ from api.dependencies import require_foreign_futures_permission
 from fetchers.futures import fetch_tw_futures, fetch_tw_futures_mtx
 from fetchers.institutional_futures import fetch_latest as fetch_inst_latest
 from fetchers.institutional_options import fetch_latest as fetch_options_latest
+from fetchers.txo_strike_oi import fetch_latest as fetch_strike_oi_latest
 from fetchers.large_trader import fetch_latest as fetch_large_trader_latest
 from repositories.futures import get_futures_daily_range
 from repositories.indicators import get_indicator_history
@@ -25,9 +26,14 @@ from repositories.institutional_futures import (
     get_settlement_dates_in_range,
 )
 from repositories.institutional_options import get_institutional_options_range
+from repositories.txo_strike_oi import (
+    get_latest_txo_strike_oi_date,
+    get_txo_strike_oi_on_date,
+)
 from repositories.large_trader import get_large_trader_range
 from services.foreign_futures_metrics import compute_metrics, compute_retail_ratio
 from services.foreign_options_view import build_options_block
+from services.strike_oi_view import build_strike_oi_block
 
 router = APIRouter(
     prefix="/api",
@@ -61,6 +67,7 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         (fetch_tw_futures_mtx,        "tw_futures_mtx"),
         (fetch_inst_latest,           "institutional_futures"),
         (fetch_options_latest,        "institutional_options"),
+        (fetch_strike_oi_latest,      "txo_strike_oi"),
         (fetch_large_trader_latest,   "large_trader"),
     ):
         try:
@@ -141,6 +148,16 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
     # timeline plus a per-date detail map for the breakdown table.
     txo_rows = get_institutional_options_range("TXO", window_start_str)
     options = build_options_block(dates, txo_rows)
+
+    # 6b) Strike-level OI distribution for the latest trading day with
+    # data. TAIFEX publishes this market-wide (no identity breakdown),
+    # so we surface the full per-strike CALL/PUT histogram and let the
+    # frontend default to the near-month monthly contract.
+    strike_date = get_latest_txo_strike_oi_date("TXO")
+    strike_rows = (
+        get_txo_strike_oi_on_date("TXO", strike_date) if strike_date else []
+    )
+    options["oi_by_strike"] = build_strike_oi_block(strike_rows)
 
     return {
         "symbol":           "TX",
