@@ -5,6 +5,7 @@ import { useForeignFutures } from '@/hooks/useForeignFutures';
 import { ForeignFuturesChart } from '@/components/foreign-futures/ForeignFuturesChart';
 import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignOptionsAmountChart';
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
+import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y'] as const;
 type Range = (typeof RANGES)[number];
@@ -44,17 +45,23 @@ export default function ForeignFuturesPage() {
             持倉成本／未實現／已實現損益為近似值，與商業網站可能略有差異。
           </p>
         </div>
-        <div className="flex gap-1">
-          {RANGES.map((r) => (
-            <Button
-              key={r}
-              size="sm"
-              variant={r === range ? 'default' : 'outline'}
-              onClick={() => setParams({ range: r })}
-            >
-              {r}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {RANGES.map((r) => (
+              <Button
+                key={r}
+                size="sm"
+                variant={r === range ? 'default' : 'outline'}
+                onClick={() => setParams({ range: r })}
+              >
+                {r}
+              </Button>
+            ))}
+          </div>
+          <DownloadFiveDaysButton
+            data={data}
+            disabled={isLoading || isError || !data || data.dates.length === 0}
+          />
         </div>
       </div>
 
