@@ -100,3 +100,39 @@ def test_blank_strike_row_skipped():
     assert len(rows) == 1
     assert rows[0]["strike"] == 17500.0
     assert rows[0]["put_call"] == "PUT"
+
+
+# Verbatim header from `POST /cht/3/dlOptDataDown` (May 2026).
+# Note: ends with a trailing comma → an extra empty cell vs. data rows,
+# and the column order differs from the synthetic _HEADER above. A row
+# is 21 cells while the header is 22 cells — the parser must not reject
+# every row over that length mismatch.
+_REAL_HEADER = (
+    "交易日期,契約,到期月份(週別),履約價,買賣權,開盤價,最高價,最低價,"
+    "收盤價,成交量,結算價,未沖銷契約數,最後最佳買價,最後最佳賣價,"
+    "歷史最高價,歷史最低價,是否因訊息面暫停交易,交易時段,漲跌價,"
+    "漲跌%,契約到期日,"
+)
+
+
+def test_real_taifex_header_layout_parses():
+    """Regression: the live dlOptDataDown CSV has a trailing-comma header
+    and a different column order than our synthetic fixture. The parser
+    must locate fields by name (not index) and tolerate the header-row
+    being one cell wider than data rows."""
+    body = "\n".join((
+        _REAL_HEADER,
+        # 21 cells, matches the real CSV row width.
+        "2026/05/11,TXO,202605W2,35000.0000,買權,-,-,-,-,0,6770,1234,6540,6990,-,-,,一般,-,-,20260513",
+        "2026/05/11,TXO,202605W2,35000.0000,賣權,-,-,-,-,0,30,567,25,35,-,-,,一般,-,-,20260513",
+    ))
+    rows = parse_csv(body)
+    assert len(rows) == 2
+    by_pc = {r["put_call"]: r for r in rows}
+    assert by_pc["CALL"]["open_interest"] == 1234
+    assert by_pc["CALL"]["settle_price"]  == 6770.0
+    assert by_pc["PUT"]["open_interest"]  == 567
+    assert by_pc["PUT"]["settle_price"]   == 30.0
+    assert by_pc["CALL"]["expiry_month"]  == "202605W2"
+    assert by_pc["CALL"]["strike"]        == 35000.0
+    assert by_pc["CALL"]["date"]          == "2026-05-11"

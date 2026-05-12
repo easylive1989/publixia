@@ -1,9 +1,9 @@
 """TAIFEX 選擇權每日交易行情 — per-strike OI fetcher.
 
-Source: TAIFEX `optDataDown` daily CSV (the same export driving the
+Source: TAIFEX `dlOptDataDown` daily CSV (the same export driving the
 public 「每日選擇權市場成交資訊」 page).
 
-  POST https://www.taifex.com.tw/cht/3/optDataDown
+  POST https://www.taifex.com.tw/cht/3/dlOptDataDown
   form: queryStartDate=YYYY/MM/DD, queryEndDate=YYYY/MM/DD,
         commodity_id=TXO
 
@@ -34,7 +34,7 @@ from repositories.txo_strike_oi import (
 
 logger = logging.getLogger(__name__)
 
-TAIFEX_URL = "https://www.taifex.com.tw/cht/3/optDataDown"
+TAIFEX_URL = "https://www.taifex.com.tw/cht/3/dlOptDataDown"
 
 # 商品代號 → DB symbol. Limit to TXO; the CSV may contain other option
 # products if commodity_id is left empty, so we filter explicitly.
@@ -150,6 +150,11 @@ def parse_csv(text: str) -> list[dict]:
             break
     if header is None:
         return []
+    # TAIFEX's real CSV header ends with a trailing comma, producing an
+    # extra empty cell vs. the data rows. Strip trailing empty header
+    # cells so the row-length check below doesn't reject every row.
+    while header and header[-1] == "":
+        header.pop()
 
     f_date     = _find_field(header, "日期")
     f_product  = _find_field(header, "契約")
@@ -223,6 +228,17 @@ def parse_csv(text: str) -> list[dict]:
 
 def fetch_for_date(date: str) -> int:
     text = _request_csv(date, date)
+    # Header anchor must be present even on a non-trading day (TAIFEX
+    # returns the CSV header alone with no data rows for weekends/
+    # holidays). Its absence means upstream returned an error page —
+    # raise so the scheduler records last_status=error instead of
+    # silently parking forever on 0 rows.
+    if "履約價" not in text:
+        raise RuntimeError(
+            f"txo_strike_oi: TAIFEX response for {date} is missing "
+            f"the '履約價' header anchor (likely HTML/error page); "
+            f"first 200 chars: {text[:200]!r}"
+        )
     parsed = parse_csv(text)
     if parsed:
         save_txo_strike_oi_rows(parsed)
@@ -239,26 +255,46 @@ def fetch_for_range(start_date: str, end_date: str) -> int:
         return 0
 
     total = 0
+    attempted = 0
+    failed = 0
+    last_err: Exception | None = None
     cursor = start_dt
     while cursor <= end_dt:
         if cursor.weekday() >= 5:
             cursor += timedelta(days=1)
             continue
         d = cursor.strftime("%Y-%m-%d")
+        attempted += 1
         try:
             total += fetch_for_date(d)
         except Exception as exc:               # noqa: BLE001
+            failed += 1
+            last_err = exc
             logger.warning(
                 "txo_strike_oi fetch %s failed: %s", d, exc,
             )
         cursor += timedelta(days=1)
         if cursor <= end_dt:
             time.sleep(BACKFILL_THROTTLE_SEC)
+    # If every attempted day failed, escalate — the upstream is likely
+    # broken (URL changed, network down) and the scheduler should mark
+    # this run as error rather than silently parking on 0 rows.
+    if attempted > 0 and failed == attempted:
+        raise RuntimeError(
+            f"txo_strike_oi: all {attempted} day(s) in "
+            f"{start_date}..{end_date} failed; last error: {last_err}"
+        ) from last_err
     return total
 
 
 def fetch_latest() -> bool:
-    """Scheduler entry — fill gap between latest stored date and today."""
+    """Scheduler entry — fill gap between latest stored date and today.
+
+    Exceptions propagate to the scheduler wrapper so a broken upstream
+    surfaces as last_status=error in the admin CLI rather than silently
+    succeeding on zero rows (sibling fetchers swallow errors here; we
+    chose not to because TAIFEX is this job's only data source).
+    """
     today = datetime.now(timezone.utc).astimezone().date()
     end_date = today.strftime("%Y-%m-%d")
 
@@ -271,11 +307,7 @@ def fetch_latest() -> bool:
     else:
         start = today - timedelta(days=INITIAL_LOOKBACK_DAYS)
 
-    try:
-        return fetch_for_range(start.strftime("%Y-%m-%d"), end_date) > 0
-    except Exception as e:                     # noqa: BLE001
-        logger.exception("txo_strike_oi fetch_latest error: %s", e)
-        return False
+    return fetch_for_range(start.strftime("%Y-%m-%d"), end_date) > 0
 
 
 def backfill(start_date: str, end_date: str) -> int:
