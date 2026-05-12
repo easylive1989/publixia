@@ -65,10 +65,15 @@ REQUEST_TIMEOUT = 30
 # ── HTTP / parsing primitives ──────────────────────────────────────────
 
 def _request_csv(start_date: str, end_date: str) -> str:
+    # `down_type=1` selects the CSV download mode; without it TAIFEX
+    # returns 200 OK with an empty body. `commodity_id2` is the stock-
+    # options sub-product slot — sent empty to mirror the live form.
     form = {
+        "down_type":      "1",
+        "commodity_id":   "TXO",
+        "commodity_id2":  "",
         "queryStartDate": start_date.replace("-", "/"),
         "queryEndDate":   end_date.replace("-", "/"),
-        "commodity_id":   "TXO",
     }
     headers = {
         "User-Agent":
