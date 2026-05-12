@@ -3,9 +3,7 @@ import { lazy, Suspense } from 'react';
 import DashboardPage from './pages/DashboardPage';
 import StockDetailPage from './pages/StockDetailPage';
 import FuturesDetailPage from './pages/FuturesDetailPage';
-import Top100Page from './pages/Top100Page';
 import { PermissionGate } from './components/strategy/PermissionGate';
-import { Top100PermissionGate } from './components/top100/PermissionGate';
 import { ForeignFuturesPermissionGate } from './components/foreign-futures/PermissionGate';
 
 const StrategiesListPage = lazy(() => import('./pages/StrategiesListPage'));
@@ -37,7 +35,6 @@ export function createRouter() {
         </ForeignFuturesPermissionGate>
       ),
     },
-    { path: '/tw-top100', element: <Top100PermissionGate><Top100Page /></Top100PermissionGate> },
     { path: '/strategies',         element: gated(<StrategiesListPage />) },
     { path: '/strategies/new',     element: gated(<StrategyEditPage />) },
     { path: '/strategies/:id',     element: gated(<StrategyEditPage />) },

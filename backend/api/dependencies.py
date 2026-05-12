@@ -56,28 +56,14 @@ async def require_foreign_futures_permission(
 ) -> dict:
     """Extend require_user with the foreign-futures-flow page gate.
 
-    Same shape as require_top100_permission: re-query via
-    get_user_with_settings to read can_view_foreign_futures, return the
-    merged dict. 403 with a stable detail string on failure so the
-    frontend can distinguish "no permission" from "missing token" / 404.
+    Re-queries via get_user_with_settings to read can_view_foreign_futures
+    and returns the merged dict. 403 with a stable detail string on
+    failure so the frontend can distinguish "no permission" from
+    "missing token" / 404.
     """
     settings = get_user_with_settings(user["id"])
     if settings is None or not settings["can_view_foreign_futures"]:
         raise HTTPException(status_code=403, detail="no foreign futures permission")
-    return {**user, **settings}
-
-
-async def require_top100_permission(user: dict = Depends(require_user)) -> dict:
-    """Extend require_user with the Taiwan top-100 browse-list feature gate.
-
-    Same shape as require_strategy_permission: re-query via
-    get_user_with_settings to read can_view_top100, return the merged
-    dict. 403 with a stable detail string on failure so the frontend can
-    distinguish "no permission" from "missing token" / 404.
-    """
-    settings = get_user_with_settings(user["id"])
-    if settings is None or not settings["can_view_top100"]:
-        raise HTTPException(status_code=403, detail="no top100 permission")
     return {**user, **settings}
 
 

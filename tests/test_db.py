@@ -98,30 +98,19 @@ def test_save_and_get_stock_snapshot():
     assert row["name"] == "元大台灣50"
 
 
-def test_seed_loader_is_idempotent():
-    """init_db() seeds auto-tracked once; running it again does not duplicate."""
-    from repositories.auto_tracked import list_auto_tracked_tickers
-    before = set(list_auto_tracked_tickers())
-    assert len(before) >= 80, f"seed should yield ≥80 tickers, got {len(before)}"
-    db.init_db()
-    after = set(list_auto_tracked_tickers())
-    assert before == after
-
-
-def test_global_watched_tickers_includes_auto_tracked():
-    """get_watched_tickers(None) is the union used by background fetchers."""
+def test_global_watched_tickers_returns_distinct_union():
+    """get_watched_tickers(None) is the distinct list used by background fetchers."""
     db.add_watched_ticker(1, 'TSTUSER.TW')
-    auto = db.get_watched_tickers()
-    # Seed list includes 2330.TW
-    assert '2330.TW' in auto
-    # User's personal addition also surfaces
-    assert 'TSTUSER.TW' in auto
+    db.add_watched_ticker(1, 'TSTOTHER.TW')
+    all_tickers = db.get_watched_tickers()
+    assert 'TSTUSER.TW' in all_tickers
+    assert 'TSTOTHER.TW' in all_tickers
+    # Sorted ascending.
+    assert all_tickers == sorted(all_tickers)
 
 
-def test_user_watchlist_excludes_auto_tracked():
+def test_user_watchlist_returns_only_user_rows():
     """get_watched_tickers(user_id) returns ONLY that user's personal list."""
     db.add_watched_ticker(1, 'TSTONLY.TW')
     user_only = db.get_watched_tickers(1)
     assert 'TSTONLY.TW' in user_only
-    # Auto-tracked seed shouldn't bleed into the user's personal view.
-    assert '2330.TW' not in user_only

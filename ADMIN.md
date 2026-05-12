@@ -217,107 +217,14 @@ Useful greps:
 - `strategy_evaluate_failed` — full traceback before auto-disable
 - `strategy_engine_no_bar` — fetcher hadn't run when engine fired
 
-## Auto-tracked Taiwan top-100
-
-Taiwan large-caps + popular ETFs are auto-tracked: backend fetchers
-prefetch their data even when no user is currently watching them, and
-detail endpoints (`/api/stocks/{ticker}/*`) accept any auto-tracked
-ticker without requiring it in a user's watchlist.
-
-### Where the list lives
-
-```
-stock/dashboard/backend/seeds/auto_tracked_taiwan.txt
-```
-
-Newline-delimited tickers in `XXXX.TW` form, with `#` comments. Sectioned
-roughly by industry (半導體 / 金融 / 傳產 / ETF…). About 90 tickers in
-the initial seed.
-
-### How the list flows into the DB
-
-`init_db()` (called on every service start) reads the file and runs
-`INSERT OR IGNORE INTO auto_tracked_stocks` for each ticker. **Removed
-entries are NOT deleted** — the table is monotonic. If a stock falls
-out of the top 100 next quarter, removing the line in the file just
-prevents new DB rows; the old row stays and the stock keeps getting
-prefetched. This matches the design choice "只增不減".
-
-### How to add new tickers
-
-1. SSH to the VPS:
-
-   ```bash
-   ssh root@<VPS_HOST>
-   cd /opt/stock-dashboard
-   ```
-
-2. Edit the seed file directly:
-
-   ```bash
-   nano backend/seeds/auto_tracked_taiwan.txt
-   ```
-
-   Append new lines (any section comment is fine; comments aren't
-   parsed). One ticker per line, e.g. `1234.TW    # 公司名`.
-
-3. Restart the service to apply:
-
-   ```bash
-   systemctl restart stock-dashboard.service
-   journalctl -u stock-dashboard.service -n 5
-   # look for: auto_tracked_seeded total=N added=K
-   ```
-
-   `added=K` shows how many new rows the seed loader inserted this run.
-
-Alternative: edit the file in the repo, commit + push, the deploy
-workflow rsyncs the new file and restarts the service automatically.
-This is cleaner since the seed file is version-controlled.
-
-### How to remove a ticker
-
-The DB is monotonic: there's no "remove" workflow. If a stock should
-genuinely never be auto-fetched again (e.g. delisted, causing fetcher
-errors that flood the logs):
-
-```bash
-sqlite3 /opt/stock-dashboard/backend/stock_dashboard.db
-sqlite> DELETE FROM auto_tracked_stocks WHERE ticker = '1234.TW';
-```
-
-Also remove the line from the seed file so future restarts don't
-re-add it. (If you only delete from the DB but leave it in the seed,
-the next restart re-inserts.)
-
-### Audit
-
-```bash
-# Count + sample
-sqlite3 /opt/stock-dashboard/backend/stock_dashboard.db \
-  "SELECT COUNT(*), MIN(added_at), MAX(added_at) FROM auto_tracked_stocks"
-
-# Compare seed file vs DB
-sqlite3 /opt/stock-dashboard/backend/stock_dashboard.db \
-  "SELECT ticker FROM auto_tracked_stocks ORDER BY ticker" > /tmp/db_tickers
-grep -E '^[0-9]' backend/seeds/auto_tracked_taiwan.txt | awk '{print $1}' | sort > /tmp/seed_tickers
-diff /tmp/db_tickers /tmp/seed_tickers
-```
-
-Diff output: lines only in `db_tickers` are stocks that were seeded
-historically and later removed from the file — the monotonic policy
-keeping them. Lines only in `seed_tickers` shouldn't normally appear
-unless the service hasn't restarted since the last edit.
-
-### Detail endpoint behavior
+## Detail endpoint behavior
 
 For `/api/stocks/{ticker}/{history,chip,valuation,revenue,financial,
 dividend}`:
 
 - Ticker in user's `/api/stocks` watchlist → 200
-- Ticker in `auto_tracked_stocks` → 200
-- Otherwise → **404** with detail "Ticker not in your watchlist and
-  not in the auto-tracked list. Add it via POST /api/stocks first."
+- Otherwise → **404** with detail "Ticker not in your watchlist. Add it
+  via POST /api/stocks first."
 
 This is enforced by `_gate_or_404()` in `api/routes/stocks.py`.
 
@@ -336,12 +243,6 @@ The user concept landed in migration `0003_users.sql`:
 - `watched_stocks` is rebuilt to use `UNIQUE(user_id, ticker)` so two
   users can independently watch the same ticker
 - All existing rows are backfilled to `user_id=1`
-
-The auto-track table landed in migration `0004_auto_tracked.sql`:
-
-- New `auto_tracked_stocks` table (ticker PK, source, added_at)
-- Populated from `seeds/auto_tracked_taiwan.txt` on every `init_db()`
-  via `INSERT OR IGNORE` (idempotent + monotonic)
 
 Direct DB inspection is fine for auditing:
 
@@ -369,8 +270,7 @@ On 401 (expired/revoked), `apiFetch` clears `localStorage` and the
 | `IntegrityError: UNIQUE constraint failed: api_tokens.user_id` on issue | Active row exists but the rotate-revoke step didn't update | Re-run `Refresh token` in the admin CLI (revokes-then-inserts in one transaction); if persistent, manually `UPDATE api_tokens SET revoked_at = datetime('now') WHERE user_id = ? AND revoked_at IS NULL` |
 | User reports working token suddenly returns 401 | Someone else rotated (`Refresh token` for the same user) | Inspect `api_tokens` to see which row is now active; reissue if intended, or revoke the unintended one |
 | Discord ops alert: `Stock Dashboard auth burst` | 5+ 401s from one IP in 5 min | Check logs (`journalctl -u stock-dashboard.service`) for the IP / token prefix; could be a stale token on a polling client, or scanning attempt |
-| Detail endpoint returns 404 for a ticker the user expected to view | Not in user's watchlist and not in auto-tracked seed | User adds via dashboard "+ 新增" or `POST /api/stocks`; or admin appends to `seeds/auto_tracked_taiwan.txt` and restarts |
-| Logs flooded with `yfinance: $XXXX.TW: possibly delisted` for an auto-tracked ticker | Seed contains a delisted/never-existed symbol | `DELETE FROM auto_tracked_stocks WHERE ticker = ?` and remove from seed file |
+| Detail endpoint returns 404 for a ticker the user expected to view | Not in user's watchlist | User adds via dashboard "+ 新增" or `POST /api/stocks` |
 
 ## Service control
 

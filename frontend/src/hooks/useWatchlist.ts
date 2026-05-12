@@ -18,13 +18,6 @@ export function useWatchlist() {
   });
 }
 
-export function useAutoTracked() {
-  return useQuery<WatchlistRow[]>({
-    queryKey: ['stocks', 'auto-tracked'],
-    queryFn: () => apiFetch<WatchlistRow[]>('/api/stocks/auto-tracked'),
-  });
-}
-
 export function useAddStock() {
   const qc = useQueryClient();
   return useMutation({

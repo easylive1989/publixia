@@ -1,11 +1,20 @@
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
+import db
 from main import app
 from fetchers.broker import _aggregate, to_finmind_id, fetch_broker_daily
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _watch_2330():
+    """Endpoints under /api/stocks/{ticker}/* require the ticker to be in
+    the user's watchlist now that auto-tracked is gone."""
+    db.add_watched_ticker(1, "2330.TW")
 
 
 def test_to_finmind_id_strips_suffix():
@@ -35,7 +44,6 @@ def test_aggregate_sums_buy_sell_per_broker_per_day():
 
 
 def test_brokers_endpoint_empty_when_no_data():
-    # 2330.TW is in the auto-tracked seed list so the watchlist gate passes.
     # The endpoint is intentionally stubbed (FinMind dataset went sponsor-
     # only) — it always returns ok=False with no rows.
     with patch("fetchers.broker.fetch_broker_daily", return_value=False):

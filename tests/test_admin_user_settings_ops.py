@@ -18,7 +18,6 @@ def test_list_users_with_token_includes_strategy_and_webhook_fields():
     assert rows, "expected at least the seeded paul user"
     paul = next(u for u in rows if u["name"] == "paul")
     assert paul["can_use_strategy"] is False
-    assert paul["can_view_top100"] is False
     assert paul["webhook_display"] == "—"          # masked render of NULL
 
 
@@ -80,22 +79,6 @@ def test_set_discord_webhook_accepts_discordapp_alias():
 def test_set_strategy_permission_unknown_user_returns_false():
     """Admin layer should return False for an unknown user_id (mirrors repo)."""
     assert ops.set_strategy_permission(99999, True) is False
-
-
-def test_set_top100_permission_round_trips():
-    ops.set_top100_permission(1, True)
-    rows = ops.list_users_with_token()
-    paul = next(u for u in rows if u["id"] == 1)
-    assert paul["can_view_top100"] is True
-
-    ops.set_top100_permission(1, False)
-    rows = ops.list_users_with_token()
-    paul = next(u for u in rows if u["id"] == 1)
-    assert paul["can_view_top100"] is False
-
-
-def test_set_top100_permission_unknown_user_returns_false():
-    assert ops.set_top100_permission(99999, True) is False
 
 
 def test_clear_discord_webhook_unknown_user_returns_false():

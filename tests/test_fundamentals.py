@@ -14,6 +14,13 @@ from fetchers.fundamentals_stock import (
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _watch_2330():
+    """Endpoints under /api/stocks/{ticker}/* require the ticker to be in
+    the user's watchlist now that auto-tracked is gone."""
+    db.add_watched_ticker(1, "2330.TW")
+
+
 # === PER ===
 SAMPLE_PER = [
     {"date": "2026-04-29", "stock_id": "2330",

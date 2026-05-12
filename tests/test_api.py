@@ -108,41 +108,6 @@ def test_get_stocks_returns_watchlist():
     assert "0050.TW" in tickers
 
 
-def test_get_auto_tracked_403_without_permission():
-    """Default seeded user has can_view_top100=False; gate must reject."""
-    r = client.get("/api/stocks/auto-tracked")
-    assert r.status_code == 403
-    assert r.json()["detail"] == "no top100 permission"
-
-
-def test_get_auto_tracked_returns_top100_with_snapshots():
-    """Once granted, the endpoint exposes the seeded Taiwan top-100 list
-    and enriches rows that have a snapshot. Tickers without a snapshot
-    fall back to ticker-as-name and price=None."""
-    from repositories.users import set_top100_permission
-    set_top100_permission(1, True)
-    db.save_stock_snapshot("2330.TW", 1100.0, 5.0, 0.45, "TWD", "台積電")
-
-    r = client.get("/api/stocks/auto-tracked")
-    assert r.status_code == 200
-    rows = r.json()
-    # Seed file (`backend/seeds/auto_tracked_taiwan.txt`) currently lists
-    # ~90+ Taiwan top-cap tickers — assert a healthy lower bound rather
-    # than a moving target.
-    assert len(rows) >= 50
-    by_ticker = {row["ticker"]: row for row in rows}
-    assert "2330.TW" in by_ticker
-    assert by_ticker["2330.TW"]["name"] == "台積電"
-    assert by_ticker["2330.TW"]["price"] == 1100.0
-
-    # A seeded ticker without a snapshot still appears, with price=None.
-    no_snap = next(
-        row for row in rows
-        if row["ticker"] != "2330.TW" and row["price"] is None
-    )
-    assert no_snap["name"] == no_snap["ticker"]
-
-
 def test_add_and_delete_stock():
     r = client.post("/api/stocks", json={"ticker": "2330.tw"})
     assert r.status_code == 200
@@ -176,6 +141,7 @@ def test_stock_history_returns_data(monkeypatch):
         },
     }
     monkeypatch.setattr("api.routes.stocks.fetch_stock_history", lambda ticker, time_range: fake)
+    db.add_watched_ticker(1, "2330.TW")
     r = client.get("/api/stocks/2330.tw/history?time_range=3M")
     assert r.status_code == 200
     data = r.json()
@@ -191,6 +157,7 @@ def test_stock_history_404_when_no_data(monkeypatch):
 
 
 def test_stock_history_rejects_invalid_range():
+    db.add_watched_ticker(1, "2330.TW")
     r = client.get("/api/stocks/2330.TW/history?time_range=10Y")
     assert r.status_code == 400
 
@@ -215,7 +182,7 @@ def test_endpoint_returns_401_without_auth_override():
             app.dependency_overrides[require_token] = saved
 
 
-def test_detail_404_when_neither_watched_nor_auto_tracked():
+def test_detail_404_when_not_in_watchlist():
     r = client.get("/api/stocks/UNKNOWN.XYZ/history?time_range=1M")
     assert r.status_code == 404
     r = client.get("/api/stocks/UNKNOWN.XYZ/valuation")
@@ -228,16 +195,8 @@ def test_detail_404_when_neither_watched_nor_auto_tracked():
     assert r.status_code == 404
 
 
-def test_detail_passes_gate_for_auto_tracked():
-    """2330.TW is in the seed list — auto-tracked, accessible to any user."""
-    # Don't add 2330.TW to user 1's personal watchlist; auto-tracked alone should suffice.
-    r = client.get("/api/stocks/2330.TW/dividend")
-    # 200 from cache or 200 with empty rows; either way not 404 from gating
-    assert r.status_code != 404
-
-
 def test_detail_passes_gate_for_user_watchlist():
-    """A ticker outside the seed list works once the user adds it."""
+    """A ticker works once the user adds it to their personal watchlist."""
     db.add_watched_ticker(1, "FAKE.US")
     r = client.get("/api/stocks/FAKE.US/dividend")
     # FAKE.US is NOT a Taiwan ticker → fundamentals routes 400 (not 404 from gating)

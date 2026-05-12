@@ -13,6 +13,5 @@ class MeResponse(BaseModel):
     user_id:                  int
     name:                     str
     can_use_strategy:         bool
-    can_view_top100:          bool
     can_view_foreign_futures: bool
     has_webhook:              bool

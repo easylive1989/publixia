@@ -5,7 +5,6 @@ import { DashboardSettingsDialog } from '@/components/DashboardSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StrategiesNavLink } from '@/components/strategy/NavLink';
-import { Top100NavLink } from '@/components/top100/NavLink';
 import { ForeignFuturesNavLink } from '@/components/foreign-futures/NavLink';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
@@ -53,7 +52,6 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <StrategiesNavLink />
           <ForeignFuturesNavLink />
-          <Top100NavLink />
         </div>
         <DashboardSettingsDialog />
       </div>

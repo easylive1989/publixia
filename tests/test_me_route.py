@@ -20,7 +20,6 @@ def test_me_defaults_for_seeded_user():
         "user_id":                  1,
         "name":                     "paul",
         "can_use_strategy":         False,
-        "can_view_top100":          False,
         "can_view_foreign_futures": False,
         "has_webhook":              False,
     }
@@ -56,7 +55,7 @@ def test_require_strategy_permission_403_when_off():
     from api.dependencies import require_user
     app2.dependency_overrides[require_user] = lambda: {
         "id": 1, "name": "paul",
-        "can_use_strategy": False, "can_view_top100": False,
+        "can_use_strategy": False,
         "can_view_foreign_futures": False,
         "discord_webhook_url": None,
     }
@@ -85,7 +84,7 @@ def test_require_strategy_permission_passes_when_on():
     from api.dependencies import require_user
     app2.dependency_overrides[require_user] = lambda: {
         "id": 1, "name": "paul",
-        "can_use_strategy": False, "can_view_top100": False,
+        "can_use_strategy": False,
         "can_view_foreign_futures": False,
         "discord_webhook_url": None,
     }

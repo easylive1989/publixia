@@ -12,6 +12,13 @@ from fetchers.chip_stock import parse_stock_inst, parse_stock_margin, fetch_stoc
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def _watch_2330():
+    """Endpoints under /api/stocks/{ticker}/* require the ticker to be in
+    the user's watchlist now that auto-tracked is gone."""
+    db.add_watched_ticker(1, "2330.TW")
+
+
 # Sample 來自 FinMind v4 GET /data?dataset=TaiwanStockTotalMarginPurchaseShortSale
 # 一天 3 筆 row(MarginPurchase / MarginPurchaseMoney / ShortSale),長格式
 SAMPLE_TOTAL_MARGIN = [

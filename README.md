@@ -56,11 +56,10 @@ deploy.sh                Manual VPS deploy (used outside CI)
 | `margin_balance` / `short_balance` / `short_margin_ratio`      | 整體融資融券          | FinMind `TaiwanStockTotalMarginPurchaseShortSale`                                                       | `fetchers/chip_total.py`         | 18:00      |
 | `total_foreign_net` / `total_trust_net` / `total_dealer_net`   | 整體三大法人買賣超     | FinMind `TaiwanStockTotalInstitutionalInvestors`                                                        | `fetchers/chip_total.py`         | 18:00      |
 
-### 2. 個股與 watchlist — `watched_stocks` / `auto_tracked_stocks` / `stock_snapshots`
+### 2. 個股與 watchlist — `watched_stocks` / `stock_snapshots`
 
 - `watched_stocks` — 使用者自選清單，前端 `/api/stocks` 增刪。
-- `auto_tracked_stocks` — 台股 top-100 自動追蹤名單，種子在 [`backend/seeds/auto_tracked_taiwan.txt`](backend/seeds/auto_tracked_taiwan.txt)，需 `can_view_top100` 權限。
-- `stock_snapshots` — watchlist + auto_tracked 每日收盤快照（yfinance；台股 14:00、美股 06:00）。
+- `stock_snapshots` — watchlist 每日收盤快照（yfinance；台股 14:00、美股 06:00）。
 - 個股 K 線歷史 (`/api/stocks/{ticker}/history`) 是 **lazy fetch**，呼叫時即時跟 yfinance 拿 OHLCV，前端再計算 MA/MACD/KD。
 
 ### 3. 期貨 — FinMind `TaiwanFuturesDaily`

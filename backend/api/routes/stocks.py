@@ -5,9 +5,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from api._constants import RANGE_DELTAS
-from api.dependencies import require_token, require_top100_permission, require_user
+from api.dependencies import require_token, require_user
 from api.schemas.stocks import AddStockRequest
-from repositories.auto_tracked import is_auto_tracked, list_auto_tracked_tickers
 from repositories.chip import get_chip_daily_range
 from repositories.stocks import (
     add_watched_ticker, get_latest_stock, get_watched_tickers, remove_watched_ticker,
@@ -15,16 +14,13 @@ from repositories.stocks import (
 
 
 def _gate_or_404(user_id: int, ticker: str) -> None:
-    """Raise 404 unless the ticker is in the user's personal watchlist
-    or in the auto-tracked Taiwan top-100."""
+    """Raise 404 unless the ticker is in the user's personal watchlist."""
     ticker = ticker.upper()
-    if is_auto_tracked(ticker):
-        return
     if ticker in get_watched_tickers(user_id):
         return
     raise HTTPException(
         status_code=404,
-        detail="Ticker not in your watchlist and not in the auto-tracked list. Add it via POST /api/stocks first.",
+        detail="Ticker not in your watchlist. Add it via POST /api/stocks first.",
     )
 from fetchers.yfinance_fetcher import fetch_all_stocks, fetch_stock_history
 from fetchers.chip_stock import fetch_stock_chip, to_finmind_id as chip_to_finmind_id
@@ -37,31 +33,6 @@ router = APIRouter(prefix="/api", tags=["stocks"], dependencies=[Depends(require
 def get_stocks(user: dict = Depends(require_user)):
     result = []
     for ticker in get_watched_tickers(user["id"]):
-        row = get_latest_stock(ticker)
-        if row:
-            result.append({
-                "ticker":     ticker,
-                "name":       row["name"],
-                "price":      row["price"],
-                "change":     row["change"],
-                "change_pct": row["change_pct"],
-                "currency":   row["currency"],
-                "timestamp":  row["timestamp"],
-            })
-        else:
-            result.append({"ticker": ticker, "name": ticker, "price": None})
-    return result
-
-
-@router.get("/stocks/auto-tracked")
-def get_auto_tracked_stocks(user: dict = Depends(require_top100_permission)):
-    """Taiwan top-100 by market cap, seeded from auto_tracked_stocks.
-
-    Same row shape as GET /api/stocks; rows without a snapshot fall back
-    to ticker-as-name and price=None (display "—" on the client).
-    """
-    result = []
-    for ticker in list_auto_tracked_tickers():
         row = get_latest_stock(ticker)
         if row:
             result.append({
