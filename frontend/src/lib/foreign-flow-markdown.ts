@@ -3,6 +3,7 @@ import type {
   OptionsDetailRow,
   OptionsIdentity,
   OptionsPutCall,
+  StrikeOiBlock,
 } from '@/hooks/useForeignFutures';
 
 const TARGET_DAYS = 5;
@@ -166,6 +167,82 @@ function buildSpotTable(data: ForeignFuturesResponse, slice: SliceResult): strin
   return lines.join('\n');
 }
 
+function formatExpiry(expiry: string): string {
+  const m = expiry.match(/^(\d{4})(\d{2})(.*)$/);
+  if (!m) return expiry;
+  const week = m[3] ? ` ${m[3]}` : '';
+  return `${m[1]}/${m[2]}${week}`;
+}
+
+function buildStrikeOiSection(block: StrikeOiBlock): string {
+  const lines: string[] = [];
+  lines.push('## 各履約價未平倉量 (OI) 分布 — 市場合計');
+  lines.push('');
+
+  if (!block.date || block.expiry_months.length === 0) {
+    lines.push('> 尚無 TXO 各履約價未沖銷量資料');
+    return lines.join('\n');
+  }
+
+  const targetExpiry =
+    (block.near_month && block.by_expiry[block.near_month])
+      ? block.near_month
+      : block.expiry_months.find((m) => block.by_expiry[m]) ?? null;
+
+  lines.push(`資料日: ${block.date}`);
+  const others = block.expiry_months
+    .filter((m) => m !== targetExpiry)
+    .map(formatExpiry);
+  if (others.length > 0) {
+    lines.push(`其他可選到期月份: ${others.join(', ')}`);
+  }
+  lines.push('');
+
+  if (!targetExpiry) {
+    lines.push('> 此資料日無可用的履約價 OI 明細');
+    return lines.join('\n');
+  }
+
+  const slice = block.by_expiry[targetExpiry];
+  const n = slice.strikes.length;
+
+  // Trim leading/trailing zero rows so the table focuses on the live OI band.
+  let start = 0;
+  while (start < n && (slice.call_oi[start] ?? 0) === 0 && (slice.put_oi[start] ?? 0) === 0) {
+    start += 1;
+  }
+  let end = n - 1;
+  while (end > start && (slice.call_oi[end] ?? 0) === 0 && (slice.put_oi[end] ?? 0) === 0) {
+    end -= 1;
+  }
+
+  lines.push(`### 到期 ${formatExpiry(targetExpiry)}`);
+  lines.push('');
+
+  if (n === 0 || end < start) {
+    lines.push('> 此到期月份無 OI 資料');
+    return lines.join('\n');
+  }
+
+  lines.push('| 履約價 | 買權 OI | 賣權 OI | 合計 |');
+  lines.push('|---:|---:|---:|---:|');
+  let callTotal = 0;
+  let putTotal = 0;
+  for (let i = start; i <= end; i++) {
+    const strike = slice.strikes[i];
+    const call = slice.call_oi[i] ?? 0;
+    const put = slice.put_oi[i] ?? 0;
+    callTotal += call;
+    putTotal += put;
+    const strikeLabel = Number.isInteger(strike) ? String(strike) : strike.toString();
+    lines.push(`| ${strikeLabel} | ${fmtNum(call)} | ${fmtNum(put)} | ${fmtNum(call + put)} |`);
+  }
+  lines.push('');
+  lines.push(`> 單位:口;買權合計 ${fmtNum(callTotal)},賣權合計 ${fmtNum(putTotal)};TAIFEX 不公開身份別 (外資/投信/自營) 各履約價數據,此為全市場合計`);
+
+  return lines.join('\n');
+}
+
 function buildRetailTable(data: ForeignFuturesResponse, slice: SliceResult): string {
   const lines: string[] = [];
   lines.push('## 散戶多空比 (%)');
@@ -213,6 +290,8 @@ export function buildForeignFlowMarkdown(
   sections.push(buildForeignFuturesTable(data, slice));
   const optionsTable = buildOptionsTable(data, slice);
   if (optionsTable) sections.push(optionsTable);
+  const strikeBlock = data.options?.oi_by_strike;
+  if (strikeBlock) sections.push(buildStrikeOiSection(strikeBlock));
   sections.push(buildRetailTable(data, slice));
 
   return header + sections.join('\n\n') + '\n';
