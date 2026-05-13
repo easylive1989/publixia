@@ -180,6 +180,73 @@ describe('buildForeignFlowMarkdown', () => {
     expect(md).toMatch(/\| 2026-05-05 \| — \| — \| — \| — \| 0 \|/);
   });
 
+  it('renders strike OI distribution section for near month, trimming zero-OI rows', () => {
+    const data = makeData();
+    data.options!.oi_by_strike = {
+      date: '2026-05-09',
+      expiry_months: ['202605', '202606', '202605W2'],
+      near_month: '202605',
+      by_expiry: {
+        '202605': {
+          strikes:  [16800, 16900, 17000, 17100, 17200, 17300],
+          call_oi:  [0,     0,     1500,  2200,  800,   0],
+          put_oi:   [0,     1200,  900,   400,   0,     0],
+        },
+        '202606': { strikes: [17000], call_oi: [10], put_oi: [10] },
+        '202605W2': { strikes: [17000], call_oi: [5], put_oi: [5] },
+      },
+    };
+    const md = buildForeignFlowMarkdown(data, '2026-05-11');
+    expect(md).toContain('## 各履約價未平倉量 (OI) 分布 — 市場合計');
+    expect(md).toContain('資料日: 2026-05-09');
+    expect(md).toContain('### 到期 2026/05');
+    expect(md).toContain('其他可選到期月份: 2026/06, 2026/05 W2');
+    // Leading zero row (16800) should be trimmed away
+    expect(md).not.toMatch(/\| 16800 \| 0 \| 0 \| 0 \|/);
+    // Trailing zero row (17300) should be trimmed away
+    expect(md).not.toMatch(/\| 17300 \|/);
+    // 16900 kept (put_oi nonzero), call_oi = 0
+    expect(md).toMatch(/\| 16900 \| 0 \| 1,200 \| 1,200 \|/);
+    // 17100 row: call 2,200, put 400, sum 2,600
+    expect(md).toMatch(/\| 17100 \| 2,200 \| 400 \| 2,600 \|/);
+    // Totals across trimmed range: call 4,500, put 2,500
+    expect(md).toContain('買權合計 4,500');
+    expect(md).toContain('賣權合計 2,500');
+  });
+
+  it('omits strike OI section when oi_by_strike is absent', () => {
+    const md = buildForeignFlowMarkdown(makeData(), '2026-05-11');
+    expect(md).not.toContain('## 各履約價未平倉量');
+  });
+
+  it('shows fallback message when strike OI block has no data date', () => {
+    const data = makeData();
+    data.options!.oi_by_strike = {
+      date: null,
+      expiry_months: [],
+      near_month: null,
+      by_expiry: {},
+    };
+    const md = buildForeignFlowMarkdown(data, '2026-05-11');
+    expect(md).toContain('## 各履約價未平倉量');
+    expect(md).toContain('尚無 TXO 各履約價未沖銷量資料');
+  });
+
+  it('falls back to first available expiry when near_month is missing', () => {
+    const data = makeData();
+    data.options!.oi_by_strike = {
+      date: '2026-05-09',
+      expiry_months: ['202607'],
+      near_month: null,
+      by_expiry: {
+        '202607': { strikes: [17000], call_oi: [100], put_oi: [200] },
+      },
+    };
+    const md = buildForeignFlowMarkdown(data, '2026-05-11');
+    expect(md).toContain('### 到期 2026/07');
+    expect(md).toMatch(/\| 17000 \| 100 \| 200 \| 300 \|/);
+  });
+
   it('handles dates with no TXO detail rows by omitting them from the table', () => {
     const data = makeData();
     // Keep options block but blank out detail_by_date

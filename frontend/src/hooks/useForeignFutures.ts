@@ -1,4 +1,9 @@
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 
 export interface ForeignFuturesCandle {
@@ -91,5 +96,32 @@ export function useForeignFutures(
       apiFetch<ForeignFuturesResponse>(
         `/api/futures/tw/foreign-flow?time_range=${encodeURIComponent(range)}`,
       ),
+  });
+}
+
+export interface RefreshFetcherResult {
+  status: 'ok' | 'error';
+  detail: string | null;
+}
+
+export interface RefreshForeignFuturesResponse {
+  ok: boolean;
+  results: Record<string, RefreshFetcherResult>;
+}
+
+/** Trigger every fetcher feeding 外資動向 on demand, then refetch all
+ *  cached ranges so the page reflects the new rows. The mutation
+ *  takes ~30–60s because TAIFEX throttles per-request. */
+export function useRefreshForeignFutures() {
+  const qc = useQueryClient();
+  return useMutation<RefreshForeignFuturesResponse>({
+    mutationFn: () =>
+      apiFetch<RefreshForeignFuturesResponse>(
+        '/api/futures/tw/foreign-flow/refresh',
+        { method: 'POST' },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['foreign-futures', 'tw'] });
+    },
   });
 }

@@ -4,9 +4,12 @@ Conftest overrides require_token / require_user, so permission-gating
 tests must explicitly construct a fresh app or mutate the seeded user
 row to flip can_view_foreign_futures on/off.
 """
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from main import app
+from api.routes import foreign_futures as foreign_futures_route
 from db.connection import get_connection
 from repositories.users import set_foreign_futures_permission
 from repositories.futures import save_futures_daily_rows
@@ -224,3 +227,86 @@ def test_strike_oi_block_uses_latest_available_date():
     assert monthly["strikes"] == [17000.0]
     assert monthly["call_oi"] == [400]
     assert monthly["put_oi"]  == [700]
+
+
+def _stub_refresh_fetchers(behaviour: dict[str, Exception | None] | None = None):
+    """Patch the 5 fetchers wired into the refresh endpoint.
+
+    behaviour maps fetcher name → None (succeed) or an Exception
+    (raised when invoked). Returns the list of names actually called,
+    in order, plus the mock objects so tests can assert call counts.
+    """
+    behaviour = behaviour or {}
+    calls: list[str] = []
+
+    def _make(name: str):
+        def _fn():
+            calls.append(name)
+            err = behaviour.get(name)
+            if err is not None:
+                raise err
+        return _fn
+
+    patched = [
+        (name, _make(name)) for name, _ in foreign_futures_route._REFRESH_FETCHERS
+    ]
+    return calls, patched
+
+
+def test_refresh_runs_all_fetchers_and_reports_ok():
+    _grant()
+    calls, patched = _stub_refresh_fetchers()
+    with patch.object(foreign_futures_route, "_REFRESH_FETCHERS", patched):
+        r = client.post("/api/futures/tw/foreign-flow/refresh")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    assert calls == [
+        "tw_futures", "inst_futures", "inst_options",
+        "large_trader", "txo_strike_oi",
+    ]
+    for name in calls:
+        assert body["results"][name] == {"status": "ok", "detail": None}
+
+
+def test_refresh_continues_after_individual_fetcher_failure():
+    _grant()
+    calls, patched = _stub_refresh_fetchers(
+        behaviour={"inst_options": RuntimeError("TAIFEX down")},
+    )
+    with patch.object(foreign_futures_route, "_REFRESH_FETCHERS", patched):
+        r = client.post("/api/futures/tw/foreign-flow/refresh")
+    assert r.status_code == 200
+    body = r.json()
+    # Partial failure → ok=False but the remaining fetchers still ran.
+    assert body["ok"] is False
+    assert calls == [
+        "tw_futures", "inst_futures", "inst_options",
+        "large_trader", "txo_strike_oi",
+    ]
+    assert body["results"]["inst_options"]["status"] == "error"
+    assert "TAIFEX down" in body["results"]["inst_options"]["detail"]
+    assert body["results"]["tw_futures"]["status"] == "ok"
+    assert body["results"]["large_trader"]["status"] == "ok"
+
+
+def test_refresh_returns_409_when_already_running():
+    _grant()
+    # Pretend another request is mid-flight by holding the lock.
+    assert foreign_futures_route._refresh_lock.acquire(blocking=False)
+    try:
+        r = client.post("/api/futures/tw/foreign-flow/refresh")
+    finally:
+        foreign_futures_route._refresh_lock.release()
+    assert r.status_code == 409
+    assert "already in progress" in r.json()["detail"].lower()
+
+
+def test_refresh_blocked_without_permission():
+    # Seeded user defaults to can_view_foreign_futures = 0 → 403 before
+    # any fetcher runs.
+    calls, patched = _stub_refresh_fetchers()
+    with patch.object(foreign_futures_route, "_REFRESH_FETCHERS", patched):
+        r = client.post("/api/futures/tw/foreign-flow/refresh")
+    assert r.status_code == 403
+    assert calls == []
