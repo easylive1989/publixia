@@ -1,10 +1,15 @@
-"""Markdown-parser tests for fetchers.futures_settlement.
+"""Tests for services.futures_settlement.
 
-The DB save path is exercised at runtime; the parser is what guarantees
-the table the user maintains by hand turns into clean rows, so it's
-the part we lock down.
+The markdown parser is what guarantees the table the user maintains by
+hand turns into clean rows, so it's the part we lock down. The range
+reader is a thin filter on top of the parser plus disk read.
 """
-from fetchers.futures_settlement import parse_markdown
+from pathlib import Path
+
+from services.futures_settlement import (
+    get_settlement_dates_in_range,
+    parse_markdown,
+)
 
 
 BASIC_TABLE = """\
@@ -78,3 +83,40 @@ def test_parse_markdown_ignores_year_columns_with_non_numeric_header():
 
 def test_parse_markdown_no_table_returns_empty():
     assert parse_markdown("just some prose, no table here.\n") == []
+
+
+def test_get_settlement_dates_in_range_filters_and_sorts(tmp_path: Path):
+    md = tmp_path / "settlement_dates.md"
+    md.write_text(
+        "| 月份 | 2025 |\n"
+        "|------|------|\n"
+        "| 4月  | 4/16 |\n"
+        "| 5月  | 5/21 |\n"
+        "| 6月  | 6/18 |\n",
+        encoding="utf-8",
+    )
+    in_range = get_settlement_dates_in_range("2025-05-01", "2025-06-30", path=md)
+    assert in_range == ["2025-05-21", "2025-06-18"]
+
+
+def test_get_settlement_dates_in_range_inclusive_bounds(tmp_path: Path):
+    md = tmp_path / "settlement_dates.md"
+    md.write_text(
+        "| 月份 | 2025 |\n"
+        "|------|------|\n"
+        "| 5月  | 5/21 |\n",
+        encoding="utf-8",
+    )
+    assert get_settlement_dates_in_range(
+        "2025-05-21", "2025-05-21", path=md,
+    ) == ["2025-05-21"]
+
+
+def test_get_settlement_dates_in_range_reads_real_markdown():
+    # Smoke test against the checked-in markdown so a future edit that
+    # breaks the parse format trips this test, not production.
+    result = get_settlement_dates_in_range("2025-01-01", "2025-12-31")
+    # 12 monthly settlements per year, all third-Wednesday-ish.
+    assert len(result) == 12
+    assert result == sorted(result)
+    assert "2025-05-21" in result

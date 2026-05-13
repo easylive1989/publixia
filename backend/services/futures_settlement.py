@@ -1,23 +1,15 @@
-"""TX futures final-settlement date loader.
+"""TX futures final-settlement-date reader.
 
-Reads the user-maintained settlement-date table at
-`backend/data/settlement_dates.md` and upserts the rows into
-`futures_settlement_dates`. The markdown is the single source of truth;
-the user updates it manually each year when TAIFEX publishes a new
-calendar (see `docs/futures/*.pdf`).
-
-The result feeds `futures_settlement_dates`, which the foreign-flow
-chart reads to render `結算日` markers on the K-line.
+Reads from the user-maintained markdown at
+`backend/data/settlement_dates.md` on demand. The markdown is the single
+source of truth — no DB caching, no scheduled refresh job. Edits land on
+the next deploy and become visible to `/api/futures/tw/foreign-flow`
+immediately when the user updates the file.
 """
 import logging
-import os
 import re
-import sys
 from datetime import date
 from pathlib import Path
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from repositories.institutional_futures import save_settlement_dates
 
 logger = logging.getLogger(__name__)
 
@@ -97,22 +89,18 @@ def parse_markdown(text: str) -> list[dict]:
     return out
 
 
-def load_settlement_dates(path: Path = SETTLEMENT_DATES_PATH) -> int:
-    """Read the markdown, upsert into DB, return row count."""
+def get_settlement_dates_in_range(
+    start_date: str, end_date: str,
+    path: Path = SETTLEMENT_DATES_PATH,
+) -> list[str]:
+    """Settlement dates inside [start_date, end_date] (inclusive), ascending.
+
+    Both bounds are `YYYY-MM-DD`. Lexical comparison is safe given the
+    fixed-width ISO date format.
+    """
     text = path.read_text(encoding="utf-8")
     items = parse_markdown(text)
-    save_settlement_dates("TX", items)
-    logger.info(
-        "futures_settlement: loaded %d row(s) from %s", len(items), path,
+    return sorted(
+        it["settlement_date"] for it in items
+        if start_date <= it["settlement_date"] <= end_date
     )
-    return len(items)
-
-
-def fetch_settlement_refresh() -> bool:
-    """Scheduler entry — reload settlement dates from markdown."""
-    try:
-        load_settlement_dates()
-    except Exception as e:                   # noqa: BLE001 — keep scheduler alive
-        logger.exception("futures_settlement reload error: %s", e)
-        return False
-    return True

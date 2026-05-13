@@ -3,8 +3,6 @@ from repositories.institutional_futures import (
     save_institutional_futures_rows,
     get_institutional_futures_range,
     get_latest_institutional_futures_date,
-    save_settlement_dates,
-    get_settlement_dates_in_range,
 )
 
 
@@ -56,25 +54,3 @@ def test_get_latest_date_per_symbol():
     assert get_latest_institutional_futures_date("TX")  == "2025-07-03"
     assert get_latest_institutional_futures_date("MTX") == "2025-07-02"
     assert get_latest_institutional_futures_date("TMF") is None
-
-
-def test_settlement_dates_range_query():
-    save_settlement_dates("TX", [
-        {"year_month": "2025-04", "settlement_date": "2025-04-16"},
-        {"year_month": "2025-05", "settlement_date": "2025-05-21"},
-        {"year_month": "2025-06", "settlement_date": "2025-06-18"},
-    ])
-    in_range = get_settlement_dates_in_range("TX", "2025-05-01", "2025-06-30")
-    assert in_range == ["2025-05-21", "2025-06-18"]
-
-
-def test_settlement_dates_upsert_overrides():
-    save_settlement_dates("TX", [
-        {"year_month": "2025-08", "settlement_date": "2025-08-20"},
-    ])
-    save_settlement_dates("TX", [
-        # Holiday roll-forward correction: scrape replaces algorithm.
-        {"year_month": "2025-08", "settlement_date": "2025-08-21"},
-    ])
-    in_range = get_settlement_dates_in_range("TX", "2025-08-01", "2025-08-31")
-    assert in_range == ["2025-08-21"]

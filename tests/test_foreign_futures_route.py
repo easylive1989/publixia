@@ -13,9 +13,7 @@ from api.routes import foreign_futures as foreign_futures_route
 from db.connection import get_connection
 from repositories.users import set_foreign_futures_permission
 from repositories.futures import save_futures_daily_rows
-from repositories.institutional_futures import (
-    save_institutional_futures_rows, save_settlement_dates,
-)
+from repositories.institutional_futures import save_institutional_futures_rows
 from repositories.institutional_options import save_institutional_options_rows
 from repositories.txo_strike_oi import save_txo_strike_oi_rows
 from repositories.large_trader import save_large_trader_rows
@@ -46,9 +44,6 @@ def _seed_minimum():
         {"symbol": "TX", "date": "2025-05-02",
          "foreign_long_oi": 130, "foreign_short_oi": 0,
          "foreign_long_amount": 419_500.0, "foreign_short_amount": 0.0},
-    ])
-    save_settlement_dates("TX", [
-        {"year_month": "2025-05", "settlement_date": "2025-05-21"},
     ])
     save_large_trader_rows([
         {"date": "2025-05-01", "market_oi": 100_000,
