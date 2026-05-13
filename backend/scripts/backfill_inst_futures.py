@@ -6,10 +6,9 @@ after the migrations land but before exposing the page to users:
     python -m scripts.backfill_inst_futures            # default 5y
     python -m scripts.backfill_inst_futures --years 1  # smaller window
 
-Idempotent — the writer is an upsert. Settlement dates are loaded
-separately from `backend/data/settlement_dates.md` by the scheduled
-`futures_settlement` job (or on demand via
-`fetchers.futures_settlement.load_settlement_dates`).
+Idempotent — the writer is an upsert. Settlement dates are served
+directly from `backend/data/settlement_dates.md` by
+`services.futures_settlement`; no backfill needed there.
 """
 import argparse
 import os

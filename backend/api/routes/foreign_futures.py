@@ -5,7 +5,8 @@ Combines four data sources behind a single permission-gated endpoint:
 1. TX daily OHLCV from `futures_daily` (existing fetcher)
 2. Foreign-investor TX/MTX positions from `institutional_futures_daily`
 3. Per-day blended metrics computed by `services.foreign_futures_metrics`
-4. TX settlement dates from `futures_settlement_dates`
+4. TX settlement dates parsed directly from
+   `backend/data/settlement_dates.md` on each request
 
 The frontend renders a 4-region synced chart from the assembled arrays.
 
@@ -28,7 +29,6 @@ from repositories.futures import get_futures_daily_range
 from repositories.indicators import get_indicator_history
 from repositories.institutional_futures import (
     get_institutional_futures_range,
-    get_settlement_dates_in_range,
 )
 from repositories.institutional_options import get_institutional_options_range
 from repositories.txo_strike_oi import (
@@ -38,6 +38,7 @@ from repositories.txo_strike_oi import (
 from repositories.large_trader import get_large_trader_range
 from services.foreign_futures_metrics import compute_metrics, compute_retail_ratio
 from services.foreign_options_view import build_options_block
+from services.futures_settlement import get_settlement_dates_in_range
 from services.strike_oi_view import build_strike_oi_block
 
 logger = logging.getLogger(__name__)
@@ -130,9 +131,10 @@ def tw_futures_foreign_flow(time_range: str = "6M"):
         retail_ratio.append(retail_ratio_by_date.get(d))
         foreign_spot_net.append(spot_by_date.get(d))
 
-    # 5) Settlement-date markers inside the visible window.
+    # 5) Settlement-date markers inside the visible window — read straight
+    # from the markdown source of truth, no DB caching layer.
     settlement_dates = get_settlement_dates_in_range(
-        "TX", window_start_str, today_str,
+        window_start_str, today_str,
     )
 
     # 6) TXO options block — chart series projected onto the same date

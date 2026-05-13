@@ -2,7 +2,7 @@
 
 依據台灣期貨交易所行事曆，整理「國內股價指數期貨、股價指數選擇權、股票期貨及股票選擇權契約之最後交易日」。
 
-此檔為 `backend/fetchers/futures_settlement.py` 的資料來源；新增年份時直接在表格右側新增欄位即可，每月 1 號 02:00 排程會 upsert 進 `futures_settlement_dates`。
+此檔為 `backend/services/futures_settlement.py` 的資料來源；新增年份時直接在表格右側新增欄位即可，`/api/futures/tw/foreign-flow` 每次請求都會即時讀取，部署後立即生效（不再經 DB 中介）。
 
 | 月份 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |------|------|------|------|------|------|------|

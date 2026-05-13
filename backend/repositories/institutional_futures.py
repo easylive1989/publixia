@@ -1,13 +1,13 @@
 """Foreign-investor futures positions repository.
 
-Backs the `/futures/tw/foreign-flow` page. Two tables:
+Backs the `/futures/tw/foreign-flow` page via the
+`institutional_futures_daily` table — a per-symbol daily snapshot of
+foreign long/short open-interest lots and contract amounts. Source:
+TAIFEX `三大法人 - 區分各期貨契約` daily CSV.
 
-- `institutional_futures_daily` — per-symbol daily snapshot of foreign
-  long/short open-interest lots and contract amounts. Source: TAIFEX
-  `三大法人 - 區分各期貨契約` daily CSV.
-- `futures_settlement_dates` — final-settlement date per contract month.
-  Source: TAIFEX `期貨契約最後交易日` page (with an algorithmic fallback
-  for when scraping fails — third Wednesday of the calendar month).
+Settlement dates used by the same page live in
+`backend/data/settlement_dates.md` and are served directly by
+`services.futures_settlement` — no DB caching.
 """
 from db.connection import get_connection
 
@@ -69,33 +69,3 @@ def get_latest_institutional_futures_date(symbol: str) -> str | None:
             (symbol,),
         ).fetchone()
         return row["d"] if row and row["d"] else None
-
-
-# ── futures_settlement_dates ───────────────────────────────────────────
-
-def save_settlement_dates(symbol: str, items: list[dict]) -> None:
-    """Bulk upsert {year_month: 'YYYY-MM', settlement_date: 'YYYY-MM-DD'}."""
-    if not items:
-        return
-    with get_connection() as conn:
-        conn.executemany(
-            "INSERT INTO futures_settlement_dates "
-            "(symbol, year_month, settlement_date) VALUES (?, ?, ?) "
-            "ON CONFLICT(symbol, year_month) DO UPDATE SET "
-            "  settlement_date = excluded.settlement_date",
-            [(symbol, it["year_month"], it["settlement_date"]) for it in items],
-        )
-
-
-def get_settlement_dates_in_range(
-    symbol: str, start_date: str, end_date: str,
-) -> list[str]:
-    """Settlement dates for `symbol` falling inside [start_date, end_date]."""
-    with get_connection() as conn:
-        rows = conn.execute(
-            "SELECT settlement_date FROM futures_settlement_dates "
-            "WHERE symbol=? AND settlement_date BETWEEN ? AND ? "
-            "ORDER BY settlement_date",
-            (symbol, start_date, end_date),
-        ).fetchall()
-        return [r["settlement_date"] for r in rows]
