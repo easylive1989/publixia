@@ -3,22 +3,21 @@ import json
 from collections.abc import Callable
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from api._constants import INDICATOR_JOB_MAP, INDICATOR_NAMES, RANGE_DELTAS
-from api.dependencies import require_token
 from repositories.indicators import (
     get_indicator_history, get_latest_indicator,
 )
 from services.scheduler_info import next_run_at
-from fetchers.yfinance_fetcher import fetch_taiex, fetch_fx, fetch_all_stocks
+from fetchers.yfinance_fetcher import fetch_taiex, fetch_fx
 from fetchers.fear_greed import fetch_fear_greed
 from fetchers.chip_total import fetch_chip_total
 from fetchers.ndc import fetch_ndc
 from fetchers.volume import fetch_tw_volume, fetch_us_volume
 from fetchers.futures import fetch_tw_futures
 
-router = APIRouter(prefix="/api", tags=["indicators"], dependencies=[Depends(require_token)])
+router = APIRouter(prefix="/api", tags=["indicators"])
 
 
 FETCHERS: dict[str, Callable] = {
@@ -27,7 +26,6 @@ FETCHERS: dict[str, Callable] = {
     "fear_greed": fetch_fear_greed,
     "chip_total": fetch_chip_total,
     "ndc":        fetch_ndc,
-    "stocks":     fetch_all_stocks,
     "tw_volume":  fetch_tw_volume,
     "us_volume":  fetch_us_volume,
     "tw_futures": fetch_tw_futures,

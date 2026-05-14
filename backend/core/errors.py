@@ -23,7 +23,3 @@ class RepositoryError(StockDashboardError):
 
 class AlertEvaluationError(StockDashboardError):
     """Alert evaluator produced an unexpected result."""
-
-
-class AuthError(StockDashboardError):
-    """Authentication / authorisation failure (Phase 4 will adopt)."""

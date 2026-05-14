@@ -1,9 +1,12 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
-import type { StockHistoryResponse } from '@/hooks/useStockHistory';
+import type { OhlcvSeries } from '@/lib/flatten-history';
 
-export interface FuturesHistoryResponse extends Omit<StockHistoryResponse, 'ticker'> {
-  symbol: string;
+export interface FuturesHistoryResponse extends Omit<OhlcvSeries, 'ticker'> {
+  symbol:     string;
+  name:       string;
+  currency:   string;
+  time_range: string;
 }
 
 export function useFuturesHistory(range: string): UseQueryResult<FuturesHistoryResponse> {

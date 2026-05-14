@@ -10,11 +10,10 @@ from fastapi.responses import JSONResponse
 import db  # noqa: F401
 
 from api.routes import (
-    indicators, stocks, fundamentals, news, futures, me,
-    foreign_futures, foreign_flow_ai,
+    indicators, news, futures, foreign_futures, foreign_flow_ai,
 )
 from core.errors import (
-    AuthError, FetcherError, RepositoryError, StockDashboardError,
+    FetcherError, RepositoryError, StockDashboardError,
 )
 from core.settings import settings
 
@@ -30,17 +29,13 @@ app.add_middleware(
 )
 
 app.include_router(indicators.router)
-app.include_router(stocks.router)
-app.include_router(fundamentals.router)
 app.include_router(news.router)
 app.include_router(futures.router)
 app.include_router(foreign_futures.router)
 app.include_router(foreign_flow_ai.router)
-app.include_router(me.router)
 
 
 _ERROR_TO_STATUS: list[tuple[type[StockDashboardError], int]] = [
-    (AuthError, 401),
     (FetcherError, 502),
     (RepositoryError, 500),
 ]

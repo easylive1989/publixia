@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from './setup';
 import DashboardPage from '../src/pages/DashboardPage';
-import StockDetailPage from '../src/pages/StockDetailPage';
 import '../src/cards/index';
 
 function renderAt(path: string) {
@@ -17,7 +16,6 @@ function renderAt(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/stock/:code" element={<StockDetailPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </MemoryRouter>
@@ -34,11 +32,6 @@ describe('routing', () => {
     );
     renderAt('/');
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-  });
-
-  it('renders StockDetailPage at /stock/:code with code', () => {
-    renderAt('/stock/2330');
-    expect(screen.getByRole('heading', { name: '2330' })).toBeInTheDocument();
   });
 
   it('redirects unknown paths to /', () => {

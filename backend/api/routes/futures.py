@@ -3,13 +3,15 @@
 `/api/futures/tw/history?time_range=...` 回傳 OHLCV + 計算 MA / RSI / MACD。
 資料來源:futures_daily 表(由 fetcher 從 FinMind lazy-fill)。
 """
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timedelta, timezone
 
-from api.dependencies import require_token
+import pandas as pd
+from fastapi import APIRouter, HTTPException
+
 from fetchers.futures import fetch_tw_futures, get_tw_futures_history, SYMBOL
-from fetchers.yfinance_fetcher import _compute_indicators
+from services.price_indicators import compute_indicators
 
-router = APIRouter(prefix="/api", tags=["futures"], dependencies=[Depends(require_token)])
+router = APIRouter(prefix="/api", tags=["futures"])
 
 
 # 期貨歷史窗口比一般指標長,且後端已快取多年資料
@@ -35,7 +37,6 @@ def tw_futures_history(time_range: str = "3M"):
         print(f"[futures-route] lazy fetch error: {e}")
 
     # 多抓 60 天作為 MA60/MACD warm-up,顯示時再 trim 回視窗
-    from datetime import datetime, timedelta, timezone
     today = datetime.now(timezone.utc).astimezone().date()
     days = RANGE_LOOKBACK_DAYS[time_range]
     warmup_days = days + 90
@@ -44,10 +45,8 @@ def tw_futures_history(time_range: str = "3M"):
     if not rows:
         raise HTTPException(status_code=404, detail="No futures history available")
 
-    # pandas Series for indicator calculation
-    import pandas as pd
     closes = pd.Series([r["close"] for r in rows], dtype="float64")
-    indicators = _compute_indicators(closes)
+    indicators = compute_indicators(closes)
 
     # trim 回想要的視窗(以日期切)
     cutoff = (today - timedelta(days=days)).strftime("%Y-%m-%d")

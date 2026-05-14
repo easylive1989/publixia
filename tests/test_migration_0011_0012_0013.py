@@ -17,21 +17,6 @@ def _table_exists(name: str) -> bool:
     return row is not None
 
 
-def test_users_has_foreign_futures_permission_column():
-    cols = _columns("users")
-    assert "can_view_foreign_futures" in cols
-    assert cols["can_view_foreign_futures"]["notnull"] == 1
-    assert cols["can_view_foreign_futures"]["dflt_value"] == "0"
-
-
-def test_seeded_user_defaults_to_no_ffut_access():
-    row = db.connection.get_connection().execute(
-        "SELECT can_view_foreign_futures FROM users WHERE name='paul'"
-    ).fetchone()
-    assert row is not None
-    assert row["can_view_foreign_futures"] == 0
-
-
 def test_institutional_futures_daily_schema():
     assert _table_exists("institutional_futures_daily")
     cols = _columns("institutional_futures_daily")

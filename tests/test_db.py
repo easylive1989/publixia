@@ -1,48 +1,48 @@
-import pytest
 import db
 
-def test_init_creates_tables():
+
+def test_init_creates_core_tables():
     db.init_db()
     conn = db.get_connection()
-    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
-    assert {"indicator_snapshots", "watched_stocks", "stock_snapshots"} <= tables
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+    assert {
+        "indicator_snapshots",
+        "futures_daily",
+        "institutional_futures_daily",
+        "institutional_options_daily",
+        "txo_strike_oi_daily",
+        "tx_large_trader_daily",
+        "foreign_flow_ai_reports",
+        "scheduler_jobs",
+    } <= tables
+
+
+def test_purged_tables_are_gone():
+    """All per-user and per-stock tables were dropped in migration 0019/0020."""
+    db.init_db()
+    conn = db.get_connection()
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+    for t in (
+        "users", "api_tokens", "price_alerts", "watched_stocks",
+        "stock_snapshots", "stock_broker_daily", "stock_chip_daily",
+        "stock_per_daily", "stock_revenue_monthly",
+        "stock_financial_quarterly", "stock_dividend_history",
+        "strategies", "strategy_signals",
+    ):
+        assert t not in tables, f"{t} should have been dropped"
+
 
 def test_init_db_creates_schema_migrations_with_0001_applied():
-    """init_db() now goes through the migration runner."""
     db.init_db()
     versions = [r[0] for r in db.get_connection().execute(
         "SELECT version FROM schema_migrations ORDER BY version"
     ).fetchall()]
     assert "0001" in versions
 
-def test_init_db_baselines_existing_legacy_db():
-    """Simulate the live VPS DB: it already has the post-0001 schema but
-    no schema_migrations. init_db() must baseline 0001 (skip re-run) AND
-    apply 0002+ normally so new tables/columns from later migrations appear."""
-    import os
-    db.connection._memory_conn = None
-    conn = db.get_connection()
-    here = os.path.dirname(__file__)
-    sql_path = os.path.join(here, "..", "backend", "db", "migrations", "0001_initial.sql")
-    with open(sql_path, encoding="utf-8") as f:
-        conn.executescript(f.read())
-    conn.execute(
-        "INSERT INTO indicator_snapshots (indicator, timestamp, value) "
-        "VALUES ('taiex', '2026-01-01T00:00:00', 17000.0)"
-    )
-    conn.commit()
-
-    db.init_db()  # should baseline, not re-run
-
-    versions = [r[0] for r in conn.execute(
-        "SELECT version FROM schema_migrations"
-    ).fetchall()]
-    assert "0001" in versions
-    # Original row preserved.
-    rows = conn.execute(
-        "SELECT indicator, value FROM indicator_snapshots"
-    ).fetchall()
-    assert [(r[0], r[1]) for r in rows] == [("taiex", 17000.0)]
 
 def test_save_and_get_indicator():
     db.init_db()
@@ -52,9 +52,11 @@ def test_save_and_get_indicator():
     assert row["value"] == 21458.0
     assert row["indicator"] == "taiex"
 
+
 def test_get_indicator_returns_none_when_empty():
     db.init_db()
     assert db.get_latest_indicator("ndc") is None
+
 
 def test_indicator_history_filtered_by_date():
     db.init_db()
@@ -72,45 +74,3 @@ def test_indicator_history_filtered_by_date():
     rows = db.get_indicator_history("margin_balance", since)
     assert len(rows) == 2
     assert rows[-1]["value"] == 2341.0  # today's latest upsert wins
-
-def test_watched_stocks_crud():
-    db.init_db()
-    db.add_watched_ticker(1, "2330.TW")
-    db.add_watched_ticker(1, "VOO")
-    tickers = db.get_watched_tickers(1)
-    assert "2330.TW" in tickers
-    assert "VOO" in tickers
-    db.remove_watched_ticker(1, "VOO")
-    assert "VOO" not in db.get_watched_tickers(1)
-
-def test_add_duplicate_ticker_is_idempotent():
-    db.init_db()
-    db.add_watched_ticker(1, "AAPL")
-    db.add_watched_ticker(1, "AAPL")
-    assert db.get_watched_tickers(1).count("AAPL") == 1
-
-def test_save_and_get_stock_snapshot():
-    db.init_db()
-    db.add_watched_ticker(1, "0050.TW")
-    db.save_stock_snapshot("0050.TW", 198.35, 1.15, 0.58, "TWD", "元大台灣50")
-    row = db.get_latest_stock("0050.TW")
-    assert row["price"] == 198.35
-    assert row["name"] == "元大台灣50"
-
-
-def test_global_watched_tickers_returns_distinct_union():
-    """get_watched_tickers(None) is the distinct list used by background fetchers."""
-    db.add_watched_ticker(1, 'TSTUSER.TW')
-    db.add_watched_ticker(1, 'TSTOTHER.TW')
-    all_tickers = db.get_watched_tickers()
-    assert 'TSTUSER.TW' in all_tickers
-    assert 'TSTOTHER.TW' in all_tickers
-    # Sorted ascending.
-    assert all_tickers == sorted(all_tickers)
-
-
-def test_user_watchlist_returns_only_user_rows():
-    """get_watched_tickers(user_id) returns ONLY that user's personal list."""
-    db.add_watched_ticker(1, 'TSTONLY.TW')
-    user_only = db.get_watched_tickers(1)
-    assert 'TSTONLY.TW' in user_only

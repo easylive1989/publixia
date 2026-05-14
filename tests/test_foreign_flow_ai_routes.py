@@ -1,11 +1,8 @@
 """End-to-end tests for /api/futures/tw/foreign-flow/ai-report and the
 companion /markdown endpoint that the Cloudflare Worker calls.
 
-Worker endpoints use ``X-Worker-Token`` (a shared deploy-time secret);
-user endpoints reuse the existing ``require_foreign_futures_permission``
-gate. The conftest already overrides ``require_user`` to return a
-permission-less ``paul`` user, so permission-positive tests flip the row
-via ``set_foreign_futures_permission``.
+Worker endpoints stay X-Worker-Token-gated (shared deploy-time secret).
+Browser endpoints became public after the user/permission purge.
 """
 from unittest.mock import patch, MagicMock
 
@@ -18,16 +15,11 @@ from repositories.foreign_flow_ai import get_report, save_report
 from repositories.futures import save_futures_daily_rows
 from repositories.institutional_futures import save_institutional_futures_rows
 from repositories.large_trader import save_large_trader_rows
-from repositories.users import set_foreign_futures_permission
 
 
 client = TestClient(app)
 
 WORKER_TOKEN = "test-worker-token-abcdef"
-
-
-def _grant():
-    set_foreign_futures_permission(1, True)
 
 
 def _seed_minimum():
@@ -112,7 +104,6 @@ def test_markdown_returns_text_markdown_with_content():
 
 def test_markdown_returns_404_when_no_tx_data():
     _configure_worker_token()
-    # No futures_daily seeded.
     r = client.get(
         "/api/futures/tw/foreign-flow/markdown",
         headers={"X-Worker-Token": WORKER_TOKEN},
@@ -130,16 +121,10 @@ def test_markdown_400_on_unknown_time_range():
     assert r.status_code == 400
 
 
-# ── /markdown/download (User → Backend, browser button) ────────────────
-
-
-def test_user_markdown_download_blocked_without_permission():
-    r = client.get("/api/futures/tw/foreign-flow/markdown/download")
-    assert r.status_code == 403
+# ── /markdown/download (browser, public) ────────────────────────────
 
 
 def test_user_markdown_download_returns_text_markdown():
-    _grant()
     _seed_minimum()
     r = client.get(
         "/api/futures/tw/foreign-flow/markdown/download?time_range=3Y",
@@ -152,7 +137,6 @@ def test_user_markdown_download_returns_text_markdown():
 
 
 def test_user_markdown_download_404_without_data():
-    _grant()
     r = client.get("/api/futures/tw/foreign-flow/markdown/download")
     assert r.status_code == 404
 
@@ -190,7 +174,6 @@ def test_post_ai_report_upserts_row():
     assert r.status_code == 200
     assert r.json() == {"ok": True, "report_date": "2026-05-14"}
 
-    # Second write same date overwrites.
     body["model"]           = "model-v2"
     body["output_markdown"] = "## output v2"
     r2 = client.post(
@@ -216,24 +199,15 @@ def test_post_ai_report_validates_date_pattern():
     assert r.status_code == 422
 
 
-# ── GET /ai-report/today (User read) ────────────────────────────────────
-
-
-def test_today_blocked_without_permission():
-    # Seeded user defaults to can_view_foreign_futures = 0
-    r = client.get("/api/futures/tw/foreign-flow/ai-report/today")
-    assert r.status_code == 403
+# ── GET /ai-report/today (public) ──────────────────────────────────
 
 
 def test_today_returns_404_when_no_row():
-    _grant()
     r = client.get("/api/futures/tw/foreign-flow/ai-report/today")
     assert r.status_code == 404
 
 
 def test_today_returns_row_when_present():
-    _grant()
-    # Seed today's row directly via the repo (uses Asia/Taipei today).
     from datetime import datetime
     import pytz
     today = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
@@ -245,16 +219,10 @@ def test_today_returns_row_when_present():
     assert body["output_markdown"] == "out"
 
 
-# ── POST /ai-report/regenerate (User → Worker proxy) ────────────────────
-
-
-def test_regenerate_blocked_without_permission():
-    r = client.post("/api/futures/tw/foreign-flow/ai-report/regenerate")
-    assert r.status_code == 403
+# ── POST /ai-report/regenerate (public proxy → Worker) ─────────────
 
 
 def test_regenerate_503_when_worker_not_configured():
-    _grant()
     _configure_worker_token(None)
     _configure_worker_url(None)
     r = client.post("/api/futures/tw/foreign-flow/ai-report/regenerate")
@@ -262,7 +230,6 @@ def test_regenerate_503_when_worker_not_configured():
 
 
 def test_regenerate_proxies_to_worker_and_returns_new_row():
-    _grant()
     _configure_worker_token()
     _configure_worker_url()
 
@@ -271,7 +238,6 @@ def test_regenerate_proxies_to_worker_and_returns_new_row():
     today = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
 
     def fake_post(url, headers=None, timeout=None, **_):
-        # Simulate the worker persisting a row mid-call.
         save_report(today, "model-x", "v1", "in", "out-from-worker")
         m = MagicMock()
         m.status_code = 200
@@ -290,10 +256,8 @@ def test_regenerate_proxies_to_worker_and_returns_new_row():
 
 
 def test_regenerate_502_when_worker_errors():
-    _grant()
     _configure_worker_token()
     _configure_worker_url()
-
     m = MagicMock()
     m.status_code = 500
     m.text = "boom"
@@ -306,10 +270,8 @@ def test_regenerate_502_when_worker_errors():
 
 
 def test_regenerate_502_when_worker_unreachable():
-    _grant()
     _configure_worker_token()
     _configure_worker_url()
-
     import requests as _requests
     with patch(
         "api.routes.foreign_flow_ai.requests.post",

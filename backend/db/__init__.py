@@ -1,7 +1,8 @@
 """Database package.
 
 Public API kept stable via re-exports so call sites like
-`from db import save_indicator` continue to work after the BE-B split.
+`from db import save_indicator` continue to work without each module
+having to know about repository layout.
 """
 import logging
 import os
@@ -23,42 +24,21 @@ def init_db():
 
 
 def purge_old_data(days: int = 1095):
-    """Delete data older than `days`. Cross-table maintenance run weekly by scheduler."""
+    """Delete data older than `days`. Cross-table maintenance run weekly by scheduler.
+
+    Only ``indicator_snapshots`` is purged today — all other surviving tables
+    (futures, foreign_flow_ai_reports, institutional_*, txo_*, tx_large_trader)
+    are intentionally kept long-term so the historical perspective on the
+    dashboard isn't lost.
+    """
     cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)).isoformat()
-    cutoff_date = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)).strftime("%Y-%m-%d")
     with get_connection() as conn:
         conn.execute("DELETE FROM indicator_snapshots WHERE timestamp<?", (cutoff,))
-        conn.execute("DELETE FROM stock_snapshots WHERE timestamp<?", (cutoff,))
-        conn.execute("DELETE FROM stock_broker_daily WHERE date<?", (cutoff_date,))
-        conn.execute("DELETE FROM stock_chip_daily WHERE date<?", (cutoff_date,))
-        conn.execute("DELETE FROM stock_per_daily WHERE date<?", (cutoff_date,))
-        conn.execute(
-            "DELETE FROM stock_revenue_monthly "
-            "WHERE (year * 12 + month) < (? * 12 + ?)",
-            (int(cutoff_date[:4]), int(cutoff_date[5:7]))
-        )
-        conn.execute("DELETE FROM stock_financial_quarterly WHERE date<?", (cutoff_date,))
-        # dividend not purged (long history important).
-        # futures_daily not purged — long-history K-line is the main use case.
 
 
 # Re-exports for backward compatibility.
 from repositories.indicators import (  # noqa: E402,F401
     save_indicator, get_latest_indicator, get_indicator_history,
-)
-from repositories.stocks import (  # noqa: E402,F401
-    save_stock_snapshot, get_latest_stock, get_watched_tickers,
-    add_watched_ticker, remove_watched_ticker,
-)
-from repositories.chip import (  # noqa: E402,F401
-    save_broker_daily_rows, get_broker_daily_range, get_latest_broker_date,
-    save_chip_daily_rows, get_chip_daily_range, get_latest_chip_date,
-)
-from repositories.fundamentals import (  # noqa: E402,F401
-    save_per_daily_rows, get_per_daily_range, get_latest_per_date,
-    save_revenue_monthly_rows, get_revenue_monthly_range, get_latest_revenue_ym,
-    save_financial_quarterly_rows, get_financial_quarterly_range, get_latest_financial_date,
-    save_dividend_history_rows, get_dividend_history, get_latest_dividend_announce_date,
 )
 from repositories.futures import (  # noqa: E402,F401
     save_futures_daily_rows, get_futures_daily_range, get_latest_futures_date,

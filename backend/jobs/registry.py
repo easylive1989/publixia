@@ -11,12 +11,9 @@ and interpreted in the scheduler's timezone (Asia/Taipei).
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from fetchers.yfinance_fetcher import (
-    fetch_taiex, fetch_fx, fetch_tw_stocks, fetch_us_stocks,
-)
+from fetchers.yfinance_fetcher import fetch_taiex, fetch_fx
 from fetchers.fear_greed import fetch_fear_greed
 from fetchers.chip_total import fetch_chip_total
-from fetchers.fundamentals_stock import fetch_watchlist_stock_daily
 from fetchers.ndc import fetch_ndc
 from fetchers.news import fetch_news
 from fetchers.volume import fetch_tw_volume, fetch_us_volume
@@ -37,22 +34,19 @@ class JobSpec:
 
 
 JOBS: dict[str, JobSpec] = {
-    "taiex":              JobSpec(fetch_taiex,                "0 14 * * *",   "TAIEX 加權指數"),
-    "tw_stocks":          JobSpec(fetch_tw_stocks,            "5 14 * * *",   "台股 watchlist 收盤快照"),
-    "fx":                 JobSpec(fetch_fx,                   "0 6 * * *",    "美金匯率"),
-    "us_stocks":          JobSpec(fetch_us_stocks,            "5 6 * * *",    "美股 watchlist 收盤快照"),
-    "fear_greed":         JobSpec(fetch_fear_greed,           "0 8 * * *",    "Fear & Greed Index"),
-    "chip_total":         JobSpec(fetch_chip_total,           "0 18 * * *",   "整體市場籌碼面"),
-    "inst_futures":       JobSpec(fetch_inst_futures,         "0 18 * * *",   "外資台指期/小台未平倉"),
-    "inst_options":       JobSpec(fetch_inst_options,         "10 18 * * *",  "三大法人 TXO 選擇權買賣權分計"),
-    "txo_strike_oi":      JobSpec(fetch_txo_strike_oi,        "15 18 * * *",  "TXO 各履約價未沖銷量"),
-    "large_trader":       JobSpec(fetch_large_trader,         "5 18 * * *",   "大額交易人 (散戶多空比)"),
-    "tw_volume":          JobSpec(fetch_tw_volume,            "5 18 * * *",   "台股大盤量能"),
-    "tw_futures":         JobSpec(fetch_tw_futures,           "30 17 * * *",  "台指期 (TX) 日線"),
-    "watchlist_chip_per": JobSpec(fetch_watchlist_stock_daily,"30 18 * * *",  "watchlist 個股籌碼/PER"),
-    "us_volume":          JobSpec(fetch_us_volume,            "10 6 * * *",   "美股大盤量能"),
-    "ndc":                JobSpec(fetch_ndc,                  "0 9 1 * *",    "國發會景氣對策信號"),
-    "news":               JobSpec(fetch_news,                 "*/30 * * * *", "新聞 (每 30 分鐘)"),
-    "cleanup":            JobSpec(purge_old_data,             "0 0 * * 0",    "舊資料清理 (週日)"),
-    "backup_db":          JobSpec(backup_db_to_r2,            "0 3 * * *",    "DB 備份至 Cloudflare R2"),
+    "taiex":         JobSpec(fetch_taiex,         "0 14 * * *",   "TAIEX 加權指數"),
+    "fx":            JobSpec(fetch_fx,            "0 6 * * *",    "美金匯率"),
+    "fear_greed":    JobSpec(fetch_fear_greed,    "0 8 * * *",    "Fear & Greed Index"),
+    "chip_total":    JobSpec(fetch_chip_total,    "0 18 * * *",   "整體市場籌碼面"),
+    "inst_futures":  JobSpec(fetch_inst_futures,  "0 18 * * *",   "外資台指期/小台未平倉"),
+    "inst_options":  JobSpec(fetch_inst_options,  "10 18 * * *",  "三大法人 TXO 選擇權買賣權分計"),
+    "txo_strike_oi": JobSpec(fetch_txo_strike_oi, "15 18 * * *",  "TXO 各履約價未沖銷量"),
+    "large_trader":  JobSpec(fetch_large_trader,  "5 18 * * *",   "大額交易人 (散戶多空比)"),
+    "tw_volume":     JobSpec(fetch_tw_volume,     "5 18 * * *",   "台股大盤量能"),
+    "tw_futures":    JobSpec(fetch_tw_futures,    "30 17 * * *",  "台指期 (TX) 日線"),
+    "us_volume":     JobSpec(fetch_us_volume,     "10 6 * * *",   "美股大盤量能"),
+    "ndc":           JobSpec(fetch_ndc,           "0 9 1 * *",    "國發會景氣對策信號"),
+    "news":          JobSpec(fetch_news,          "*/30 * * * *", "新聞 (每 30 分鐘)"),
+    "cleanup":       JobSpec(purge_old_data,      "0 0 * * 0",    "舊資料清理 (週日)"),
+    "backup_db":     JobSpec(backup_db_to_r2,     "0 3 * * *",    "DB 備份至 Cloudflare R2"),
 }

@@ -1,9 +1,6 @@
 import { Link } from 'react-router-dom';
-import { useMe } from '@/hooks/useMe';
 
 export function ForeignFuturesNavLink() {
-  const { data: me } = useMe();
-  if (!me?.can_view_foreign_futures) return null;
   return (
     <Link
       to="/futures/tw/foreign-flow"

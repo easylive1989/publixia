@@ -1,5 +1,3 @@
-import { useAuthStore } from '@/store/auth-store';
-
 const API_BASE = import.meta.env.PROD
   ? 'https://api.paul-learning.dev'
   : '';
@@ -10,52 +8,34 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T = unknown>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const token = useAuthStore.getState().token;
+async function _request(path: string, init: RequestInit): Promise<Response> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string> | undefined),
   };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-
-  if (res.status === 401) {
-    useAuthStore.getState().clearToken();
-    throw new ApiError(401, 'Unauthorized');
-  }
   if (!res.ok) {
     const detail = await res.text();
     throw new ApiError(res.status, detail || res.statusText);
   }
+  return res;
+}
+
+export async function apiFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const res = await _request(path, init);
   if (res.status === 204) return undefined as T;
   return res.json();
 }
 
-/** Same auth + error handling as ``apiFetch``, but returns the raw text
- *  body. Used for endpoints that hand back markdown / plain text. */
+/** Variant of ``apiFetch`` that returns the raw text body. Used for
+ *  endpoints that hand back markdown / plain text. */
 export async function apiFetchText(
   path: string,
   init: RequestInit = {},
 ): Promise<string> {
-  const token = useAuthStore.getState().token;
-  const headers: Record<string, string> = {
-    ...(init.headers as Record<string, string> | undefined),
-  };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
-
-  if (res.status === 401) {
-    useAuthStore.getState().clearToken();
-    throw new ApiError(401, 'Unauthorized');
-  }
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new ApiError(res.status, detail || res.statusText);
-  }
+  const res = await _request(path, init);
   return res.text();
 }

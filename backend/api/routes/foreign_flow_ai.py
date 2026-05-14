@@ -21,7 +21,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from api.dependencies import require_foreign_futures_permission
 from core.settings import settings
 from repositories.foreign_flow_ai import (
     get_today_report,
@@ -81,13 +80,10 @@ def get_foreign_flow_markdown_for_worker(time_range: str = "1M") -> Response:
     return _render_foreign_flow_markdown(time_range)
 
 
-@router.get(
-    "/futures/tw/foreign-flow/markdown/download",
-    dependencies=[Depends(require_foreign_futures_permission)],
-)
+@router.get("/futures/tw/foreign-flow/markdown/download")
 def download_foreign_flow_markdown(time_range: str = "1M") -> Response:
     """Markdown for the in-app "下載 5 日資料" button — same renderer,
-    user-permission-gated so the browser can fetch it directly."""
+    accessible to anyone hitting the dashboard."""
     return _render_foreign_flow_markdown(time_range)
 
 
@@ -117,10 +113,7 @@ def write_foreign_flow_ai_report(body: AiReportIn) -> dict:
 # ── User-side: read today / trigger regenerate ──────────────────────────
 
 
-@router.get(
-    "/futures/tw/foreign-flow/ai-report/today",
-    dependencies=[Depends(require_foreign_futures_permission)],
-)
+@router.get("/futures/tw/foreign-flow/ai-report/today")
 def read_today_ai_report() -> dict:
     row = get_today_report()
     if row is None:
@@ -128,10 +121,7 @@ def read_today_ai_report() -> dict:
     return row
 
 
-@router.post(
-    "/futures/tw/foreign-flow/ai-report/regenerate",
-    dependencies=[Depends(require_foreign_futures_permission)],
-)
+@router.post("/futures/tw/foreign-flow/ai-report/regenerate")
 def regenerate_today_ai_report() -> dict:
     """Forward to the Worker, then return the freshly-written DB row.
 

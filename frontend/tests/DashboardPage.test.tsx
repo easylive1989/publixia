@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 
 describe('DashboardPage', () => {
-  it('renders all 13 registered cards by default', async () => {
+  it('renders the registered indicator cards by default', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('加權指數')).toBeInTheDocument();

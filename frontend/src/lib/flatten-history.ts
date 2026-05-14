@@ -1,5 +1,3 @@
-import type { StockHistoryResponse } from '@/hooks/useStockHistory';
-
 export interface ChartRow {
   date: string;
   open: number;
@@ -17,7 +15,28 @@ export interface ChartRow {
   change_pct: number | null;
 }
 
-export function flattenHistory(data: StockHistoryResponse): ChartRow[] {
+export interface OhlcvSeries {
+  ticker: string;
+  dates: string[];
+  candles: {
+    open:   number;
+    high:   number;
+    low:    number;
+    close:  number;
+    volume: number;
+  }[];
+  indicators: {
+    ma5:            (number | null)[];
+    ma20:           (number | null)[];
+    ma60:           (number | null)[];
+    rsi14:          (number | null)[];
+    macd:           (number | null)[];
+    macd_signal:    (number | null)[];
+    macd_histogram: (number | null)[];
+  };
+}
+
+export function flattenHistory(data: OhlcvSeries): ChartRow[] {
   const { dates, candles, indicators } = data;
   const out: ChartRow[] = [];
   for (let i = 0; i < dates.length; i++) {

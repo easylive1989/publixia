@@ -10,9 +10,8 @@ five scheduled fetchers that feed this page on demand.
 import logging
 import threading
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
-from api.dependencies import require_foreign_futures_permission
 from fetchers.futures import fetch_tw_futures
 from fetchers.institutional_futures import fetch_latest as fetch_inst_futures
 from fetchers.institutional_options import fetch_latest as fetch_inst_options
@@ -22,11 +21,7 @@ from services.foreign_flow_payload import assemble_foreign_flow_payload
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/api",
-    tags=["futures"],
-    dependencies=[Depends(require_foreign_futures_permission)],
-)
+router = APIRouter(prefix="/api", tags=["futures"])
 
 
 @router.get("/futures/tw/foreign-flow")
