@@ -1,0 +1,154 @@
+/**
+ * publixia-foreign-flow-ai
+ *
+ * Cron Trigger:  18:30 Asia/Taipei daily (10:30 UTC)
+ * Manual fetch:  POST <worker-url>/ with X-Worker-Token header
+ *
+ * Flow:
+ *   1. GET  {API_BASE_URL}/api/futures/tw/foreign-flow/markdown   (X-Worker-Token)
+ *   2. env.AI.run("@cf/qwen/qwen3-30b-a3b-fp8", { messages })
+ *   3. POST {API_BASE_URL}/api/futures/tw/foreign-flow/ai-report   (X-Worker-Token)
+ *   4. POST Discord webhook (chunked text)
+ */
+import { chunkForDiscord, postDiscord } from "./discord";
+
+export interface Env {
+  AI: Ai;
+  API_BASE_URL: string;
+  WORKER_TOKEN: string;
+  DISCORD_WEBHOOK_URL: string;
+}
+
+const MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";
+const PROMPT_VERSION = "v1";
+const TIME_RANGE = "1M"; // 30-day window; markdown slices the trailing 5.
+
+const SYSTEM_PROMPT =
+  "你是個人交易者,擅長台指期短線技術分析。你會收到一份 markdown 表格 " +
+  "(包含 TX 期貨日線、外資現貨、外資期貨多空、TXO 三大法人、各履約價 OI、" +
+  "散戶多空比)。請輸出繁體中文交易分析,涵蓋:" +
+  "(1) 外資多空動向解讀,(2) TXO 選擇權三大法人布局,(3) 散戶多空比觀察," +
+  "(4) 隔週技術面交易計畫 (進場/停損/停利),(5) 主要風險訊號。" +
+  "請保持精簡、條列清楚、用客觀語氣,避免過度自信。";
+
+function todayInTaipei(): string {
+  // 'en-CA' formats as 'YYYY-MM-DD' which matches our DB schema.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year:  "numeric",
+    month: "2-digit",
+    day:   "2-digit",
+  }).format(new Date());
+}
+
+async function fetchInputMarkdown(env: Env): Promise<string> {
+  const url = `${env.API_BASE_URL}/api/futures/tw/foreign-flow/markdown?time_range=${TIME_RANGE}`;
+  const resp = await fetch(url, {
+    headers: { "X-Worker-Token": env.WORKER_TOKEN },
+  });
+  if (!resp.ok) {
+    throw new Error(
+      `markdown fetch failed ${resp.status}: ${(await resp.text()).slice(0, 200)}`,
+    );
+  }
+  return await resp.text();
+}
+
+async function runLLM(env: Env, inputMarkdown: string): Promise<string> {
+  const result = (await env.AI.run(MODEL as any, {
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user",   content: inputMarkdown },
+    ],
+  } as any)) as { response?: string };
+  const out = (result?.response ?? "").trim();
+  if (!out) {
+    throw new Error("LLM returned empty response");
+  }
+  return out;
+}
+
+async function writeReportBack(
+  env: Env,
+  body: {
+    report_date:     string;
+    model:           string;
+    prompt_version:  string;
+    input_markdown:  string;
+    output_markdown: string;
+  },
+): Promise<void> {
+  const resp = await fetch(
+    `${env.API_BASE_URL}/api/futures/tw/foreign-flow/ai-report`,
+    {
+      method:  "POST",
+      headers: {
+        "Content-Type":   "application/json",
+        "X-Worker-Token": env.WORKER_TOKEN,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!resp.ok) {
+    throw new Error(
+      `writeback failed ${resp.status}: ${(await resp.text()).slice(0, 200)}`,
+    );
+  }
+}
+
+async function generateAndDeliver(env: Env): Promise<{ report_date: string }> {
+  const reportDate = todayInTaipei();
+  const inputMarkdown  = await fetchInputMarkdown(env);
+  const outputMarkdown = await runLLM(env, inputMarkdown);
+
+  await writeReportBack(env, {
+    report_date:     reportDate,
+    model:           MODEL,
+    prompt_version:  PROMPT_VERSION,
+    input_markdown:  inputMarkdown,
+    output_markdown: outputMarkdown,
+  });
+
+  // Discord delivery is best-effort; failures only log.
+  await postDiscord(
+    env.DISCORD_WEBHOOK_URL,
+    `**今日外資動向 AI 分析 (${reportDate})**\n模型: \`${MODEL}\``,
+  );
+  for (const chunk of chunkForDiscord(outputMarkdown)) {
+    await postDiscord(env.DISCORD_WEBHOOK_URL, chunk);
+  }
+
+  return { report_date: reportDate };
+}
+
+export default {
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    try {
+      const r = await generateAndDeliver(env);
+      console.log("scheduled_ok", r);
+    } catch (e) {
+      console.error("scheduled_failed", e instanceof Error ? e.message : e);
+      // Surface to Discord so we notice when the cron silently breaks.
+      await postDiscord(
+        env.DISCORD_WEBHOOK_URL,
+        `:warning: 外資動向 AI 報告生成失敗: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      ).catch(() => undefined);
+    }
+  },
+
+  async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.headers.get("X-Worker-Token") !== env.WORKER_TOKEN) {
+      return new Response("unauthorized", { status: 401 });
+    }
+    try {
+      const r = await generateAndDeliver(env);
+      return Response.json({ ok: true, ...r });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("manual_failed", msg);
+      return Response.json({ ok: false, error: msg }, { status: 500 });
+    }
+  },
+};

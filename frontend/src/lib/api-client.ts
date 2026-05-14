@@ -34,3 +34,28 @@ export async function apiFetch<T = unknown>(
   if (res.status === 204) return undefined as T;
   return res.json();
 }
+
+/** Same auth + error handling as ``apiFetch``, but returns the raw text
+ *  body. Used for endpoints that hand back markdown / plain text. */
+export async function apiFetchText(
+  path: string,
+  init: RequestInit = {},
+): Promise<string> {
+  const token = useAuthStore.getState().token;
+  const headers: Record<string, string> = {
+    ...(init.headers as Record<string, string> | undefined),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+
+  if (res.status === 401) {
+    useAuthStore.getState().clearToken();
+    throw new ApiError(401, 'Unauthorized');
+  }
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || res.statusText);
+  }
+  return res.text();
+}

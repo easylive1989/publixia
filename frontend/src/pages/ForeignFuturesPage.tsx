@@ -8,6 +8,7 @@ import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignO
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
 import { ForeignOptionsStrikeDistribution } from '@/components/foreign-futures/ForeignOptionsStrikeDistribution';
 import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
+import { ForeignFlowAiReport } from '@/components/foreign-futures/ForeignFlowAiReport';
 import { RefreshDataButton } from '@/components/foreign-futures/RefreshDataButton';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y'] as const;
@@ -62,12 +63,11 @@ export default function ForeignFuturesPage() {
             ))}
           </div>
           <RefreshDataButton disabled={isLoading} />
-          <DownloadFiveDaysButton
-            data={data}
-            disabled={isLoading || isError || !data || data.dates.length === 0}
-          />
+          <DownloadFiveDaysButton disabled={isLoading} />
         </div>
       </div>
+
+      <ForeignFlowAiReport />
 
       {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
       {isError   && <p className="text-sm text-destructive">無法載入外資動向資料</p>}

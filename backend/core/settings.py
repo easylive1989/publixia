@@ -25,5 +25,11 @@ class Settings(BaseSettings):
     r2_endpoint_url: str | None = None
     r2_bucket: str | None = None
 
+    # Shared secret + URL for the Cloudflare Worker that produces the
+    # daily 外資動向 AI report. Worker → FastAPI auth and the manual
+    # regenerate path both check this token.
+    foreign_flow_worker_token: SecretStr | None = None
+    foreign_flow_worker_url:   str        | None = None
+
 
 settings = Settings()

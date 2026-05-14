@@ -1,0 +1,17 @@
+name = "publixia-foreign-flow-ai"
+main = "src/index.ts"
+compatibility_date = "2025-12-01"
+
+# 18:30 Asia/Taipei (UTC+8) = 10:30 UTC, daily.
+# Runs after the 5 backend fetchers (17:30–18:15 TST) have populated
+# the day's foreign-flow tables.
+[triggers]
+crons = ["30 10 * * *"]
+
+[ai]
+binding = "AI"
+
+# Secrets — set via `wrangler secret put`, never commit:
+#   API_BASE_URL           https://api.paul-learning.dev
+#   WORKER_TOKEN           shared with FastAPI's FOREIGN_FLOW_WORKER_TOKEN
+#   DISCORD_WEBHOOK_URL    same as backend's DISCORD_STOCK_WEBHOOK_URL

@@ -56,6 +56,8 @@ jobs:
           R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
           R2_BUCKET=${{ secrets.R2_BUCKET }}
+          FOREIGN_FLOW_WORKER_TOKEN=${{ secrets.FOREIGN_FLOW_WORKER_TOKEN }}
+          FOREIGN_FLOW_WORKER_URL=${{ secrets.FOREIGN_FLOW_WORKER_URL }}
           EOF
           chmod 600 /opt/stock-dashboard/backend/.env"
 

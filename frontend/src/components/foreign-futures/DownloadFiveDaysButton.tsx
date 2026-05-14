@@ -1,13 +1,9 @@
-import { Download } from 'lucide-react';
+import { useState } from 'react';
+import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ForeignFuturesResponse } from '@/hooks/useForeignFutures';
-import {
-  buildForeignFlowFilename,
-  buildForeignFlowMarkdown,
-} from '@/lib/foreign-flow-markdown';
+import { apiFetchText, ApiError } from '@/lib/api-client';
 
 interface DownloadFiveDaysButtonProps {
-  data: ForeignFuturesResponse | undefined;
   disabled?: boolean;
 }
 
@@ -19,40 +15,60 @@ function todayString(): string {
   return `${y}-${m}-${day}`;
 }
 
-export function DownloadFiveDaysButton({
-  data,
-  disabled,
-}: DownloadFiveDaysButtonProps) {
-  const isDisabled = disabled || !data || data.dates.length === 0;
+export function DownloadFiveDaysButton({ disabled }: DownloadFiveDaysButtonProps) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleClick() {
-    if (!data || data.dates.length === 0) return;
-    const downloadDate = todayString();
-    const md = buildForeignFlowMarkdown(data, downloadDate);
-    const filename = buildForeignFlowFilename(downloadDate);
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  async function handleClick() {
+    setBusy(true);
+    setError(null);
+    try {
+      const md = await apiFetchText(
+        '/api/futures/tw/foreign-flow/markdown/download?time_range=1M',
+      );
+      const downloadDate = todayString();
+      const filename = `foreign-flow_${downloadDate}.md`;
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? `[${err.status}] ${err.message}`
+          : (err as Error).message,
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
+  const isDisabled = disabled || busy;
+
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      disabled={isDisabled}
-      onClick={handleClick}
-      aria-label="下載最近 5 個交易日資料供 AI 分析"
-      className="gap-1"
-    >
-      <Download className="h-4 w-4" />
-      下載 5 日資料
-    </Button>
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={isDisabled}
+        onClick={handleClick}
+        aria-label="下載最近 5 個交易日資料供 AI 分析"
+        className="gap-1"
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Download className="h-4 w-4" />
+        )}
+        下載 5 日資料
+      </Button>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
   );
 }
