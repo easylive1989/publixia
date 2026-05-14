@@ -1,0 +1,47 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: worker/foreign-flow-ai/package-lock.json
+
+      - name: Install worker deps
+        working-directory: worker/foreign-flow-ai
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: worker/foreign-flow-ai
+        run: npx tsc --noEmit
+
+      # Pushes WORKER_TOKEN + DISCORD_WEBHOOK_URL as wrangler secrets,
+      # then runs `wrangler deploy`. Rotating either secret in GitHub
+      # Settings will propagate to Cloudflare on the next worker push.
+      # API_BASE_URL is intentionally left to be set by `wrangler secret
+      # put` once since it rarely changes.
+      - name: Deploy worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker/foreign-flow-ai
+          secrets: |
+            WORKER_TOKEN
+            DISCORD_WEBHOOK_URL
+        env:
+          WORKER_TOKEN:        ${{ secrets.FOREIGN_FLOW_WORKER_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_STOCK_WEBHOOK_URL }}
