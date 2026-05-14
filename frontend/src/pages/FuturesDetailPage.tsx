@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFuturesHistory } from '@/hooks/useFuturesHistory';
-import { useMe } from '@/hooks/useStrategy';
+import { useMe } from '@/hooks/useMe';
 import { flattenHistory } from '@/lib/flatten-history';
 import {
   KLineChart, VolumeChart, RSIChart, MACDChart,

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useMe } from '@/hooks/useStrategy';
+import { useMe } from '@/hooks/useMe';
 
 export function ForeignFuturesNavLink() {
   const { data: me } = useMe();

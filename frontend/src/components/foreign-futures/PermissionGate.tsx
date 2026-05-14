@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { useMe } from '@/hooks/useStrategy';
+import { useMe } from '@/hooks/useMe';
 
 export function ForeignFuturesPermissionGate({ children }: { children: ReactNode }) {
   const { data: me, isLoading } = useMe();

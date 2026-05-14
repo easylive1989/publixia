@@ -65,18 +65,3 @@ async def require_foreign_futures_permission(
     if settings is None or not settings["can_view_foreign_futures"]:
         raise HTTPException(status_code=403, detail="no foreign futures permission")
     return {**user, **settings}
-
-
-async def require_strategy_permission(user: dict = Depends(require_user)) -> dict:
-    """Extend require_user with the FSE feature gate.
-
-    require_user returns the lean {id, name, created_at} shape from
-    get_user_by_id. We re-query via get_user_with_settings to read the
-    can_use_strategy flag. Caller receives the merged dict so route
-    handlers can use either user["id"] or user["can_use_strategy"]
-    without further DB calls.
-    """
-    settings = get_user_with_settings(user["id"])
-    if settings is None or not settings["can_use_strategy"]:
-        raise HTTPException(status_code=403, detail="no strategy permission")
-    return {**user, **settings}

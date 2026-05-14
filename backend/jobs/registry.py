@@ -20,9 +20,7 @@ from fetchers.fundamentals_stock import fetch_watchlist_stock_daily
 from fetchers.ndc import fetch_ndc
 from fetchers.news import fetch_news
 from fetchers.volume import fetch_tw_volume, fetch_us_volume
-from fetchers.futures import (
-    fetch_tw_futures, fetch_tw_futures_mtx, fetch_tw_futures_tmf,
-)
+from fetchers.futures import fetch_tw_futures
 from fetchers.institutional_futures import fetch_latest as fetch_inst_futures
 from fetchers.institutional_options import fetch_latest as fetch_inst_options
 from fetchers.txo_strike_oi import fetch_latest as fetch_txo_strike_oi
@@ -51,8 +49,6 @@ JOBS: dict[str, JobSpec] = {
     "large_trader":       JobSpec(fetch_large_trader,         "5 18 * * *",   "大額交易人 (散戶多空比)"),
     "tw_volume":          JobSpec(fetch_tw_volume,            "5 18 * * *",   "台股大盤量能"),
     "tw_futures":         JobSpec(fetch_tw_futures,           "30 17 * * *",  "台指期 (TX) 日線"),
-    "tw_futures_mtx":     JobSpec(fetch_tw_futures_mtx,       "30 17 * * *",  "小台指期 (MTX) 日線"),
-    "tw_futures_tmf":     JobSpec(fetch_tw_futures_tmf,       "30 17 * * *",  "微台指期 (TMF) 日線"),
     "watchlist_chip_per": JobSpec(fetch_watchlist_stock_daily,"30 18 * * *",  "watchlist 個股籌碼/PER"),
     "us_volume":          JobSpec(fetch_us_volume,            "10 6 * * *",   "美股大盤量能"),
     "ndc":                JobSpec(fetch_ndc,                  "0 9 1 * *",    "國發會景氣對策信號"),

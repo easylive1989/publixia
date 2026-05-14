@@ -31,9 +31,7 @@ def _render_users_table(users: list[dict]) -> None:
     table.add_column("TOKEN PREFIX")
     table.add_column("TOKEN EXPIRES")
     table.add_column("STATUS")
-    table.add_column("STRATEGY")
     table.add_column("FFUT")
-    table.add_column("WEBHOOK")
 
     status_color = {
         "active": "[green]active[/green]",
@@ -41,17 +39,10 @@ def _render_users_table(users: list[dict]) -> None:
         "none": "[dim]none[/dim]",
     }
     for u in users:
-        strategy_cell = (
-            "[green]✓[/green]" if u.get("can_use_strategy")
-            else "[dim]✗[/dim]"
-        )
         ffut_cell = (
             "[green]✓[/green]" if u.get("can_view_foreign_futures")
             else "[dim]✗[/dim]"
         )
-        webhook_cell = u.get("webhook_display", "—")
-        if webhook_cell == "—":
-            webhook_cell = "[dim]—[/dim]"
         table.add_row(
             str(u["id"]),
             u["name"],
@@ -59,9 +50,7 @@ def _render_users_table(users: list[dict]) -> None:
             u["token_prefix"] or "-",
             (u["token_expires_at"] or "never") if u["token_id"] else "-",
             status_color.get(u["token_status"], u["token_status"]),
-            strategy_cell,
             ffut_cell,
-            webhook_cell,
         )
     console.print(table)
 
@@ -92,7 +81,6 @@ def _user_action_menu(user: dict) -> None:
         action = questionary.select(
             f"User '{user['name']}' (id={user['id']}, "
             f"token={user['token_status']}, "
-            f"strategy={'on' if user.get('can_use_strategy') else 'off'}, "
             f"ffut={'on' if user.get('can_view_foreign_futures') else 'off'}):",
             choices=[
                 questionary.Choice("Refresh token", value="refresh"),
@@ -101,14 +89,7 @@ def _user_action_menu(user: dict) -> None:
                     value="revoke",
                     disabled=None if user["token_status"] == "active" else "no active token",
                 ),
-                questionary.Choice("Toggle strategy permission", value="toggle_strategy"),
                 questionary.Choice("Toggle foreign-futures permission", value="toggle_ffut"),
-                questionary.Choice("Set Discord webhook URL", value="set_webhook"),
-                questionary.Choice(
-                    "Clear Discord webhook URL",
-                    value="clear_webhook",
-                    disabled=None if user.get("discord_webhook_url") else "no webhook set",
-                ),
                 questionary.Choice("[back]", value="back"),
             ],
         ).ask()
@@ -125,13 +106,6 @@ def _user_action_menu(user: dict) -> None:
                     console.print("[green]Token revoked.[/green]")
                 else:
                     console.print("[yellow]No active token to revoke.[/yellow]")
-        elif action == "toggle_strategy":
-            new_state = not bool(user.get("can_use_strategy"))
-            ops.set_strategy_permission(user["id"], new_state)
-            console.print(
-                f"[green]Strategy permission for '{user['name']}' = "
-                f"{'ON' if new_state else 'OFF'}[/green]"
-            )
         elif action == "toggle_ffut":
             new_state = not bool(user.get("can_view_foreign_futures"))
             ops.set_foreign_futures_permission(user["id"], new_state)
@@ -139,36 +113,6 @@ def _user_action_menu(user: dict) -> None:
                 f"[green]Foreign-futures permission for '{user['name']}' = "
                 f"{'ON' if new_state else 'OFF'}[/green]"
             )
-        elif action == "set_webhook":
-            _action_set_webhook(user)
-        elif action == "clear_webhook":
-            affected = ops.clear_discord_webhook_with_cascade(
-                user["id"], also_disable_strategies=False,
-            )
-            if affected:
-                console.print(
-                    f"[yellow]Warning: {len(affected)} active strategy "
-                    f"row(s) will silently fail to send notifications "
-                    f"until a new webhook is set.[/yellow]"
-                )
-                also = questionary.confirm(
-                    "Auto-disable those strategies now?", default=False,
-                ).ask()
-                if also:
-                    ops.clear_discord_webhook_with_cascade(
-                        user["id"], also_disable_strategies=True,
-                    )
-                    console.print(
-                        f"[green]Webhook cleared and "
-                        f"{len(affected)} strategies disabled.[/green]"
-                    )
-                else:
-                    console.print(
-                        "[green]Webhook cleared "
-                        "(strategies left enabled).[/green]"
-                    )
-            else:
-                console.print("[green]Webhook cleared.[/green]")
 
         # Refresh the row so subsequent menu iterations see new state.
         users = ops.list_users_with_token()
@@ -176,41 +120,6 @@ def _user_action_menu(user: dict) -> None:
         if latest is None:
             return
         user = latest
-
-
-def _action_set_webhook(user: dict) -> None:
-    while True:
-        url = questionary.text(
-            "Discord webhook URL:",
-            validate=lambda v: True if v.strip().startswith("https://") else (
-                "URL must start with https://"
-            ),
-        ).ask()
-        if not url:
-            return
-        url = url.strip()
-        try:
-            result = ops.set_discord_webhook(user["id"], url)
-        except ValueError as e:
-            console.print(f"[red]Rejected:[/red] {e}")
-            if not questionary.confirm("Try again?", default=True).ask():
-                return
-            continue
-        break
-
-    if result.test_ping_sent:
-        console.print(
-            f"[green]Webhook set for '{user['name']}' "
-            f"and test ping delivered.[/green]"
-        )
-    else:
-        console.print(
-            f"[yellow]Webhook saved for '{user['name']}' but the test "
-            f"ping was skipped (user not found?).[/yellow]"
-        )
-    console.print(
-        "[dim](Strategy notifications will now use this URL.)[/dim]"
-    )
 
 
 def _action_create_user() -> None:

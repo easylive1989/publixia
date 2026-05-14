@@ -1,8 +1,7 @@
-"""GET /api/me — current user's identity + FSE feature flags.
+"""GET /api/me — current user's identity + feature flags.
 
 This route is the single source of truth the frontend polls on app boot
-to decide whether to render the strategy section and whether the
-"enable notifications" toggle should be active.
+to decide which gated sections (e.g. 外資動向) to render.
 """
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -21,7 +20,5 @@ def get_me(user: dict = Depends(require_user)) -> MeResponse:
     return MeResponse(
         user_id                  = settings["id"],
         name                     = settings["name"],
-        can_use_strategy         = settings["can_use_strategy"],
         can_view_foreign_futures = settings["can_view_foreign_futures"],
-        has_webhook              = settings["discord_webhook_url"] is not None,
     )

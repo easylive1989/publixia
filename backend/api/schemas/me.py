@@ -3,15 +3,14 @@ from pydantic import BaseModel, ConfigDict
 
 
 class MeResponse(BaseModel):
-    """Privacy note: discord_webhook_url MUST NOT appear here. extra='forbid'
-    so any future MeResponse(**settings) call fails loudly instead of
-    silently dropping the URL — keeps the leak invariant load-bearing in
-    the type system, not just by happenstance."""
+    """Identity + per-user feature gate flags the frontend polls on boot.
+
+    ``extra='forbid'`` so any future per-user secret we add can't silently
+    leak through a ``MeResponse(**settings)`` splat without a schema bump.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     user_id:                  int
     name:                     str
-    can_use_strategy:         bool
     can_view_foreign_futures: bool
-    has_webhook:              bool

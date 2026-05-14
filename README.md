@@ -66,7 +66,7 @@ deploy.sh                Manual VPS deploy (used outside CI)
 
 | 表                        | 內容                                                       | 排程             |
 |---------------------------|-----------------------------------------------------------|------------------|
-| `futures_daily`           | TX / MTX / TMF 每日 OHLCV + 未平倉 + 結算價（近月連續）        | 17:30            |
+| `futures_daily`           | TX 每日 OHLCV + 未平倉 + 結算價（近月連續）                     | 17:30            |
 | `futures_settlement_dates`| TX 每月結算日；來源是人工維護的 [`backend/data/settlement_dates.md`](backend/data/settlement_dates.md)（TAIFEX 行事曆 PDF 摘錄）；fetcher 補未來 12 個月 | 每月 1 號 02:00 |
 
 ### 4. 三大法人 / 籌碼 — TAIFEX 每日下載 CSV
@@ -103,8 +103,6 @@ deploy.sh                Manual VPS deploy (used outside CI)
 | 表                      | 說明                                                                                                |
 |-------------------------|----------------------------------------------------------------------------------------------------|
 | `price_alerts`          | 使用者設的價格 / 指標警報，命中後透過 `core/discord.py` 發 Discord                                       |
-| `strategies`            | 策略引擎 (TX/MTX/TMF) 的設定 + 假倉狀態機（idle/pending_entry/open/pending_exit），需 `can_use_strategy` 權限 |
-| `strategy_signals`      | 每筆進場/出場 signal 與成交回報日誌                                                                  |
 | `users` / `api_tokens`  | 使用者帳號 + bearer token（透過 admin CLI 管理）                                                       |
 | `scheduler_jobs`        | 每個 job 的 cron 設定，admin CLI 可改，需重啟 backend 套用                                              |
 
