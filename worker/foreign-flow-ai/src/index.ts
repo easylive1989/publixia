@@ -54,15 +54,38 @@ async function fetchInputMarkdown(env: Env): Promise<string> {
   return await resp.text();
 }
 
+/** Workers AI hands back two different shapes depending on the model:
+ *
+ * - OpenAI chat-completions: ``{choices: [{message: {content}}]}``
+ *   (Qwen 3, GPT-OSS, Llama 4, and most newer instruct models)
+ * - Legacy:                  ``{response: string}``
+ *   (Llama 3.x, Mistral, older catalog entries)
+ *
+ * We try both so swapping ``MODEL`` doesn't force a worker change. */
+function extractLLMText(result: unknown): string {
+  const r = result as {
+    choices?: { message?: { content?: string } }[];
+    response?: string;
+  } | null;
+  const choice = r?.choices?.[0]?.message?.content;
+  if (typeof choice === "string" && choice.trim()) return choice.trim();
+  if (typeof r?.response === "string" && r.response.trim())
+    return r.response.trim();
+  return "";
+}
+
 async function runLLM(env: Env, inputMarkdown: string): Promise<string> {
-  const result = (await env.AI.run(MODEL as any, {
+  const result = await env.AI.run(MODEL as any, {
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user",   content: inputMarkdown },
     ],
-  } as any)) as { response?: string };
-  const out = (result?.response ?? "").trim();
+  } as any);
+  const out = extractLLMText(result);
   if (!out) {
+    // Last-resort dump so tail can show what we got when no known shape matched.
+    try { console.error("ai_unknown_shape", JSON.stringify(result).slice(0, 1500)); }
+    catch { console.error("ai_unstringifiable", typeof result); }
     throw new Error("LLM returned empty response");
   }
   return out;
@@ -121,6 +144,22 @@ async function generateAndDeliver(env: Env): Promise<{ report_date: string }> {
   return { report_date: reportDate };
 }
 
+/** Post an error notice to Discord. Best-effort — swallows its own
+ *  failures so we never mask the original error. */
+async function notifyDiscordError(
+  env: Env,
+  source: "cron" | "manual",
+  err: unknown,
+): Promise<void> {
+  const msg = err instanceof Error ? err.message : String(err);
+  // Discord's 2000-char ceiling — leave room for the prefix.
+  const trimmed = msg.length > 1800 ? msg.slice(0, 1800) + "…" : msg;
+  await postDiscord(
+    env.DISCORD_WEBHOOK_URL,
+    `:warning: 外資動向 AI 報告生成失敗 (${source})\n\`\`\`\n${trimmed}\n\`\`\``,
+  ).catch(() => undefined);
+}
+
 export default {
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
     try {
@@ -128,13 +167,7 @@ export default {
       console.log("scheduled_ok", r);
     } catch (e) {
       console.error("scheduled_failed", e instanceof Error ? e.message : e);
-      // Surface to Discord so we notice when the cron silently breaks.
-      await postDiscord(
-        env.DISCORD_WEBHOOK_URL,
-        `:warning: 外資動向 AI 報告生成失敗: ${
-          e instanceof Error ? e.message : String(e)
-        }`,
-      ).catch(() => undefined);
+      await notifyDiscordError(env, "cron", e);
     }
   },
 
@@ -148,6 +181,7 @@ export default {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("manual_failed", msg);
+      await notifyDiscordError(env, "manual", e);
       return Response.json({ ok: false, error: msg }, { status: 500 });
     }
   },
