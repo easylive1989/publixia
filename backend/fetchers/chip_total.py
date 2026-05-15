@@ -13,29 +13,9 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 
-import requests
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import save_indicator
-from core.settings import settings
-
-FINMIND_URL = "https://api.finmindtrade.com/api/v4/data"
-FINMIND_TOKEN = settings.finmind_token.get_secret_value().strip()
-
-
-def _request(dataset: str, start_date: str, end_date: str | None = None) -> list[dict]:
-    params = {"dataset": dataset, "start_date": start_date}
-    if end_date:
-        params["end_date"] = end_date
-    headers = {}
-    if FINMIND_TOKEN:
-        headers["Authorization"] = f"Bearer {FINMIND_TOKEN}"
-    r = requests.get(FINMIND_URL, params=params, headers=headers, timeout=20)
-    r.raise_for_status()
-    payload = r.json()
-    if payload.get("status") not in (200, None):
-        raise RuntimeError(f"FinMind {dataset} error: {payload.get('msg') or payload}")
-    return payload.get("data") or []
+from core.finmind import request as _request
 
 
 def parse_total_margin(rows: list[dict]) -> dict[str, dict[str, float]]:

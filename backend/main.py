@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 import db  # noqa: F401
 
 from api.routes import (
-    indicators, news, futures, foreign_futures, foreign_flow_ai,
+    indicators, news, futures, foreign_futures, foreign_flow_ai, groups,
 )
 from core.errors import (
     FetcherError, RepositoryError, StockDashboardError,
@@ -33,6 +33,7 @@ app.include_router(news.router)
 app.include_router(futures.router)
 app.include_router(foreign_futures.router)
 app.include_router(foreign_flow_ai.router)
+app.include_router(groups.router)
 
 
 _ERROR_TO_STATUS: list[tuple[type[StockDashboardError], int]] = [

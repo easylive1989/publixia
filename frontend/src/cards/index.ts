@@ -3,3 +3,4 @@
 import './NewsCard';
 import './dashboard-cards';
 import './total-three-investors';
+import './SectorHeatmapCard';

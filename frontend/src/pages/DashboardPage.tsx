@@ -55,13 +55,14 @@ export default function DashboardPage() {
       </div>
       <RangeBar />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {visible.map(({ id, component: Card, cols = 1 }) => (
+        {visible.map(({ id, component: Card, cols = 1, rows = 1 }) => (
           <div
             key={id}
             className={cn(
               'relative h-full',
               cols === 3 && 'lg:col-span-3',
               cols === 2 && 'lg:col-span-2',
+              rows === 2 && 'sm:row-span-2',
             )}
           >
             <Card />

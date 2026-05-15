@@ -43,4 +43,5 @@ registerCard({
   defaultPage: 'dashboard',
   component: NewsCard,
   cols: 1,
+  rows: 2,
 });
