@@ -27,7 +27,9 @@ def _price_row(stock_id: str, date: str, value: float, volume: int) -> dict:
 def _patch_finmind(monkeypatch, *, info_rows: list[dict], price_rows: list[dict]):
     """Stub the FinMind helper used by the fetcher.
 
-    Returns the recording so callers can introspect what was asked.
+    The ``TaiwanStockPrice`` stub honours ``start_date`` / ``end_date`` so
+    callers that iterate day-by-day see only the matching rows — this
+    mirrors what FinMind actually returns when each call covers one day.
     """
     calls: list[tuple] = []
 
@@ -36,7 +38,8 @@ def _patch_finmind(monkeypatch, *, info_rows: list[dict], price_rows: list[dict]
         if dataset == "TaiwanStockInfo":
             return info_rows
         if dataset == "TaiwanStockPrice":
-            return price_rows
+            hi = end_date or start_date
+            return [r for r in price_rows if start_date <= r.get("date", "") <= hi]
         raise AssertionError(f"unexpected dataset {dataset}")
 
     monkeypatch.setattr(gv, "request", fake_request)

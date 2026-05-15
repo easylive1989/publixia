@@ -8,7 +8,7 @@ are skipped — "族群" only means common-stock industries here.
 """
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -80,15 +80,39 @@ def fetch_industry_volume(target_date: str) -> list[dict]:
 def fetch_industry_volume_range(
     start_date: str, end_date: str,
 ) -> dict[str, list[dict]]:
-    """Bulk variant for backfill: one FinMind call covers many days.
+    """Iterate days from ``start_date`` to ``end_date`` (inclusive) and
+    aggregate per-industry totals for each.
 
-    Returns ``{trade_date: [aggregates...]}`` keyed by every trading day
-    that actually had rows in the range.
+    FinMind's ``TaiwanStockPrice`` endpoint rejects multi-day range queries
+    when no ``data_id`` is supplied (HTTP 400), so we hit it once per
+    calendar day. The industry map is loaded once and reused across calls.
+    Weekend / holiday days return empty FinMind responses and are silently
+    skipped. Per-day FinMind errors are logged and skipped so a single
+    bad day doesn't abort the whole backfill.
     """
     industry_map = _load_industry_map()
-    rows = request("TaiwanStockPrice", start_date=start_date, end_date=end_date)
-    by_date = _aggregate_by_date_industry(rows, industry_map)
-    return {d: _buckets_to_aggregates(buckets) for d, buckets in by_date.items()}
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_dt   = datetime.strptime(end_date,   "%Y-%m-%d").date()
+
+    result: dict[str, list[dict]] = {}
+    cursor = start_dt
+    while cursor <= end_dt:
+        date_str = cursor.strftime("%Y-%m-%d")
+        try:
+            rows = request(
+                "TaiwanStockPrice",
+                start_date=date_str,
+                end_date=date_str,
+            )
+        except Exception as e:
+            print(f"[group_volume] skip {date_str}: {e}")
+            cursor += timedelta(days=1)
+            continue
+        by_date = _aggregate_by_date_industry(rows, industry_map)
+        for d, buckets in by_date.items():
+            result[d] = _buckets_to_aggregates(buckets)
+        cursor += timedelta(days=1)
+    return result
 
 
 def run_industry_for_today() -> int:
