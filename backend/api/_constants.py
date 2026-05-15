@@ -15,7 +15,7 @@ INDICATOR_NAMES: list[str] = [
     "taiex", "fx", "fear_greed",
     "margin_balance", "short_balance", "short_margin_ratio",
     "total_foreign_net", "total_trust_net", "total_dealer_net",
-    "ndc", "tw_volume", "us_volume", "tw_futures",
+    "ndc", "tw_volume", "tw_futures",
 ]
 
 
@@ -33,6 +33,5 @@ INDICATOR_JOB_MAP: dict[str, str] = {
     "total_dealer_net":   "chip_total",
     "ndc":                "ndc",
     "tw_volume":          "tw_volume",
-    "us_volume":          "us_volume",
     "tw_futures":         "tw_futures",
 }

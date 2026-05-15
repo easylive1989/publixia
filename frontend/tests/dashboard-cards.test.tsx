@@ -28,10 +28,10 @@ beforeEach(() => {
 });
 
 describe('dashboard-cards', () => {
-  it('registers 10 indicator cards from dashboard-cards.tsx', () => {
+  it('registers 9 indicator cards from dashboard-cards.tsx', () => {
     // The combined three-investors card lives in total-three-investors.tsx
     // and isn't imported here, so it doesn't show up in this count.
-    expect(listCards('dashboard').length).toBe(10);
+    expect(listCards('dashboard').length).toBe(9);
   });
 
   it('taiex renders main value + change_pct badge + prev_close in sub', async () => {

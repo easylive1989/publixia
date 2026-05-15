@@ -16,7 +16,7 @@ from fetchers.fear_greed import fetch_fear_greed
 from fetchers.chip_total import fetch_chip_total
 from fetchers.ndc import fetch_ndc
 from fetchers.news import fetch_news
-from fetchers.volume import fetch_tw_volume, fetch_us_volume
+from fetchers.volume import fetch_tw_volume
 from fetchers.futures import fetch_tw_futures
 from fetchers.institutional_futures import fetch_latest as fetch_inst_futures
 from fetchers.institutional_options import fetch_latest as fetch_inst_options
@@ -46,7 +46,6 @@ JOBS: dict[str, JobSpec] = {
     "tw_volume":     JobSpec(fetch_tw_volume,     "5 18 * * *",   "台股大盤量能"),
     "group_volume_industry": JobSpec(fetch_group_volume_industry, "30 18 * * *", "族群成交量（產業別）"),
     "tw_futures":    JobSpec(fetch_tw_futures,    "30 17 * * *",  "台指期 (TX) 日線"),
-    "us_volume":     JobSpec(fetch_us_volume,     "10 6 * * *",   "美股大盤量能"),
     "ndc":           JobSpec(fetch_ndc,           "0 9 1 * *",    "國發會景氣對策信號"),
     "news":          JobSpec(fetch_news,          "*/30 * * * *", "新聞 (每 30 分鐘)"),
     "cleanup":       JobSpec(purge_old_data,      "0 0 * * 0",    "舊資料清理 (週日)"),

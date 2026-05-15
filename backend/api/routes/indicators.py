@@ -14,7 +14,7 @@ from fetchers.yfinance_fetcher import fetch_taiex, fetch_fx
 from fetchers.fear_greed import fetch_fear_greed
 from fetchers.chip_total import fetch_chip_total
 from fetchers.ndc import fetch_ndc
-from fetchers.volume import fetch_tw_volume, fetch_us_volume
+from fetchers.volume import fetch_tw_volume
 from fetchers.futures import fetch_tw_futures
 
 router = APIRouter(prefix="/api", tags=["indicators"])
@@ -27,7 +27,6 @@ FETCHERS: dict[str, Callable] = {
     "chip_total": fetch_chip_total,
     "ndc":        fetch_ndc,
     "tw_volume":  fetch_tw_volume,
-    "us_volume":  fetch_us_volume,
     "tw_futures": fetch_tw_futures,
 }
 

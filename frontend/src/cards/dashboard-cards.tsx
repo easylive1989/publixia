@@ -98,16 +98,6 @@ const CONFIGS: IndicatorConfig[] = [
     chartType: 'bar',
   },
   {
-    key: 'us_volume',
-    label: '美股 S&P500 成交量',
-    formatValue: (v) => v.toLocaleString() + ' 億股',
-    formatSub: (extra) => {
-      const prev = asNumber(extra.prev_value);
-      return `前日 ${prev != null ? prev.toLocaleString() : '—'} 億股`;
-    },
-    formatBadge: (extra) => changePctBadge(extra),
-  },
-  {
     key: 'fear_greed',
     label: '恐懼貪婪指數',
     formatValue: (v) => String(v),
