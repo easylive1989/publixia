@@ -1,8 +1,25 @@
-import { listCards } from '@/cards/registry';
+import { getCard, type CardSpec } from '@/cards/registry';
 import { RANGES, useRangeStore, type RangeKey } from '@/store/range-store';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AiReportNavLink, ForeignFuturesNavLink } from '@/components/foreign-futures/NavLink';
+
+// Single source of truth for dashboard layout. Cards render in this exact
+// order using each card's own cols/rows; CSS grid auto-flow places them.
+// Adding a card means: register it in cards/, then append its id here.
+const DASHBOARD_CARD_ORDER = [
+  'news',                    // (1×2)
+  'sector_heatmap_industry', // (2×2)
+  'taiex',                   // (1×1)
+  'total_three_investors',   // (2×1)
+  'tw_volume',               // (1×1)
+  'fear_greed',              // (1×1)
+  'ndc',                     // (1×1)
+  'margin_balance',          // (1×1)
+  'short_balance',           // (1×1)
+  'short_margin_ratio',      // (1×1)
+  'fx',                      // (1×1)
+] as const;
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '1M': '1 個月',
@@ -38,7 +55,9 @@ function RangeBar() {
 }
 
 export default function DashboardPage() {
-  const cards = listCards('dashboard');
+  const cards = DASHBOARD_CARD_ORDER
+    .map((id) => getCard(id))
+    .filter((c): c is CardSpec => c !== undefined);
 
   return (
     <div className="container mx-auto p-4 space-y-4">
