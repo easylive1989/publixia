@@ -1,10 +1,8 @@
 import { listCards } from '@/cards/registry';
-import { useCardPrefsStore } from '@/store/card-prefs-store';
 import { RANGES, useRangeStore, type RangeKey } from '@/store/range-store';
-import { DashboardSettingsDialog } from '@/components/DashboardSettingsDialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ForeignFuturesNavLink } from '@/components/foreign-futures/NavLink';
+import { AiReportNavLink, ForeignFuturesNavLink } from '@/components/foreign-futures/NavLink';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '1M': '1 個月',
@@ -40,22 +38,18 @@ function RangeBar() {
 }
 
 export default function DashboardPage() {
-  const allCards = listCards('dashboard');
-  const hiddenIds = useCardPrefsStore((s) => s.hiddenIds);
-  const visible = allCards.filter((c) => !hiddenIds.has(c.id));
+  const cards = listCards('dashboard');
 
   return (
     <div className="container mx-auto p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <ForeignFuturesNavLink />
-        </div>
-        <DashboardSettingsDialog />
+      <div className="flex items-center gap-4">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <ForeignFuturesNavLink />
+        <AiReportNavLink />
       </div>
       <RangeBar />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {visible.map(({ id, component: Card, cols = 1, rows = 1 }) => (
+        {cards.map(({ id, component: Card, cols = 1, rows = 1 }) => (
           <div
             key={id}
             className={cn(

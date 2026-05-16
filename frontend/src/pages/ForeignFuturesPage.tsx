@@ -8,7 +8,6 @@ import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignO
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
 import { ForeignOptionsStrikeDistribution } from '@/components/foreign-futures/ForeignOptionsStrikeDistribution';
 import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
-import { ForeignFlowAiReport } from '@/components/foreign-futures/ForeignFlowAiReport';
 import { RefreshDataButton } from '@/components/foreign-futures/RefreshDataButton';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y'] as const;
@@ -37,7 +36,7 @@ export default function ForeignFuturesPage() {
       </Button>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold">台指期 · 外資動向</h1>
+          <h1 className="text-2xl font-bold">外資動向</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {lastDate
               ? `最後交易日 ${lastDate}${
@@ -66,8 +65,6 @@ export default function ForeignFuturesPage() {
           <DownloadFiveDaysButton disabled={isLoading} />
         </div>
       </div>
-
-      <ForeignFlowAiReport />
 
       {isLoading && <p className="text-sm text-muted-foreground">載入中…</p>}
       {isError   && <p className="text-sm text-destructive">無法載入外資動向資料</p>}
