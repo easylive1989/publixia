@@ -101,21 +101,6 @@ const CONFIGS: IndicatorConfig[] = [
       return light ? { text: light, tone: 'neutral' } : null;
     },
   },
-  {
-    key: 'margin_balance',
-    label: '融資餘額',
-    formatValue: (v) => v.toFixed(0) + ' 億',
-  },
-  {
-    key: 'short_balance',
-    label: '融券餘額',
-    formatValue: (v) => (v / 1000).toFixed(0) + ' 千張',
-  },
-  {
-    key: 'short_margin_ratio',
-    label: '券資比',
-    formatValue: (v) => v.toFixed(2) + ' %',
-  },
 ];
 
 const EMPTY_EXTRA: Extra = {};

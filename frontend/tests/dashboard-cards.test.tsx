@@ -28,10 +28,11 @@ beforeEach(() => {
 });
 
 describe('dashboard-cards', () => {
-  it('registers 8 indicator cards from dashboard-cards.tsx', () => {
+  it('registers 5 indicator cards from dashboard-cards.tsx', () => {
     // The combined three-investors card lives in total-three-investors.tsx
-    // and isn't imported here, so it doesn't show up in this count.
-    expect(listCards('dashboard').length).toBe(8);
+    // and the margin/short balance card lives in MarginBalanceCard.tsx;
+    // neither is imported here, so they don't show up in this count.
+    expect(listCards('dashboard').length).toBe(5);
   });
 
   it('taiex renders main value + change_pct badge + prev_close in sub', async () => {

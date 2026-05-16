@@ -15,9 +15,7 @@ const DASHBOARD_CARD_ORDER = [
   'tw_volume',               // (1×1)
   'fear_greed',              // (1×1)
   'ndc',                     // (1×1)
-  'margin_balance',          // (1×1)
-  'short_balance',           // (1×1)
-  'short_margin_ratio',      // (1×1)
+  'margin_short',            // (2×1) — 融資/融券餘額 + 券資比
   'fx',                      // (1×1)
 ] as const;
 
