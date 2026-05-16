@@ -7,7 +7,6 @@ import { ForeignSpotChart } from '@/components/foreign-futures/ForeignSpotChart'
 import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignOptionsAmountChart';
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
 import { ForeignOptionsStrikeDistribution } from '@/components/foreign-futures/ForeignOptionsStrikeDistribution';
-import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
 import { ForeignFlowAiReport } from '@/components/foreign-futures/ForeignFlowAiReport';
 import { RefreshDataButton } from '@/components/foreign-futures/RefreshDataButton';
 
@@ -63,7 +62,6 @@ export default function ForeignFuturesPage() {
             ))}
           </div>
           <RefreshDataButton disabled={isLoading} />
-          <DownloadFiveDaysButton disabled={isLoading} />
         </div>
       </div>
 
