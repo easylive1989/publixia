@@ -4,8 +4,10 @@ companion /markdown endpoint that the Cloudflare Worker calls.
 Worker endpoints stay X-Worker-Token-gated (shared deploy-time secret).
 Browser endpoints became public after the user/permission purge.
 """
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
+import pytz
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -21,30 +23,40 @@ client = TestClient(app)
 
 WORKER_TOKEN = "test-worker-token-abcdef"
 
+_TST = pytz.timezone("Asia/Taipei")
+
 
 def _seed_minimum():
-    """Seed enough rows for the /markdown route to return 200."""
+    """Seed enough rows for the /markdown route to return 200.
+
+    The latest TX row is anchored to today's Taipei date so the
+    non-trading-day check in /markdown doesn't 204 us.
+    """
+    today = datetime.now(_TST).date()
+    yesterday = today - timedelta(days=1)
+    d0 = yesterday.strftime("%Y-%m-%d")
+    d1 = today.strftime("%Y-%m-%d")
     save_futures_daily_rows([
-        {"symbol": "TX", "date": "2025-05-01", "contract_date": "202505",
+        {"symbol": "TX", "date": d0, "contract_date": "202505",
          "open": 17000, "high": 17100, "low": 16900, "close": 17000,
          "volume": 1, "open_interest": 1, "settlement": 17000},
-        {"symbol": "TX", "date": "2025-05-02", "contract_date": "202505",
+        {"symbol": "TX", "date": d1, "contract_date": "202505",
          "open": 17000, "high": 17200, "low": 16950, "close": 17150,
          "volume": 1, "open_interest": 1, "settlement": 17150},
     ])
     save_institutional_futures_rows([
-        {"symbol": "TX", "date": "2025-05-01",
+        {"symbol": "TX", "date": d0,
          "foreign_long_oi": 100, "foreign_short_oi": 0,
          "foreign_long_amount": 320_000.0, "foreign_short_amount": 0.0},
-        {"symbol": "TX", "date": "2025-05-02",
+        {"symbol": "TX", "date": d1,
          "foreign_long_oi": 130, "foreign_short_oi": 0,
          "foreign_long_amount": 419_500.0, "foreign_short_amount": 0.0},
     ])
     save_large_trader_rows([
-        {"date": "2025-05-01", "market_oi": 100_000,
+        {"date": d0, "market_oi": 100_000,
          "top5_long_oi": 0, "top5_short_oi": 0,
          "top10_long_oi": 60_000, "top10_short_oi": 70_000},
-        {"date": "2025-05-02", "market_oi": 100_000,
+        {"date": d1, "market_oi": 100_000,
          "top5_long_oi": 0, "top5_short_oi": 0,
          "top10_long_oi": 65_000, "top10_short_oi": 60_000},
     ])
@@ -109,6 +121,32 @@ def test_markdown_returns_404_when_no_tx_data():
         headers={"X-Worker-Token": WORKER_TOKEN},
     )
     assert r.status_code == 404
+
+
+def test_markdown_204_when_latest_tx_is_not_today():
+    """Non-trading day: latest TX bar predates today → 204 so the Worker skips."""
+    _configure_worker_token()
+    save_futures_daily_rows([
+        {"symbol": "TX", "date": "2025-05-02", "contract_date": "202505",
+         "open": 17000, "high": 17200, "low": 16950, "close": 17150,
+         "volume": 1, "open_interest": 1, "settlement": 17150},
+    ])
+    save_institutional_futures_rows([
+        {"symbol": "TX", "date": "2025-05-02",
+         "foreign_long_oi": 130, "foreign_short_oi": 0,
+         "foreign_long_amount": 419_500.0, "foreign_short_amount": 0.0},
+    ])
+    save_large_trader_rows([
+        {"date": "2025-05-02", "market_oi": 100_000,
+         "top5_long_oi": 0, "top5_short_oi": 0,
+         "top10_long_oi": 65_000, "top10_short_oi": 60_000},
+    ])
+    r = client.get(
+        "/api/futures/tw/foreign-flow/markdown?time_range=3Y",
+        headers={"X-Worker-Token": WORKER_TOKEN},
+    )
+    assert r.status_code == 204
+    assert r.text == ""
 
 
 def test_markdown_400_on_unknown_time_range():

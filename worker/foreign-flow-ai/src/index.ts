@@ -41,11 +41,13 @@ function todayInTaipei(): string {
   }).format(new Date());
 }
 
-async function fetchInputMarkdown(env: Env): Promise<string> {
+async function fetchInputMarkdown(env: Env): Promise<string | null> {
   const url = `${env.API_BASE_URL}/api/futures/tw/foreign-flow/markdown?time_range=${TIME_RANGE}`;
   const resp = await fetch(url, {
     headers: { "X-Worker-Token": env.WORKER_TOKEN },
   });
+  // 204 = backend says today is a non-trading day; caller skips the run.
+  if (resp.status === 204) return null;
   if (!resp.ok) {
     throw new Error(
       `markdown fetch failed ${resp.status}: ${(await resp.text()).slice(0, 200)}`,
@@ -119,9 +121,15 @@ async function writeReportBack(
   }
 }
 
-async function generateAndDeliver(env: Env): Promise<{ report_date: string }> {
+async function generateAndDeliver(
+  env: Env,
+): Promise<{ report_date: string; skipped?: true }> {
   const reportDate = todayInTaipei();
-  const inputMarkdown  = await fetchInputMarkdown(env);
+  const inputMarkdown = await fetchInputMarkdown(env);
+  if (inputMarkdown === null) {
+    console.log("skipped_non_trading_day", { report_date: reportDate });
+    return { report_date: reportDate, skipped: true };
+  }
   const outputMarkdown = await runLLM(env, inputMarkdown);
 
   await writeReportBack(env, {
