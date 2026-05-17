@@ -68,7 +68,11 @@ def _render_foreign_flow_markdown(time_range: str) -> Response:
         raise HTTPException(status_code=400, detail="Unknown time_range")
     if payload is None:
         raise HTTPException(status_code=404, detail="No TX history available")
-    md = build_foreign_flow_markdown(payload, _today_str())
+    today = _today_str()
+    # 204 on non-trading days so the Worker can skip the LLM call.
+    if not payload["dates"] or payload["dates"][-1] != today:
+        return Response(status_code=204)
+    md = build_foreign_flow_markdown(payload, today)
     return Response(content=md, media_type="text/markdown; charset=utf-8")
 
 
