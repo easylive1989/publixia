@@ -7,10 +7,11 @@ Two audiences, two auth surfaces:
   ``GET /markdown`` to fetch the 5-day input markdown, then writes the
   LLM output back via ``POST /ai-report``.
 
-* Frontend user. Authenticates via the existing bearer-token + foreign
-  futures permission gate. Reads today's row via ``GET /ai-report/today``
-  and asks for a rerun via ``POST /ai-report/regenerate``, which simply
-  proxies a HTTP call to the Worker so all AI calls stay in one place.
+* Frontend user. Reads the most recent row via
+  ``GET /ai-report/latest`` (today if it exists, otherwise the last
+  generated day) and asks for a rerun via ``POST /ai-report/regenerate``,
+  which simply proxies a HTTP call to the Worker so all AI calls stay
+  in one place.
 """
 from datetime import datetime
 import logging
@@ -23,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from core.settings import settings
 from repositories.foreign_flow_ai import (
-    get_today_report,
+    get_latest_report,
     save_report,
 )
 from services.foreign_flow_markdown import build_foreign_flow_markdown
@@ -80,13 +81,6 @@ def get_foreign_flow_markdown_for_worker(time_range: str = "1M") -> Response:
     return _render_foreign_flow_markdown(time_range)
 
 
-@router.get("/futures/tw/foreign-flow/markdown/download")
-def download_foreign_flow_markdown(time_range: str = "1M") -> Response:
-    """Markdown for the in-app "下載 5 日資料" button — same renderer,
-    accessible to anyone hitting the dashboard."""
-    return _render_foreign_flow_markdown(time_range)
-
-
 # ── Worker-side: write output ───────────────────────────────────────────
 
 
@@ -110,14 +104,15 @@ def write_foreign_flow_ai_report(body: AiReportIn) -> dict:
     return {"ok": True, "report_date": body.report_date}
 
 
-# ── User-side: read today / trigger regenerate ──────────────────────────
+# ── User-side: read latest / trigger regenerate ─────────────────────────
 
 
-@router.get("/futures/tw/foreign-flow/ai-report/today")
-def read_today_ai_report() -> dict:
-    row = get_today_report()
+@router.get("/futures/tw/foreign-flow/ai-report/latest")
+def read_latest_ai_report() -> dict:
+    """Return the most-recent report row. 404 only when the table is empty."""
+    row = get_latest_report()
     if row is None:
-        raise HTTPException(status_code=404, detail="No report for today")
+        raise HTTPException(status_code=404, detail="No report available")
     return row
 
 
@@ -153,7 +148,7 @@ def regenerate_today_ai_report() -> dict:
             detail=f"worker returned {resp.status_code}",
         )
 
-    row = get_today_report()
+    row = get_latest_report()
     if row is None:
         raise HTTPException(status_code=502, detail="worker did not persist a report")
     return row

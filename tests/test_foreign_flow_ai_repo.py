@@ -1,11 +1,7 @@
 """Repository tests for repositories.foreign_flow_ai."""
-from datetime import datetime
-
-import pytz
-
 from repositories.foreign_flow_ai import (
+    get_latest_report,
     get_report,
-    get_today_report,
     save_report,
 )
 
@@ -43,12 +39,18 @@ def test_get_returns_none_when_missing():
     assert get_report("2099-12-31") is None
 
 
-def test_get_today_uses_asia_taipei():
-    today = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
-    save_report(today, "model", "v1", "in", "out")
-    row = get_today_report()
+def test_get_latest_returns_most_recent_by_report_date():
+    save_report("2026-05-10", "m", "v1", "in", "out-10")
+    save_report("2026-05-14", "m", "v1", "in", "out-14")
+    save_report("2026-05-12", "m", "v1", "in", "out-12")
+    row = get_latest_report()
     assert row is not None
-    assert row["report_date"] == today
+    assert row["report_date"]     == "2026-05-14"
+    assert row["output_markdown"] == "out-14"
+
+
+def test_get_latest_returns_none_when_empty():
+    assert get_latest_report() is None
 
 
 def test_default_generated_at_is_set_when_omitted():

@@ -121,26 +121,6 @@ def test_markdown_400_on_unknown_time_range():
     assert r.status_code == 400
 
 
-# ── /markdown/download (browser, public) ────────────────────────────
-
-
-def test_user_markdown_download_returns_text_markdown():
-    _seed_minimum()
-    r = client.get(
-        "/api/futures/tw/foreign-flow/markdown/download?time_range=3Y",
-    )
-    assert r.status_code == 200
-    assert r.headers["content-type"].startswith("text/markdown")
-    body = r.text
-    assert "# 台指期 · 外資動向" in body
-    assert "## TX 期貨日線" in body
-
-
-def test_user_markdown_download_404_without_data():
-    r = client.get("/api/futures/tw/foreign-flow/markdown/download")
-    assert r.status_code == 404
-
-
 # ── POST /ai-report (Worker → Backend write) ────────────────────────────
 
 
@@ -199,24 +179,35 @@ def test_post_ai_report_validates_date_pattern():
     assert r.status_code == 422
 
 
-# ── GET /ai-report/today (public) ──────────────────────────────────
+# ── GET /ai-report/latest (public) ─────────────────────────────────
 
 
-def test_today_returns_404_when_no_row():
-    r = client.get("/api/futures/tw/foreign-flow/ai-report/today")
+def test_latest_returns_404_when_no_row():
+    r = client.get("/api/futures/tw/foreign-flow/ai-report/latest")
     assert r.status_code == 404
 
 
-def test_today_returns_row_when_present():
+def test_latest_returns_today_when_today_row_exists():
     from datetime import datetime
     import pytz
     today = datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d")
     save_report(today, "m", "v1", "in", "out")
-    r = client.get("/api/futures/tw/foreign-flow/ai-report/today")
+    r = client.get("/api/futures/tw/foreign-flow/ai-report/latest")
     assert r.status_code == 200
     body = r.json()
     assert body["report_date"]     == today
     assert body["output_markdown"] == "out"
+
+
+def test_latest_falls_back_to_most_recent_when_today_missing():
+    # Two older rows; latest must be the chronologically last one.
+    save_report("2026-05-10", "m", "v1", "in-10", "out-10")
+    save_report("2026-05-14", "m", "v1", "in-14", "out-14")
+    r = client.get("/api/futures/tw/foreign-flow/ai-report/latest")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["report_date"]     == "2026-05-14"
+    assert body["output_markdown"] == "out-14"
 
 
 # ── POST /ai-report/regenerate (public proxy → Worker) ─────────────

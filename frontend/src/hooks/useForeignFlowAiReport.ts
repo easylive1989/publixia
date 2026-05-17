@@ -15,19 +15,20 @@ export interface ForeignFlowAiReport {
   generated_at:    string;
 }
 
-export const FOREIGN_FLOW_AI_REPORT_KEY = ['foreign-flow', 'ai-report', 'today'] as const;
+export const FOREIGN_FLOW_AI_REPORT_KEY = ['foreign-flow', 'ai-report', 'latest'] as const;
 
-/** Today's AI report from the backend.
+/** Most recent AI report from the backend (today if it exists, otherwise
+ *  the last generated day).
  *
  *  404 surfaces as ``data === null`` (not as an error) so the empty
  *  state can render a "立即產生" button without spamming the console. */
-export function useTodayForeignFlowAiReport(): UseQueryResult<ForeignFlowAiReport | null> {
+export function useLatestForeignFlowAiReport(): UseQueryResult<ForeignFlowAiReport | null> {
   return useQuery<ForeignFlowAiReport | null>({
     queryKey: FOREIGN_FLOW_AI_REPORT_KEY,
     queryFn: async () => {
       try {
         return await apiFetch<ForeignFlowAiReport>(
-          '/api/futures/tw/foreign-flow/ai-report/today',
+          '/api/futures/tw/foreign-flow/ai-report/latest',
         );
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) return null;

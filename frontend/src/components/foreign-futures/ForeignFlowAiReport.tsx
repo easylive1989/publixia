@@ -6,19 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError } from '@/lib/api-client';
 import {
+  useLatestForeignFlowAiReport,
   useRegenerateForeignFlowAiReport,
-  useTodayForeignFlowAiReport,
 } from '@/hooks/useForeignFlowAiReport';
 
 export function ForeignFlowAiReport() {
-  const today = useTodayForeignFlowAiReport();
+  const latest = useLatestForeignFlowAiReport();
   const regenerate = useRegenerateForeignFlowAiReport();
 
-  const hasReport = today.data != null;
-  const isWorking = today.isLoading || regenerate.isPending;
+  const hasReport = latest.data != null;
+  const isWorking = latest.isLoading || regenerate.isPending;
 
-  const generatedLabel = today.data
-    ? `${today.data.report_date} · ${today.data.model}`
+  const generatedLabel = latest.data
+    ? `分析日期 ${latest.data.report_date} · ${latest.data.model}`
     : null;
 
   function handleRegenerate() {
@@ -31,7 +31,7 @@ export function ForeignFlowAiReport() {
         <div className="space-y-1">
           <CardTitle className="text-lg flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />
-            今日 AI 分析
+            AI 分析
           </CardTitle>
           {generatedLabel && (
             <p className="text-xs text-muted-foreground">{generatedLabel}</p>
@@ -51,24 +51,24 @@ export function ForeignFlowAiReport() {
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
-          {regenerate.isPending ? '產生中…' : hasReport ? '重新產生' : '立即產生'}
+          {regenerate.isPending ? '產生中…' : '產生今日'}
         </Button>
       </CardHeader>
 
       <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-3">
-        {today.isLoading && (
+        {latest.isLoading && (
           <p className="text-sm text-muted-foreground">載入中…</p>
         )}
 
-        {today.isError && (
+        {latest.isError && (
           <p className="text-sm text-destructive">
-            無法載入今日 AI 分析: {(today.error as Error).message}
+            無法載入 AI 分析: {(latest.error as Error).message}
           </p>
         )}
 
-        {!today.isLoading && !today.isError && !hasReport && !regenerate.isPending && (
+        {!latest.isLoading && !latest.isError && !hasReport && !regenerate.isPending && (
           <p className="text-sm text-muted-foreground">
-            今日尚未產生 AI 分析。每日 18:30 自動產生,也可以按右上角「立即產生」現在產出。
+            尚無 AI 分析。每日 18:30 自動產生,也可以按右上角「產生今日」現在產出。
           </p>
         )}
 
@@ -90,7 +90,7 @@ export function ForeignFlowAiReport() {
         {hasReport && (
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {today.data!.output_markdown}
+              {latest.data!.output_markdown}
             </ReactMarkdown>
           </div>
         )}

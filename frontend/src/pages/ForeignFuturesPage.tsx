@@ -7,7 +7,6 @@ import { ForeignSpotChart } from '@/components/foreign-futures/ForeignSpotChart'
 import { ForeignOptionsAmountChart } from '@/components/foreign-futures/ForeignOptionsAmountChart';
 import { ForeignOptionsDetailTable } from '@/components/foreign-futures/ForeignOptionsDetailTable';
 import { ForeignOptionsStrikeDistribution } from '@/components/foreign-futures/ForeignOptionsStrikeDistribution';
-import { DownloadFiveDaysButton } from '@/components/foreign-futures/DownloadFiveDaysButton';
 import { RefreshDataButton } from '@/components/foreign-futures/RefreshDataButton';
 
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y'] as const;
@@ -29,9 +28,9 @@ export default function ForeignFuturesPage() {
   return (
     <div className="container mx-auto p-4 space-y-4">
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-1">
-        <Link to="/futures/tw" aria-label="返回台指期詳情">
+        <Link to="/" aria-label="返回 Dashboard">
           <ArrowLeft className="h-4 w-4" />
-          返回台指期
+          返回 Dashboard
         </Link>
       </Button>
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -62,7 +61,6 @@ export default function ForeignFuturesPage() {
             ))}
           </div>
           <RefreshDataButton disabled={isLoading} />
-          <DownloadFiveDaysButton disabled={isLoading} />
         </div>
       </div>
 
