@@ -121,7 +121,6 @@ function ThreeInvestorsCard() {
                 {(Object.keys(SERIES) as SeriesKey[]).map((k) => (
                   <Line
                     key={k}
-                    type="monotone"
                     dataKey={k}
                     name={SERIES[k].label}
                     stroke={SERIES[k].colour}

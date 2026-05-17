@@ -163,7 +163,6 @@ function MarginBalanceCard() {
                 />
                 <Line
                   yAxisId="margin"
-                  type="monotone"
                   dataKey="margin"
                   stroke={MARGIN_STROKE}
                   strokeWidth={1.5}
@@ -173,7 +172,6 @@ function MarginBalanceCard() {
                 />
                 <Line
                   yAxisId="short"
-                  type="monotone"
                   dataKey="short"
                   stroke={SHORT_STROKE}
                   strokeWidth={1.5}

@@ -128,7 +128,6 @@ export function IndicatorCardView({
                     content={tooltipContent}
                   />
                   <Line
-                    type="monotone"
                     dataKey="value"
                     stroke={SPARK_STROKE}
                     strokeWidth={1.5}
