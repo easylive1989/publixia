@@ -20,10 +20,21 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from core.finmind import request
-from repositories.group_volume import save_group_volume_batch
+from repositories.group_volume import (
+    get_latest_group_volume_date,
+    save_group_volume_batch,
+)
 
 
 EXCLUDED_INDUSTRIES = {"ETF", "ETN", "受益證券", "存託憑證", "Index", ""}
+
+# First-run window when the table is empty. Matches the backfill script
+# default and the 20-day rolling mean's warmup needs (≈ 25 trading days).
+INITIAL_LOOKBACK_DAYS = 35
+
+# How many calendar days back to re-scan on a regular catch-up run. Covers
+# a long-weekend outage plus a few days of late TWSE corrections.
+CATCHUP_LOOKBACK_DAYS = 7
 
 TWSE_DAILY_ALL_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX"
 
@@ -168,10 +179,39 @@ def fetch_industry_volume_range(
     return result
 
 
-def run_industry_for_today() -> int:
-    """Scheduler entry — aggregate today (TST) and persist."""
-    today_tst = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m-%d")
-    aggregates = fetch_industry_volume(today_tst)
-    n = save_group_volume_batch(today_tst, "industry", aggregates)
-    print(f"[group_volume] industry {today_tst}: {n} groups saved")
-    return n
+def fetch_latest_industry() -> int:
+    """Scheduler entry — catch up any missed trading days, then today.
+
+    Reads the latest persisted ``trade_date`` for ``industry`` and re-pulls
+    a ``CATCHUP_LOOKBACK_DAYS`` window up through today (TST). That window
+    absorbs days the previous run might have missed — service restart
+    around the 18:30 trigger, transient TWSE error, late corrections — so
+    the heatmap self-heals without manual backfill. On first run (empty
+    table) it backfills ``INITIAL_LOOKBACK_DAYS`` days.
+
+    Idempotent: the underlying upsert keys on ``(trade_date, group_code)``,
+    and ``mean_20d_value`` is recomputed from prior rows each time.
+    """
+    today = datetime.now(ZoneInfo("Asia/Taipei")).date()
+    latest = get_latest_group_volume_date("industry")
+
+    if latest:
+        latest_d = datetime.strptime(latest, "%Y-%m-%d").date()
+        start = min(today, latest_d - timedelta(days=CATCHUP_LOOKBACK_DAYS))
+    else:
+        start = today - timedelta(days=INITIAL_LOOKBACK_DAYS)
+
+    start_str = start.strftime("%Y-%m-%d")
+    end_str   = today.strftime("%Y-%m-%d")
+    by_date = fetch_industry_volume_range(start_str, end_str)
+
+    total = 0
+    # Chronological order is mandatory — save_group_volume_batch reads
+    # prior rows to compute mean_20d_value, so older days must land first.
+    for trade_date in sorted(by_date):
+        total += save_group_volume_batch(trade_date, "industry", by_date[trade_date])
+    print(
+        f"[group_volume] industry {start_str}→{end_str}: "
+        f"{total} rows across {len(by_date)} day(s)"
+    )
+    return total

@@ -22,7 +22,7 @@ from fetchers.institutional_futures import fetch_latest as fetch_inst_futures
 from fetchers.institutional_options import fetch_latest as fetch_inst_options
 from fetchers.txo_strike_oi import fetch_latest as fetch_txo_strike_oi
 from fetchers.large_trader import fetch_latest as fetch_large_trader
-from fetchers.group_volume import run_industry_for_today as fetch_group_volume_industry
+from fetchers.group_volume import fetch_latest_industry as fetch_group_volume_industry
 from services.backup import backup_db_to_r2
 from db import purge_old_data
 

@@ -66,6 +66,17 @@ def save_group_volume_batch(
     return len(aggregates)
 
 
+def get_latest_group_volume_date(group_type: str) -> str | None:
+    """Return the most recent ``trade_date`` stored for ``group_type``."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT MAX(trade_date) AS d FROM group_volume_daily "
+            "WHERE group_type=?",
+            (group_type,),
+        ).fetchone()
+        return row["d"] if row and row["d"] else None
+
+
 def get_heatmap(
     group_type: str,
     days: int = 5,
