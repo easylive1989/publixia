@@ -3,7 +3,15 @@
 FinMind (industry map) and TWSE (per-day price feed) are both stubbed —
 these tests exercise the filtering / aggregation logic, never the network.
 """
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
 import fetchers.group_volume as gv
+from repositories.group_volume import (
+    get_heatmap,
+    get_latest_group_volume_date,
+    save_group_volume_batch,
+)
 
 
 def _info_rows(*entries: tuple[str, str, str]) -> list[dict]:
@@ -203,6 +211,85 @@ def test_fetch_twse_daily_all_skips_unparseable_rows(monkeypatch):
     assert out == [
         {"stock_id": "2330", "trading_volume": 1000, "trading_money": 10000},
     ]
+
+
+def _freeze_today_tst(monkeypatch, today: date):
+    """Pin ``datetime.now(Asia/Taipei).date()`` inside the fetcher."""
+    class _FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            base = datetime(today.year, today.month, today.day, 18, 30,
+                            tzinfo=ZoneInfo("Asia/Taipei"))
+            return base.astimezone(tz) if tz else base
+    monkeypatch.setattr(gv, "datetime", _FakeDateTime)
+
+
+def test_fetch_latest_industry_fills_gap_since_last_stored_day(monkeypatch):
+    """Service was down for one trading day; next run backfills it."""
+    _patch_industry_map(monkeypatch, _info_rows(("2330", "twse", "半導體業")))
+    _patch_twse(monkeypatch, {
+        "20260515": _twse_payload([("2330", "1", "100")]),  # Fri (already stored)
+        # 20260516/17 weekend (no payload → empty)
+        "20260518": _twse_payload([("2330", "2", "200")]),  # Mon — the gap
+        "20260519": _twse_payload([("2330", "3", "300")]),  # Tue — today
+    })
+    save_group_volume_batch("2026-05-15", "industry", [
+        {"group_code": "半導體業", "group_name": "半導體業",
+         "total_value": 100.0, "total_volume": 1, "stock_count": 1},
+    ])
+
+    _freeze_today_tst(monkeypatch, date(2026, 5, 19))
+    written = gv.fetch_latest_industry()
+
+    assert written >= 2  # at minimum Mon + Tue
+    assert get_latest_group_volume_date("industry") == "2026-05-19"
+    h = get_heatmap("industry", days=5, top_n=1)
+    assert "2026-05-18" in h["days"]
+    assert "2026-05-19" in h["days"]
+
+
+def test_fetch_latest_industry_backfills_on_empty_table(monkeypatch):
+    """First run with no prior rows pulls INITIAL_LOOKBACK_DAYS days."""
+    _patch_industry_map(monkeypatch, _info_rows(("2330", "twse", "半導體業")))
+    captured: dict = {}
+
+    real_range = gv.fetch_industry_volume_range
+    def spy_range(start, end):
+        captured["start"] = start
+        captured["end"] = end
+        return real_range(start, end)
+    monkeypatch.setattr(gv, "fetch_industry_volume_range", spy_range)
+    _patch_twse(monkeypatch, {})  # no trading days fetched — we only check the window
+
+    _freeze_today_tst(monkeypatch, date(2026, 5, 19))
+    gv.fetch_latest_industry()
+
+    assert captured["end"] == "2026-05-19"
+    assert captured["start"] == "2026-04-14"  # 19 − 35 days
+
+
+def test_fetch_latest_industry_rescans_window_for_late_corrections(monkeypatch):
+    """When already caught up, still re-fetch CATCHUP_LOOKBACK_DAYS back to
+    absorb any late TWSE corrections."""
+    _patch_industry_map(monkeypatch, _info_rows(("2330", "twse", "半導體業")))
+    save_group_volume_batch("2026-05-19", "industry", [
+        {"group_code": "半導體業", "group_name": "半導體業",
+         "total_value": 100.0, "total_volume": 1, "stock_count": 1},
+    ])
+    captured: dict = {}
+    real_range = gv.fetch_industry_volume_range
+    def spy_range(start, end):
+        captured["start"] = start
+        captured["end"] = end
+        return real_range(start, end)
+    monkeypatch.setattr(gv, "fetch_industry_volume_range", spy_range)
+    _patch_twse(monkeypatch, {})
+
+    _freeze_today_tst(monkeypatch, date(2026, 5, 19))
+    gv.fetch_latest_industry()
+
+    assert captured["end"] == "2026-05-19"
+    assert captured["start"] == "2026-05-12"  # 19 − 7 days
 
 
 def test_handles_zero_trading_money(monkeypatch):
