@@ -1,17 +1,15 @@
-"""Stock Dashboard FastAPI application."""
+"""Copy-Trading Tracker FastAPI application."""
 import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# Bootstrap: import db first so its re-exports (from repositories.*) finish
-# before route modules trigger partial-loading of the same packages.
+# Bootstrap: import db first so package init finishes before route modules
+# trigger partial-loading of the same packages.
 import db  # noqa: F401
 
-from api.routes import (
-    indicators, news, futures, foreign_futures, foreign_flow_ai, groups,
-)
+from api.routes import people
 from core.errors import (
     FetcherError, RepositoryError, StockDashboardError,
 )
@@ -19,7 +17,7 @@ from core.settings import settings
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Stock Dashboard API")
+app = FastAPI(title="Copy-Trading Tracker API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,12 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(indicators.router)
-app.include_router(news.router)
-app.include_router(futures.router)
-app.include_router(foreign_futures.router)
-app.include_router(foreign_flow_ai.router)
-app.include_router(groups.router)
+app.include_router(people.router)
 
 
 _ERROR_TO_STATUS: list[tuple[type[StockDashboardError], int]] = [

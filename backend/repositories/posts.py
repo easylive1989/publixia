@@ -1,0 +1,79 @@
+"""Posts repository.
+
+One row per scraped social post, deduped on ``(platform, platform_post_id)``.
+``extraction_status`` drives the AI-extraction work queue
+(pending → done|error|skipped).
+"""
+from db.connection import get_connection
+
+
+def upsert_post(
+    account_id: int,
+    platform: str,
+    platform_post_id: str,
+    url: str,
+    content: str,
+    posted_at: str | None,
+) -> tuple[int, bool]:
+    """Insert a post, or update its content/url/posted_at if already seen.
+
+    Returns ``(post_id, is_new)``. ``is_new`` is True only on first insert —
+    the extraction runner uses it (combined with extracted trades) to decide
+    whether to fire a Discord notification. An update intentionally leaves
+    ``extraction_status`` untouched so re-scraping doesn't re-queue/re-notify.
+    """
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM posts WHERE platform=? AND platform_post_id=?",
+            (platform, platform_post_id),
+        ).fetchone()
+        if existing:
+            post_id = existing["id"]
+            conn.execute(
+                "UPDATE posts SET content=?, url=?, posted_at=? WHERE id=?",
+                (content, url, posted_at, post_id),
+            )
+            return post_id, False
+        cur = conn.execute(
+            "INSERT INTO posts ("
+            "  account_id, platform, platform_post_id, url, content, posted_at"
+            ") VALUES (?,?,?,?,?,?)",
+            (account_id, platform, platform_post_id, url, content, posted_at),
+        )
+        return cur.lastrowid, True
+
+
+def list_pending_posts(limit: int = 20) -> list[dict]:
+    """Posts awaiting AI extraction, oldest first."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, account_id, content, url FROM posts "
+            "WHERE extraction_status='pending' "
+            "ORDER BY posted_at ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def set_extraction_status(post_id: int, status: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE posts SET extraction_status=? WHERE id=?",
+            (status, post_id),
+        )
+
+
+def list_posts_for_person(person_key: str, limit: int = 50) -> list[dict]:
+    """A person's posts (newest first) across all their handles, without
+    trades attached — the route joins trades via ``list_trades_for_posts``."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT p.id, p.platform, p.platform_post_id, p.url, p.content, "
+            "       p.posted_at, p.extraction_status "
+            "FROM posts p "
+            "JOIN tracked_accounts t ON t.id = p.account_id "
+            "WHERE t.person_key=? "
+            "ORDER BY p.posted_at DESC LIMIT ?",
+            (person_key, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]

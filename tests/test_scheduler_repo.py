@@ -92,10 +92,10 @@ def test_start_scheduler_respects_disabled_rows(monkeypatch):
 
     # Seed once so rows exist, then turn one off, then re-run start.
     scheduler_module.start_scheduler()
-    set_enabled("news", False)
+    set_enabled("scrape_accounts", False)
 
     added_ids.clear()
     scheduler_module.start_scheduler()
-    assert "news" not in added_ids
+    assert "scrape_accounts" not in added_ids
     # Other jobs still present.
-    assert "taiex" in added_ids
+    assert "extract_trades" in added_ids

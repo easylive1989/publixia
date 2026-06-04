@@ -25,11 +25,14 @@ class Settings(BaseSettings):
     r2_endpoint_url: str | None = None
     r2_bucket: str | None = None
 
-    # Shared secret + URL for the Cloudflare Worker that produces the
-    # daily 外資動向 AI report. Worker → FastAPI auth and the manual
-    # regenerate path both check this token.
-    foreign_flow_worker_token: SecretStr | None = None
-    foreign_flow_worker_url:   str        | None = None
+    # Cloudflare Workers AI — used to extract buy/sell signals from posts.
+    # Backend calls the REST API directly (no separate Worker).
+    cf_account_id: str | None = None
+    cf_api_token:  SecretStr | None = None
+    cf_ai_model:   str = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+
+    # Discord webhook for new-trade notifications.
+    discord_copytrade_webhook_url: SecretStr | None = None
 
 
 settings = Settings()

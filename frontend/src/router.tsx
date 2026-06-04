@@ -1,10 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense, type ReactElement } from 'react';
-import DashboardPage from './pages/DashboardPage';
-import FuturesDetailPage from './pages/FuturesDetailPage';
+import HomePage from './pages/HomePage';
 
-const ForeignFuturesPage = lazy(() => import('./pages/ForeignFuturesPage'));
-const ForeignFlowAiPage  = lazy(() => import('./pages/ForeignFlowAiPage'));
+const PersonProfilePage = lazy(() => import('./pages/PersonProfilePage'));
 
 function lazyRoute(node: ReactElement): ReactElement {
   return (
@@ -16,10 +14,8 @@ function lazyRoute(node: ReactElement): ReactElement {
 
 export function createRouter() {
   return createBrowserRouter([
-    { path: '/',                                  element: <DashboardPage /> },
-    { path: '/futures/tw',                        element: <FuturesDetailPage /> },
-    { path: '/futures/tw/foreign-flow',           element: lazyRoute(<ForeignFuturesPage />) },
-    { path: '/futures/tw/foreign-flow/ai-report', element: lazyRoute(<ForeignFlowAiPage  />) },
+    { path: '/',                  element: <HomePage /> },
+    { path: '/people/:personKey', element: lazyRoute(<PersonProfilePage />) },
     { path: '*', element: <Navigate to="/" replace /> },
   ]);
 }

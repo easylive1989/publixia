@@ -1,55 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 40 33% 97%;       /* warm paper */
+    --foreground: 30 12% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 30 12% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 30 12% 14%;
+    --primary: 30 12% 14%;
+    --primary-foreground: 40 33% 97%;
+    --secondary: 36 22% 92%;
+    --secondary-foreground: 30 12% 14%;
+    --muted: 36 22% 92%;
+    --muted-foreground: 30 8% 42%;
+    --accent: 36 22% 92%;
+    --accent-foreground: 30 12% 14%;
+    --destructive: 0 72% 46%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --border: 32 18% 86%;
+    --input: 32 18% 86%;
+    --ring: 30 12% 14%;
     --radius: 0.5rem;
+
+    /* trade-direction accents */
+    --buy: 152 60% 32%;
+    --sell: 0 68% 48%;
+    --hold: 38 92% 42%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 30 8% 9%;
+    --foreground: 40 20% 92%;
+    --card: 30 8% 12%;
+    --card-foreground: 40 20% 92%;
+    --popover: 30 8% 12%;
+    --popover-foreground: 40 20% 92%;
+    --primary: 40 20% 92%;
+    --primary-foreground: 30 8% 9%;
+    --secondary: 30 6% 18%;
+    --secondary-foreground: 40 20% 92%;
+    --muted: 30 6% 18%;
+    --muted-foreground: 36 10% 60%;
+    --accent: 30 6% 18%;
+    --accent-foreground: 40 20% 92%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --border: 30 6% 20%;
+    --input: 30 6% 20%;
+    --ring: 36 10% 70%;
+
+    --buy: 152 50% 52%;
+    --sell: 0 72% 62%;
+    --hold: 38 92% 58%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Noto Sans TC', ui-sans-serif, system-ui, sans-serif;
+    /* faint paper grain via layered radial dots */
+    background-image: radial-gradient(hsl(30 12% 14% / 0.025) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}
+
+@layer utilities {
+  .font-display { font-family: 'Fraunces', Georgia, serif; }
+  .font-ticker { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
+  .text-buy { color: hsl(var(--buy)); }
+  .text-sell { color: hsl(var(--sell)); }
+  .text-hold { color: hsl(var(--hold)); }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-rise { animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 }

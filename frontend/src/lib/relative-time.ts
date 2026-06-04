@@ -1,3 +1,10 @@
+/** Backend posted_at is a naive-UTC ISO string (no zone). Append 'Z' so the
+ *  browser parses it as UTC rather than local time. */
+export function asUtc(iso: string): string {
+  if (!iso) return iso;
+  return /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`;
+}
+
 export function relativeTime(iso: string, now: Date = new Date()): string {
   if (!iso) return '';
   const t = new Date(iso).getTime();

@@ -24,22 +24,14 @@ def init_db():
 
 
 def purge_old_data(days: int = 1095):
-    """Delete data older than `days`. Cross-table maintenance run weekly by scheduler.
+    """Delete posts (and their cascaded trades) older than ``days``.
 
-    Only ``indicator_snapshots`` is purged today — all other surviving tables
-    (futures, foreign_flow_ai_reports, institutional_*, txo_*, tx_large_trader)
-    are intentionally kept long-term so the historical perspective on the
-    dashboard isn't lost.
+    Run weekly by the scheduler. ``extracted_trades`` rows are removed via
+    the ON DELETE CASCADE foreign key on ``posts``.
     """
-    cutoff = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)).isoformat()
+    cutoff = (
+        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    ).strftime("%Y-%m-%dT%H:%M:%S")
     with get_connection() as conn:
-        conn.execute("DELETE FROM indicator_snapshots WHERE timestamp<?", (cutoff,))
-
-
-# Re-exports for backward compatibility.
-from repositories.indicators import (  # noqa: E402,F401
-    save_indicator, get_latest_indicator, get_indicator_history,
-)
-from repositories.futures import (  # noqa: E402,F401
-    save_futures_daily_rows, get_futures_daily_range, get_latest_futures_date,
-)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("DELETE FROM posts WHERE posted_at IS NOT NULL AND posted_at < ?", (cutoff,))
