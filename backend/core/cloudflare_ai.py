@@ -77,6 +77,13 @@ def run_ai(
     parsing is tolerant of fenced/prose-wrapped JSON. Without it, the raw text
     response (str) is returned. Raises ``CloudflareAIError`` on misconfig /
     API failure / unparseable JSON.
+
+    Note: we deliberately do NOT send ``response_format``/json_schema to the
+    API. Guided-JSON generation is very slow (and sometimes unsupported) on
+    several Workers AI models — it was causing ~minutes-per-post latency. The
+    prompt asks for JSON-only output and ``_extract_json`` parses tolerantly,
+    so we get the structure without the speed penalty. ``json_schema`` is kept
+    only as the "parse the result as JSON" signal.
     """
     if not settings.cf_account_id or not settings.cf_api_token:
         raise CloudflareAIError("Cloudflare Workers AI not configured (cf_account_id / cf_api_token)")
@@ -87,26 +94,18 @@ def run_ai(
         "Authorization": f"Bearer {settings.cf_api_token.get_secret_value()}",
         "Content-Type": "application/json",
     }
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
-    body: dict = {"messages": messages}
-    if json_schema is not None:
-        body["response_format"] = {"type": "json_schema", "json_schema": json_schema}
+    body = {
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+    }
 
     try:
         result = _post(url, headers, body, timeout)
     except requests.HTTPError as e:
-        # Some models reject response_format → retry once without it (the
-        # prompt still asks for JSON, and parsing is tolerant).
         status = e.response.status_code if e.response is not None else None
-        if json_schema is not None and status in (400, 422):
-            logger.warning("workers_ai_response_format_unsupported model=%s; retrying plain", model)
-            body.pop("response_format", None)
-            result = _post(url, headers, body, timeout)
-        else:
-            raise CloudflareAIError(f"Workers AI HTTP {status}") from e
+        raise CloudflareAIError(f"Workers AI HTTP {status}") from e
 
     response = result.get("response") if isinstance(result, dict) else result
     if response is None:
