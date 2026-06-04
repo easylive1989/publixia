@@ -66,8 +66,8 @@ describe('routing', () => {
     // author labels present (people strip + per-post author → multiple matches)
     expect(screen.getAllByText('爸逆逆').length).toBeGreaterThan(0);
     expect(screen.getAllByText('巴逆逆').length).toBeGreaterThan(0);
-    // a trade chip rendered inline
-    expect(screen.getByText('3231')).toBeInTheDocument();
+    // stock code rendered (inline chip + right-side annotation)
+    expect(screen.getAllByText('3231').length).toBeGreaterThan(0);
   });
 
   it('redirects unknown paths to /', async () => {

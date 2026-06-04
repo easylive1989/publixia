@@ -60,10 +60,14 @@ def list_trades_for_posts(post_ids: list[int]) -> dict[int, list[dict]]:
     placeholders = ",".join("?" for _ in post_ids)
     with get_connection() as conn:
         rows = conn.execute(
-            f"SELECT post_id, raw_symbol, ticker, market, direction, "
-            f"       price, quantity, trade_date, confidence "
-            f"FROM extracted_trades WHERE post_id IN ({placeholders}) "
-            f"ORDER BY id",
+            f"SELECT et.post_id, et.raw_symbol, et.ticker, et.market, et.direction, "
+            f"       et.price, et.quantity, et.trade_date, et.confidence, "
+            f"       sr.canonical_name AS stock_name "
+            f"FROM extracted_trades et "
+            f"LEFT JOIN stock_reference sr "
+            f"  ON sr.market = et.market AND sr.ticker = et.ticker "
+            f"WHERE et.post_id IN ({placeholders}) "
+            f"ORDER BY et.id",
             tuple(post_ids),
         ).fetchall()
     out: dict[int, list[dict]] = {pid: [] for pid in post_ids}

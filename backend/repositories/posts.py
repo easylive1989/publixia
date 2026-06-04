@@ -58,11 +58,17 @@ def known_post_ids(account_id: int) -> frozenset[str]:
 
 
 def list_pending_posts(limit: int = 20) -> list[dict]:
-    """Posts awaiting AI extraction, oldest first."""
+    """Posts awaiting AI extraction, oldest first.
+
+    Includes ``error`` posts as retryable — extraction errors are usually
+    transient (missing/!invalid AI credentials, a flaky response), so once the
+    cause is fixed the next run reprocesses them. ``done``/``skipped`` are
+    terminal.
+    """
     with get_connection() as conn:
         rows = conn.execute(
             "SELECT id, account_id, content, url FROM posts "
-            "WHERE extraction_status='pending' "
+            "WHERE extraction_status IN ('pending','error') "
             "ORDER BY posted_at ASC LIMIT ?",
             (limit,),
         ).fetchall()

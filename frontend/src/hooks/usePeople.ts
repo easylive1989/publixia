@@ -7,6 +7,7 @@ export interface Trade {
   raw_symbol: string;
   ticker: string | null;
   market: string | null;
+  stock_name: string | null;
   direction: Direction;
   price: number | null;
   quantity: number | null;
