@@ -62,10 +62,13 @@ def list_trades_for_posts(post_ids: list[int]) -> dict[int, list[dict]]:
         rows = conn.execute(
             f"SELECT et.post_id, et.raw_symbol, et.ticker, et.market, et.direction, "
             f"       et.price, et.quantity, et.trade_date, et.confidence, "
-            f"       sr.canonical_name AS stock_name "
+            f"       sr.canonical_name AS stock_name, "
+            f"       tpt.pct_7d, tpt.pct_1m, tpt.base_price, tpt.status AS price_status "
             f"FROM extracted_trades et "
             f"LEFT JOIN stock_reference sr "
             f"  ON sr.market = et.market AND sr.ticker = et.ticker "
+            f"LEFT JOIN trade_price_tracking tpt "
+            f"  ON tpt.post_id = et.post_id AND tpt.ticker = et.ticker "
             f"WHERE et.post_id IN ({placeholders}) "
             f"ORDER BY et.id",
             tuple(post_ids),

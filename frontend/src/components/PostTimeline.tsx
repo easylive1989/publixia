@@ -15,12 +15,26 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
   const author = post.person;
 
   // distinct stocks mentioned in this post, for the right-side annotation rail.
-  // Each shows its code + name (canonical name when mapped, else the raw text).
-  const symbols: { key: string; code: string | null; name: string }[] = [];
+  // Each shows its code + name + 7d/1m return from the post's entry time.
+  const symbols: {
+    key: string;
+    code: string | null;
+    name: string;
+    pct7: number | null;
+    pct1m: number | null;
+    priceStatus: string | null;
+  }[] = [];
   for (const t of post.trades) {
     const key = t.ticker ?? t.raw_symbol;
     if (!key || symbols.some((s) => s.key === key)) continue;
-    symbols.push({ key, code: t.ticker, name: t.stock_name ?? t.raw_symbol });
+    symbols.push({
+      key,
+      code: t.ticker,
+      name: t.stock_name ?? t.raw_symbol,
+      pct7: t.pct_7d,
+      pct1m: t.pct_1m,
+      priceStatus: t.price_status,
+    });
   }
 
   return (
@@ -83,21 +97,51 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
           )}
         </div>
 
-        {/* right-side stock annotation: code + name */}
+        {/* right-side stock annotation: code + name + 7d/1m return */}
         {symbols.length > 0 && (
-          <aside className="flex w-20 shrink-0 flex-col items-end gap-2 border-l border-dashed border-border pl-3">
+          <aside className="flex w-24 shrink-0 flex-col items-end gap-3 border-l border-dashed border-border pl-3">
             {symbols.map((s) => (
               <span key={s.key} className="flex flex-col items-end leading-tight">
                 {s.code && (
                   <span className="font-mono text-sm font-semibold text-foreground">{s.code}</span>
                 )}
                 <span className="text-right text-xs text-muted-foreground">{s.name}</span>
+                <span className="mt-1 flex flex-col items-end gap-0.5">
+                  <PctRow label="7日" pct={s.pct7} />
+                  <PctRow label="1月" pct={s.pct1m} />
+                </span>
               </span>
             ))}
           </aside>
         )}
       </div>
     </li>
+  );
+}
+
+// 紅漲綠跌 (Taiwan convention): up → --sell (red), down → --buy (green).
+function PctRow({ label, pct }: { label: string; pct: number | null }) {
+  if (pct == null) {
+    return (
+      <span className="font-mono text-[11px] text-muted-foreground/70">
+        {label} <span className="italic">追蹤中</span>
+      </span>
+    );
+  }
+  const cls =
+    pct > 0
+      ? 'text-[hsl(var(--sell))]'
+      : pct < 0
+        ? 'text-[hsl(var(--buy))]'
+        : 'text-muted-foreground';
+  return (
+    <span className="font-mono text-[11px]">
+      <span className="text-muted-foreground">{label} </span>
+      <span className={cls}>
+        {pct > 0 ? '+' : ''}
+        {(pct * 100).toFixed(1)}%
+      </span>
+    </span>
   );
 }
 
