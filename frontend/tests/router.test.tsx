@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
@@ -74,5 +75,21 @@ describe('routing', () => {
     mockHome();
     renderAt('/nonexistent/path');
     expect(await screen.findByText('動態時間軸')).toBeInTheDocument();
+  });
+
+  it('filters the in-page feed when a person chip is clicked (no navigation)', async () => {
+    mockHome();
+    renderAt('/');
+    // both posts visible initially
+    expect(await screen.findByText('放棄吧散戶,外面全都是黑k')).toBeInTheDocument();
+    expect(screen.getByText('家父持股緯創全數售出')).toBeInTheDocument();
+
+    // click the 爸逆逆 filter chip (the button, not a per-post author link)
+    await userEvent.click(screen.getByRole('button', { name: /爸逆逆/ }));
+
+    // only 爸逆逆's post remains; 巴逆逆's is filtered out — still on '/'
+    expect(screen.getByText('家父持股緯創全數售出')).toBeInTheDocument();
+    expect(screen.queryByText('放棄吧散戶,外面全都是黑k')).not.toBeInTheDocument();
+    expect(screen.getByText('動態時間軸')).toBeInTheDocument();
   });
 });
