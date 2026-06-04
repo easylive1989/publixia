@@ -27,7 +27,10 @@ def scrape_account(account: dict) -> int:
         )
         return 0
 
-    scraped = scraper.fetch_recent(account, account.get("backfill_months", 3))
+    known_ids = posts_repo.known_post_ids(account["id"])
+    scraped = scraper.fetch_recent(
+        account, account.get("backfill_months", 3), known_ids=known_ids
+    )
     new_count = 0
     for post in scraped:
         _, is_new = posts_repo.upsert_post(

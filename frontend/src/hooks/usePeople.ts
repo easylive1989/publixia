@@ -25,6 +25,16 @@ export interface Post {
   trades: Trade[];
 }
 
+export interface PostAuthor {
+  person_key: string;
+  display_name: string;
+  avatar_url: string | null;
+}
+
+export interface TimelinePost extends Post {
+  person: PostAuthor;
+}
+
 export interface PersonSummary {
   person_key: string;
   display_name: string;
@@ -55,6 +65,16 @@ export function usePeople() {
     queryFn: async () => {
       const data = await apiFetch<{ people: PersonSummary[] }>('/api/people');
       return data.people;
+    },
+  });
+}
+
+export function useTimeline(limit = 60) {
+  return useQuery<TimelinePost[]>({
+    queryKey: [...PEOPLE_KEY, 'timeline', limit],
+    queryFn: async () => {
+      const data = await apiFetch<{ posts: TimelinePost[] }>(`/api/timeline?limit=${limit}`);
+      return data.posts;
     },
   });
 }

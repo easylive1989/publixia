@@ -1,14 +1,18 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { TradeChip } from '@/components/TradeChip';
 import { relativeTime, asUtc } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
-import type { Post } from '@/hooks/usePeople';
+import type { Post, PostAuthor } from '@/hooks/usePeople';
 
-function PostItem({ post, index }: { post: Post; index: number }) {
+type TimelineItem = Post & { person?: PostAuthor };
+
+function PostItem({ post, index }: { post: TimelineItem; index: number }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = post.content.length > 140;
   const posted = post.posted_at ? asUtc(post.posted_at) : null;
+  const author = post.person;
 
   return (
     <li className="relative animate-rise pl-8" style={{ animationDelay: `${Math.min(index, 8) * 50}ms` }}>
@@ -17,9 +21,23 @@ function PostItem({ post, index }: { post: Post; index: number }) {
 
       <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
         <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <time dateTime={posted ?? undefined} title={posted ? new Date(posted).toLocaleString('zh-TW') : ''}>
-            {posted ? relativeTime(posted) : '時間未知'}
-          </time>
+          <div className="flex items-center gap-2">
+            {author && (
+              <Link
+                to={`/people/${author.person_key}`}
+                className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline"
+              >
+                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                  {author.display_name.slice(0, 1)}
+                </span>
+                {author.display_name}
+              </Link>
+            )}
+            {author && <span aria-hidden>·</span>}
+            <time dateTime={posted ?? undefined} title={posted ? new Date(posted).toLocaleString('zh-TW') : ''}>
+              {posted ? relativeTime(posted) : '時間未知'}
+            </time>
+          </div>
           <a
             href={post.url}
             target="_blank"
@@ -58,7 +76,7 @@ function PostItem({ post, index }: { post: Post; index: number }) {
   );
 }
 
-export function PostTimeline({ posts }: { posts: Post[] }) {
+export function PostTimeline({ posts }: { posts: TimelineItem[] }) {
   if (posts.length === 0) {
     return <p className="py-16 text-center text-muted-foreground">目前還沒有抓到貼文。</p>;
   }

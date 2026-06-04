@@ -43,6 +43,20 @@ def upsert_post(
         return cur.lastrowid, True
 
 
+def known_post_ids(account_id: int) -> frozenset[str]:
+    """All platform_post_ids already stored for an account.
+
+    The scraper uses this to detect when it has scrolled into already-seen
+    posts and stop early (incremental runs).
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT platform_post_id FROM posts WHERE account_id=?",
+            (account_id,),
+        ).fetchall()
+    return frozenset(r["platform_post_id"] for r in rows)
+
+
 def list_pending_posts(limit: int = 20) -> list[dict]:
     """Posts awaiting AI extraction, oldest first."""
     with get_connection() as conn:
@@ -61,6 +75,24 @@ def set_extraction_status(post_id: int, status: str) -> None:
             "UPDATE posts SET extraction_status=? WHERE id=?",
             (status, post_id),
         )
+
+
+def list_recent_posts(limit: int = 50) -> list[dict]:
+    """A single merged timeline across all enabled accounts (newest first),
+    each post carrying its author (person_key / display_name / avatar). Trades
+    are attached by the route via ``list_trades_for_posts``."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT p.id, p.platform, p.platform_post_id, p.url, p.content, "
+            "       p.posted_at, p.extraction_status, "
+            "       t.person_key, t.display_name, t.avatar_url "
+            "FROM posts p "
+            "JOIN tracked_accounts t ON t.id = p.account_id "
+            "WHERE t.enabled=1 "
+            "ORDER BY p.posted_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def list_posts_for_person(person_key: str, limit: int = 50) -> list[dict]:

@@ -14,9 +14,27 @@ from repositories import trades as trades_repo
 router = APIRouter(prefix="/api", tags=["people"])
 
 
+@router.get("/timeline")
+def get_timeline(limit: int = 60):
+    """首頁：所有追蹤對象的貼文混合成一條時間軸（新→舊），每篇標註作者
+    並內嵌解析出的 ``trades``。"""
+    if not (1 <= limit <= 200):
+        raise HTTPException(status_code=400, detail="limit 超出範圍")
+    posts = posts_repo.list_recent_posts(limit=limit)
+    trade_map = trades_repo.list_trades_for_posts([p["id"] for p in posts])
+    for p in posts:
+        p["person"] = {
+            "person_key": p.pop("person_key"),
+            "display_name": p.pop("display_name"),
+            "avatar_url": p.pop("avatar_url"),
+        }
+        p["trades"] = trade_map.get(p["id"], [])
+    return {"posts": posts}
+
+
 @router.get("/people")
 def list_people():
-    """首頁：每個人一張卡片，含平台、最新貼文時間、累計交易數。"""
+    """追蹤對象清單（含平台、最新貼文時間、累計交易數），供 timeline 上方的人物列。"""
     return {"people": accounts_repo.list_people_with_stats()}
 
 

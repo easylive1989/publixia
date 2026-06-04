@@ -57,3 +57,33 @@ def test_person_posts_with_nested_trades():
 def test_unknown_person_404():
     assert client.get("/api/people/ghost").status_code == 404
     assert client.get("/api/people/ghost/posts").status_code == 404
+
+
+def test_timeline_merges_people_with_author_and_trades():
+    accts = accounts_repo.list_accounts()
+    # one post per person, different times
+    pid_dad, _ = posts_repo.upsert_post(
+        accts[0]["id"], "threads", "D1", "https://t/p/D1", "家父賣出緯創", "2026-06-03T10:00:00"
+    )
+    trades_repo.save_trades(
+        pid_dad,
+        [{"raw_symbol": "緯創", "ticker": "3231", "market": "TW", "direction": "sell", "confidence": 0.9}],
+        model="m", prompt_version="v1",
+    )
+    posts_repo.upsert_post(
+        accts[1]["id"], "threads", "B1", "https://t/p/B1", "放棄吧散戶", "2026-06-04T10:00:00"
+    )
+
+    r = client.get("/api/timeline")
+    assert r.status_code == 200
+    posts = r.json()["posts"]
+    # newest first across people
+    assert [p["platform_post_id"] for p in posts] == ["B1", "D1"]
+    assert posts[0]["person"]["display_name"] == "巴逆逆"
+    assert posts[1]["person"]["person_key"] == "dadnini"
+    assert posts[1]["trades"][0]["ticker"] == "3231"
+
+
+def test_timeline_limit_validation():
+    assert client.get("/api/timeline?limit=0").status_code == 400
+    assert client.get("/api/timeline?limit=999").status_code == 400

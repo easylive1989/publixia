@@ -30,10 +30,23 @@ _SCRIPT_JSON_RE = re.compile(
 # the page tall) can't loop forever. Scaled by the requested backfill window.
 _SCROLLS_PER_MONTH = 8
 _MAX_SCROLLS = 40
+# Incremental (steady-state) runs only need the newest posts: scroll shallow
+# and stop as soon as we scroll into already-seen territory.
+_INCREMENTAL_MAX_SCROLLS = 6
+_EARLY_STOP_KNOWN = 5
+
+_POST_CODE_RE = re.compile(r"/post/([^/?#]+)")
 
 
 def _post_url(handle: str, code: str) -> str:
     return f"https://www.threads.com/@{handle}/post/{code}"
+
+
+def _code_from_href(href: str | None) -> str | None:
+    if not href:
+        return None
+    m = _POST_CODE_RE.search(href)
+    return m.group(1) if m else None
 
 
 def _posts_from_json(data) -> dict[str, ScrapedPost]:
@@ -86,8 +99,14 @@ def _posts_from_xhr(captured) -> dict[str, ScrapedPost]:
     return out
 
 
-def _make_scroller(max_scrolls: int):
-    """Return a sync page_action that scrolls until the feed stops growing."""
+def _make_scroller(max_scrolls: int, known_ids: frozenset[str]):
+    """Return a sync page_action that scrolls to lazy-load posts.
+
+    Stops when the feed stops growing, the scroll cap is hit, or — for
+    incremental runs — we've scrolled into already-seen territory (≥
+    ``_EARLY_STOP_KNOWN`` already-stored posts are on screen), so steady-state
+    runs don't re-scroll the whole backfill window every time.
+    """
 
     def scroll(page):
         last_height = 0
@@ -95,6 +114,20 @@ def _make_scroller(max_scrolls: int):
         for _ in range(max_scrolls):
             page.mouse.wheel(0, 30000)
             page.wait_for_timeout(1800)
+
+            if known_ids:
+                try:
+                    hrefs = page.eval_on_selector_all(
+                        "a[href*='/post/']",
+                        "els => els.map(e => e.getAttribute('href'))",
+                    )
+                    visible = {_code_from_href(h) for h in hrefs}
+                    visible.discard(None)
+                    if len(visible & known_ids) >= _EARLY_STOP_KNOWN:
+                        break
+                except Exception:  # noqa: BLE001 — selector hiccup → keep scrolling
+                    pass
+
             try:
                 height = page.evaluate("document.body.scrollHeight")
             except Exception:  # noqa: BLE001
@@ -113,13 +146,31 @@ def _make_scroller(max_scrolls: int):
 class ThreadsScraper:
     platform = "threads"
 
-    def fetch_recent(self, account: dict, months: int) -> list[ScrapedPost]:
+    def fetch_recent(
+        self,
+        account: dict,
+        months: int,
+        known_ids: frozenset[str] = frozenset(),
+    ) -> list[ScrapedPost]:
+        """Scrape recent posts.
+
+        ``known_ids`` = post ids already stored for this account. When non-empty
+        the run is treated as *incremental*: scroll shallow and stop early once
+        already-seen posts come into view, instead of re-scrolling the whole
+        backfill window. An empty set means first-time backfill (deep scroll).
+        The ``months`` cutoff still applies in both modes.
+        """
         handle = account["handle"]
         url = account.get("profile_url") or f"https://www.threads.com/@{handle}"
         cutoff = (
             datetime.now(timezone.utc) - timedelta(days=30 * max(months, 1))
         ).strftime("%Y-%m-%dT%H:%M:%S")
-        max_scrolls = min(_SCROLLS_PER_MONTH * max(months, 1), _MAX_SCROLLS)
+        incremental = bool(known_ids)
+        max_scrolls = (
+            _INCREMENTAL_MAX_SCROLLS
+            if incremental
+            else min(_SCROLLS_PER_MONTH * max(months, 1), _MAX_SCROLLS)
+        )
 
         cookies = None
         if account.get("session_cookie"):
@@ -133,7 +184,7 @@ class ThreadsScraper:
             network_idle=True,
             block_ads=True,
             capture_xhr="graphql",
-            page_action=_make_scroller(max_scrolls),
+            page_action=_make_scroller(max_scrolls, known_ids),
             timeout=120000,
         )
         if cookies:
@@ -154,7 +205,8 @@ class ThreadsScraper:
 
         result.sort(key=lambda p: p.posted_at or "", reverse=True)
         logger.info(
-            "threads_scraped handle=%s scraped=%d kept=%d months=%d",
-            handle, len(posts), len(result), months,
+            "threads_scraped handle=%s mode=%s scraped=%d kept=%d months=%d",
+            handle, "incremental" if incremental else "backfill",
+            len(posts), len(result), months,
         )
         return result
