@@ -75,6 +75,22 @@ def list_pending_posts(limit: int = 20) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def list_stale_extraction_posts(current_version: str, limit: int = 20) -> list[dict]:
+    """Already-extracted posts whose trades came from an older prompt version —
+    re-extract them so a prompt improvement also cleans up past mistakes.
+    (No-trade posts carry no version and are left alone — they have no bad data.)
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT p.id, p.account_id, p.content, p.url "
+            "FROM posts p JOIN extracted_trades et ON et.post_id = p.id "
+            "WHERE p.extraction_status='done' AND et.prompt_version != ? "
+            "ORDER BY p.posted_at DESC LIMIT ?",
+            (current_version, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def set_extraction_status(post_id: int, status: str) -> None:
     with get_connection() as conn:
         conn.execute(

@@ -51,13 +51,21 @@ def _notify(display_name: str, url: str, trades: list[dict]) -> None:
 
 
 def run_extraction(limit: int = 20) -> dict:
-    """Process up to ``limit`` pending posts. Returns counts summary."""
+    """Process pending posts, plus re-extract posts whose trades came from an
+    older prompt version (so prompt improvements clean up past results)."""
     pending = posts_repo.list_pending_posts(limit=limit)
+    stale = posts_repo.list_stale_extraction_posts(PROMPT_VERSION, limit=limit)
+    seen = {p["id"] for p in pending}
+    posts = pending + [p for p in stale if p["id"] not in seen]
+
     processed = 0
     with_trades = 0
     errors = 0
 
-    for post in pending:
+    for post in posts:
+        # whether the post already had trades — gates Discord so re-extraction
+        # of an existing post doesn't re-notify.
+        had_trades = trades_repo.has_existing_trades(post["id"])
         try:
             raw_trades = extract_trades(post["content"])
         except Exception:  # noqa: BLE001 — mark error, keep going
@@ -79,9 +87,10 @@ def run_extraction(limit: int = 20) -> dict:
 
         if raw_trades:
             with_trades += 1
-            account = accounts_repo.get_account(post["account_id"])
-            display_name = account["display_name"] if account else "追蹤帳號"
-            _notify(display_name, post.get("url", ""), raw_trades)
+            if not had_trades:  # only notify the first time a post yields trades
+                account = accounts_repo.get_account(post["account_id"])
+                display_name = account["display_name"] if account else "追蹤帳號"
+                _notify(display_name, post.get("url", ""), raw_trades)
 
     summary = {
         "processed": processed,

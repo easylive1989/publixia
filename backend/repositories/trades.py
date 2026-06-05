@@ -17,10 +17,13 @@ def save_trades(
     Each trade dict carries: ``raw_symbol``, ``direction`` (required),
     and optional ``ticker``, ``market``, ``price``, ``quantity``,
     ``trade_date``, ``confidence``. Returns the number of rows written.
+
+    **Replace semantics**: the post's existing trades are deleted first, so
+    re-extracting a post (e.g. with a newer prompt) cleanly drops symbols the
+    new run no longer reports — not just upserts the ones it does.
     """
-    if not trades:
-        return 0
     with get_connection() as conn:
+        conn.execute("DELETE FROM extracted_trades WHERE post_id=?", (post_id,))
         for t in trades:
             conn.execute(
                 "INSERT INTO extracted_trades ("
@@ -51,6 +54,16 @@ def save_trades(
                 ),
             )
     return len(trades)
+
+
+def has_existing_trades(post_id: int) -> bool:
+    """Whether a post already has any extracted trades — used by the runner to
+    avoid re-notifying Discord when a post is re-extracted."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM extracted_trades WHERE post_id=? LIMIT 1", (post_id,)
+        ).fetchone()
+    return row is not None
 
 
 def list_trades_for_posts(post_ids: list[int]) -> dict[int, list[dict]]:
