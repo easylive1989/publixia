@@ -1,9 +1,10 @@
 """Stock price windows via yfinance (no API token needed).
 
-Given a post's date and a stock, compute the entry price (post-day close) and
-the price 7 / 30 calendar days later, for the "if you bought when they posted"
-return. TW tickers map to Yahoo's ``<code>.TW`` (listed) / ``.TWO`` (OTC); US
-tickers are used as-is.
+Given a post's date and a stock, compute the post-day close (base) and the
+price 7 / 30 calendar days later. The window is **direction-neutral** — the
+caller (frontend) interprets it as a gain or an avoided drop depending on
+whether the post was a buy or a sell. TW tickers map to Yahoo's ``<code>.TW``
+(listed) / ``.TWO`` (OTC); US tickers are used as-is.
 
 The single network call lives in ``_fetch_closes`` so the window logic can be
 unit-tested with a stubbed price series.

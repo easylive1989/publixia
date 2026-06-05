@@ -5,7 +5,7 @@ import { TradeChip } from '@/components/TradeChip';
 import { relativeTime, asUtc } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
 import { personColor } from '@/lib/person-color';
-import type { Post, PostAuthor } from '@/hooks/usePeople';
+import type { Direction, Post, PostAuthor } from '@/hooks/usePeople';
 
 type TimelineItem = Post & { person?: PostAuthor };
 
@@ -15,24 +15,29 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
   const posted = post.posted_at ? asUtc(post.posted_at) : null;
   const author = post.person;
 
-  // distinct stocks mentioned in this post, for the right-side annotation rail.
-  // Each shows its code + name + 7d/1m return from the post's entry time.
+  // Right-side rail: one entry per (stock, direction) the post calls out — so a
+  // buy and a sell of the same ticker don't collapse, and each row's % can be
+  // coloured by whether *that* call worked.
   const symbols: {
     key: string;
     code: string | null;
     name: string;
+    direction: Direction;
     pctLatest: number | null;
     pct7: number | null;
     pct1m: number | null;
     priceStatus: string | null;
   }[] = [];
   for (const t of post.trades) {
-    const key = t.ticker ?? t.raw_symbol;
-    if (!key || symbols.some((s) => s.key === key)) continue;
+    const id = t.ticker ?? t.raw_symbol;
+    if (!id) continue;
+    const key = `${id}::${t.direction}`;
+    if (symbols.some((s) => s.key === key)) continue;
     symbols.push({
       key,
       code: t.ticker,
       name: t.stock_name ?? t.raw_symbol,
+      direction: t.direction,
       pctLatest: t.pct_latest,
       pct7: t.pct_7d,
       pct1m: t.pct_1m,
@@ -108,19 +113,23 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
           )}
         </div>
 
-        {/* right-side stock annotation: code + name + 最新/7日/1月 return */}
+        {/* right-side stock annotation: code + name + 最新/7日/1月 return,
+            with a direction marker so sells are visibly tracked alongside buys */}
         {symbols.length > 0 && (
           <aside className="flex w-32 shrink-0 flex-col items-end gap-4 border-l border-dashed border-border pl-4">
             {symbols.map((s) => (
               <span key={s.key} className="flex flex-col items-end leading-tight">
-                {s.code && (
-                  <span className="font-mono text-lg font-bold text-foreground">{s.code}</span>
-                )}
+                <span className="flex items-baseline gap-1">
+                  <DirectionMarker direction={s.direction} />
+                  {s.code && (
+                    <span className="font-mono text-lg font-bold text-foreground">{s.code}</span>
+                  )}
+                </span>
                 <span className="text-right text-sm text-muted-foreground">{s.name}</span>
                 <span className="mt-1.5 flex flex-col items-end gap-1">
-                  <PctRow label="最新" pct={s.pctLatest} />
-                  <PctRow label="7日" pct={s.pct7} />
-                  <PctRow label="1月" pct={s.pct1m} />
+                  <PctRow label="最新" pct={s.pctLatest} direction={s.direction} />
+                  <PctRow label="7日" pct={s.pct7} direction={s.direction} />
+                  <PctRow label="1月" pct={s.pct1m} direction={s.direction} />
                 </span>
               </span>
             ))}
@@ -131,8 +140,19 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
   );
 }
 
-// 紅漲綠跌 (Taiwan convention): up → --sell (red), down → --buy (green).
-function PctRow({ label, pct }: { label: string; pct: number | null }) {
+// Direction-aware outcome coloring: green = the call worked, red = it didn't.
+//   buy / bullish  → price up after post is good (賺), down is bad
+//   sell / bearish → price down after post is good (避開), up is bad (錯失)
+//   hold           → neutral (just show magnitude)
+function PctRow({
+  label,
+  pct,
+  direction,
+}: {
+  label: string;
+  pct: number | null;
+  direction: Direction;
+}) {
   if (pct == null) {
     return (
       <span className="font-mono text-xs text-muted-foreground/70">
@@ -140,12 +160,15 @@ function PctRow({ label, pct }: { label: string; pct: number | null }) {
       </span>
     );
   }
-  const cls =
-    pct > 0
-      ? 'text-[hsl(var(--sell))]'
-      : pct < 0
-        ? 'text-[hsl(var(--buy))]'
-        : 'text-muted-foreground';
+  const winsOnRise = direction === 'buy' || direction === 'bullish';
+  const winsOnFall = direction === 'sell' || direction === 'bearish';
+  let cls = 'text-muted-foreground';
+  if (pct !== 0) {
+    const won = (winsOnRise && pct > 0) || (winsOnFall && pct < 0);
+    const lost = (winsOnRise && pct < 0) || (winsOnFall && pct > 0);
+    if (won) cls = 'text-[hsl(var(--buy))]';
+    else if (lost) cls = 'text-[hsl(var(--sell))]';
+  }
   return (
     <span className="font-mono text-xs">
       <span className="text-muted-foreground">{label} </span>
@@ -153,6 +176,23 @@ function PctRow({ label, pct }: { label: string; pct: number | null }) {
         {pct > 0 ? '+' : ''}
         {(pct * 100).toFixed(1)}%
       </span>
+    </span>
+  );
+}
+
+const DIRECTION_MARKER: Record<Direction, { sym: string; cls: string; title: string }> = {
+  buy:     { sym: '▲', cls: 'text-[hsl(var(--buy))]',  title: '買進' },
+  bullish: { sym: '▲', cls: 'text-[hsl(var(--buy))]',  title: '看多' },
+  sell:    { sym: '▼', cls: 'text-[hsl(var(--sell))]', title: '賣出' },
+  bearish: { sym: '▼', cls: 'text-[hsl(var(--sell))]', title: '看空' },
+  hold:    { sym: '–', cls: 'text-[hsl(var(--hold))]', title: '續抱' },
+};
+
+function DirectionMarker({ direction }: { direction: Direction }) {
+  const m = DIRECTION_MARKER[direction];
+  return (
+    <span className={cn('font-mono text-xs leading-none', m.cls)} title={m.title} aria-label={m.title}>
+      {m.sym}
     </span>
   );
 }
