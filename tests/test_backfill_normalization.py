@@ -34,3 +34,31 @@ def test_set_trade_normalization_fills_ticker_market():
     trades_repo.set_trade_normalization(tid, "INTC", "US")
 
     assert trades_repo.list_unnormalized_trades() == []
+
+
+def test_backfill_renormalizes_now_matchable_trade():
+    from services.backfill_normalization import backfill_unnormalized_trades
+
+    pid = _unnormalized_trade("intc")
+    # 名冊現在有 INTC 了（模擬 SEC 名冊已同步）
+    upsert_reference_batch(
+        [{"ticker": "INTC", "market": "US", "canonical_name": "Intel Corp."}],
+        source="test",
+    )
+
+    result = backfill_unnormalized_trades()
+
+    assert result == {"scanned": 1, "filled": 1}
+    row = trades_repo.list_trades_for_posts([pid])[pid][0]
+    assert (row["ticker"], row["market"]) == ("INTC", "US")
+
+
+def test_backfill_leaves_still_unmatched_trade_untouched():
+    from services.backfill_normalization import backfill_unnormalized_trades
+
+    _unnormalized_trade("不存在的標的")  # roster 沒有 → 仍對不到
+
+    result = backfill_unnormalized_trades()
+
+    assert result == {"scanned": 1, "filled": 0}
+    assert len(trades_repo.list_unnormalized_trades()) == 1
