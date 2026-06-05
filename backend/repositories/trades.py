@@ -66,6 +66,25 @@ def has_existing_trades(post_id: int) -> bool:
     return row is not None
 
 
+def list_unnormalized_trades() -> list[dict]:
+    """Trades whose raw_symbol never resolved to a ticker — candidates for
+    re-normalization once the reference roster grows."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, raw_symbol FROM extracted_trades WHERE ticker IS NULL"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def set_trade_normalization(trade_id: int, ticker: str, market: str) -> None:
+    """Fill in a trade's resolved ticker/market after a successful re-normalize."""
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE extracted_trades SET ticker=?, market=? WHERE id=?",
+            (ticker, market, trade_id),
+        )
+
+
 def list_trades_for_posts(post_ids: list[int]) -> dict[int, list[dict]]:
     """Map post_id → its trades, for assembling the person timeline payload."""
     if not post_ids:
