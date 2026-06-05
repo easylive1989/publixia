@@ -14,7 +14,7 @@ from core.cloudflare_ai import run_ai
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v4"
 
 _DIRECTIONS = {"buy", "sell", "hold", "bullish", "bearish"}
 
@@ -50,6 +50,24 @@ _SYSTEM_PROMPT = """你是一個專門解析中文股票社群貼文的助手。
 - confidence：0~1，是你判斷「這是一筆真實個股訊號」的把握。語氣含糊、像玩笑、或不確定是否真的下單 → 給低分（<0.5）。
 - 同一檔股票同時有動作與看法時，以實際動作（buy/sell/hold）為主。
 - 若整篇沒有任何具體個股訊號，回傳空陣列 trades: []。
+
+【範例】（務必照這些模式判斷，尤其是「已完成動作＋未來語句」）
+貼文：「家父持股之一，長榮海運已全數賣出，預計轉投其他個股，有任何買賣動作會馬上通知大家。」
+輸出：{"trades":[{"raw_symbol":"長榮海運","direction":"sell","confidence":0.9}]}
+（「已全數賣出」是已發生的賣出，後面的「預計轉投／會通知」是未來語句，不影響這筆 sell）
+
+貼文：「早盤重大訊息！家父重新買回緯創，看來是改變心意了。」
+輸出：{"trades":[{"raw_symbol":"緯創","direction":"buy","confidence":0.9}]}
+
+貼文：「盤中緯創持續漲停，家父已售出絕大部分，僅留一張。」
+輸出：{"trades":[{"raw_symbol":"緯創","direction":"sell","quantity":1,"confidence":0.85}]}
+
+貼文：「早盤台股再創新高，已經沒有人可以阻擋台股的漲勢，家父看多。」
+輸出：{"trades":[{"raw_symbol":"台股","direction":"bullish","confidence":0.7}]}
+
+貼文：「大叔本人多年來因為董事長品德原因，一直拒買國巨的股票。」
+輸出：{"trades":[]}
+（「拒買」＝沒有實際買賣，不可記成 buy）
 
 只輸出符合 schema 的 JSON，不要額外解釋。"""
 

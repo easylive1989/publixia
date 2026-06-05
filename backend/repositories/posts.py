@@ -76,16 +76,17 @@ def list_pending_posts(limit: int = 20) -> list[dict]:
 
 
 def list_stale_extraction_posts(current_version: str, limit: int = 20) -> list[dict]:
-    """Already-extracted posts whose trades came from an older prompt version —
-    re-extract them so a prompt improvement also cleans up past mistakes.
-    (No-trade posts carry no version and are left alone — they have no bad data.)
+    """``done`` posts extracted by an older prompt version — re-extract them so
+    a prompt improvement also fixes past results. Keyed on ``posts``'
+    ``extraction_version`` (not trades), so posts wrongly extracted as *empty*
+    are caught too. Legacy rows with NULL version count as stale.
     """
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT DISTINCT p.id, p.account_id, p.content, p.url "
-            "FROM posts p JOIN extracted_trades et ON et.post_id = p.id "
-            "WHERE p.extraction_status='done' AND et.prompt_version != ? "
-            "ORDER BY p.posted_at DESC LIMIT ?",
+            "SELECT id, account_id, content, url FROM posts "
+            "WHERE extraction_status='done' "
+            "  AND (extraction_version IS NULL OR extraction_version != ?) "
+            "ORDER BY posted_at DESC LIMIT ?",
             (current_version, limit),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -96,6 +97,15 @@ def set_extraction_status(post_id: int, status: str) -> None:
         conn.execute(
             "UPDATE posts SET extraction_status=? WHERE id=?",
             (status, post_id),
+        )
+
+
+def mark_extracted(post_id: int, version: str) -> None:
+    """Mark a post done and stamp the prompt version it was extracted with."""
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE posts SET extraction_status='done', extraction_version=? WHERE id=?",
+            (version, post_id),
         )
 
 

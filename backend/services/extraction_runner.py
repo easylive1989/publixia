@@ -83,7 +83,7 @@ def run_extraction(limit: int = 20) -> dict:
         trades_repo.save_trades(
             post["id"], raw_trades, model=settings.cf_ai_model, prompt_version=PROMPT_VERSION
         )
-        posts_repo.set_extraction_status(post["id"], "done")
+        posts_repo.mark_extracted(post["id"], PROMPT_VERSION)
         processed += 1
 
         if raw_trades:

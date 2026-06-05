@@ -36,20 +36,19 @@ def test_save_trades_replaces_old_set():
 
 
 def test_list_stale_extraction_posts():
+    # a post extracted by an old version (even one with NO trades) is stale
     pid = _post()
-    trades_repo.save_trades(
-        pid, [{"raw_symbol": "台股", "direction": "hold", "confidence": 0.5}],
-        model="m", prompt_version="v1",
-    )
-    posts_repo.set_extraction_status(pid, "done")
+    empty = _post("EMPTY")
+    posts_repo.mark_extracted(pid, "v1")
+    posts_repo.mark_extracted(empty, "v1")  # wrongly-empty post must also be caught
 
-    assert any(p["id"] == pid for p in posts_repo.list_stale_extraction_posts("v2"))
-    # after re-saving with the current version it's no longer stale
-    trades_repo.save_trades(
-        pid, [{"raw_symbol": "2330", "direction": "buy", "confidence": 0.8}],
-        model="m", prompt_version="v2",
-    )
-    assert all(p["id"] != pid for p in posts_repo.list_stale_extraction_posts("v2"))
+    stale_ids = {p["id"] for p in posts_repo.list_stale_extraction_posts("v2")}
+    assert pid in stale_ids and empty in stale_ids
+
+    # after re-extracting with the current version they're no longer stale
+    posts_repo.mark_extracted(pid, "v2")
+    posts_repo.mark_extracted(empty, "v2")
+    assert all(p["id"] not in (pid, empty) for p in posts_repo.list_stale_extraction_posts("v2"))
 
 
 def test_runner_reextracts_and_cleans_bad_trade(monkeypatch):
