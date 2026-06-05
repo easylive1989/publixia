@@ -92,4 +92,20 @@ describe('routing', () => {
     expect(screen.queryByText('放棄吧散戶,外面全都是黑k')).not.toBeInTheDocument();
     expect(screen.getByText('動態時間軸')).toBeInTheDocument();
   });
+
+  it('combines the "有提到股票" filter with a person filter', async () => {
+    mockHome();
+    renderAt('/');
+    await screen.findByText('放棄吧散戶,外面全都是黑k');
+
+    // only-stocks: 巴逆逆's no-trade post drops, 爸逆逆's trade post stays
+    await userEvent.click(screen.getByRole('button', { name: /有提到股票/ }));
+    expect(screen.getByText('家父持股緯創全數售出')).toBeInTheDocument();
+    expect(screen.queryByText('放棄吧散戶,外面全都是黑k')).not.toBeInTheDocument();
+
+    // combine with 巴逆逆 (who has no trade posts) → empty result
+    await userEvent.click(screen.getByRole('button', { name: /巴逆逆/ }));
+    expect(screen.queryByText('家父持股緯創全數售出')).not.toBeInTheDocument();
+    expect(screen.getByText('沒有符合篩選條件的貼文。')).toBeInTheDocument();
+  });
 });

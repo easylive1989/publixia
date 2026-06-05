@@ -4,6 +4,7 @@ import { ExternalLink } from 'lucide-react';
 import { TradeChip } from '@/components/TradeChip';
 import { relativeTime, asUtc } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
+import { personColor } from '@/lib/person-color';
 import type { Post, PostAuthor } from '@/hooks/usePeople';
 
 type TimelineItem = Post & { person?: PostAuthor };
@@ -20,6 +21,7 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
     key: string;
     code: string | null;
     name: string;
+    pctLatest: number | null;
     pct7: number | null;
     pct1m: number | null;
     priceStatus: string | null;
@@ -31,6 +33,7 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
       key,
       code: t.ticker,
       name: t.stock_name ?? t.raw_symbol,
+      pctLatest: t.pct_latest,
       pct7: t.pct_7d,
       pct1m: t.pct_1m,
       priceStatus: t.price_status,
@@ -49,9 +52,17 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
               {author && (
                 <Link
                   to={`/people/${author.person_key}`}
-                  className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline"
+                  className={cn(
+                    'inline-flex items-center gap-1.5 font-semibold hover:underline',
+                    personColor(author.person_key).name,
+                  )}
                 >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                  <span
+                    className={cn(
+                      'flex size-5 items-center justify-center rounded-full text-[10px] font-semibold text-white',
+                      personColor(author.person_key).avatar,
+                    )}
+                  >
                     {author.display_name.slice(0, 1)}
                   </span>
                   {author.display_name}
@@ -97,16 +108,17 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
           )}
         </div>
 
-        {/* right-side stock annotation: code + name + 7d/1m return */}
+        {/* right-side stock annotation: code + name + 最新/7日/1月 return */}
         {symbols.length > 0 && (
-          <aside className="flex w-24 shrink-0 flex-col items-end gap-3 border-l border-dashed border-border pl-3">
+          <aside className="flex w-32 shrink-0 flex-col items-end gap-4 border-l border-dashed border-border pl-4">
             {symbols.map((s) => (
               <span key={s.key} className="flex flex-col items-end leading-tight">
                 {s.code && (
-                  <span className="font-mono text-sm font-semibold text-foreground">{s.code}</span>
+                  <span className="font-mono text-lg font-bold text-foreground">{s.code}</span>
                 )}
-                <span className="text-right text-xs text-muted-foreground">{s.name}</span>
-                <span className="mt-1 flex flex-col items-end gap-0.5">
+                <span className="text-right text-sm text-muted-foreground">{s.name}</span>
+                <span className="mt-1.5 flex flex-col items-end gap-1">
+                  <PctRow label="最新" pct={s.pctLatest} />
                   <PctRow label="7日" pct={s.pct7} />
                   <PctRow label="1月" pct={s.pct1m} />
                 </span>
@@ -123,7 +135,7 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
 function PctRow({ label, pct }: { label: string; pct: number | null }) {
   if (pct == null) {
     return (
-      <span className="font-mono text-[11px] text-muted-foreground/70">
+      <span className="font-mono text-xs text-muted-foreground/70">
         {label} <span className="italic">追蹤中</span>
       </span>
     );
@@ -135,9 +147,9 @@ function PctRow({ label, pct }: { label: string; pct: number | null }) {
         ? 'text-[hsl(var(--buy))]'
         : 'text-muted-foreground';
   return (
-    <span className="font-mono text-[11px]">
+    <span className="font-mono text-xs">
       <span className="text-muted-foreground">{label} </span>
-      <span className={cls}>
+      <span className={cn('font-semibold', cls)}>
         {pct > 0 ? '+' : ''}
         {(pct * 100).toFixed(1)}%
       </span>

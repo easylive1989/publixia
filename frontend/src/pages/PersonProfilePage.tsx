@@ -5,6 +5,8 @@ import { Masthead } from '@/components/Masthead';
 import { PostTimeline } from '@/components/PostTimeline';
 import { TradeChip } from '@/components/TradeChip';
 import { usePersonProfile, usePersonPosts, type Trade } from '@/hooks/usePeople';
+import { personColor } from '@/lib/person-color';
+import { cn } from '@/lib/utils';
 
 export default function PersonProfilePage() {
   const { personKey = '' } = useParams();
@@ -41,11 +43,18 @@ export default function PersonProfilePage() {
         {profile.data && (
           <>
             <div className="flex items-start gap-5 border-b-2 border-foreground pb-6">
-              <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary font-display text-3xl font-semibold text-primary-foreground">
+              <div
+                className={cn(
+                  'flex size-16 shrink-0 items-center justify-center rounded-full font-display text-3xl font-semibold text-white',
+                  personColor(profile.data.person_key).avatar,
+                )}
+              >
                 {profile.data.display_name.slice(0, 1)}
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="font-display text-4xl font-bold leading-none">{profile.data.display_name}</h1>
+                <h1 className={cn('font-display text-4xl font-bold leading-none', personColor(profile.data.person_key).name)}>
+                  {profile.data.display_name}
+                </h1>
                 <div className="mt-3 flex flex-wrap gap-3">
                   {profile.data.accounts.map((a) => (
                     <a

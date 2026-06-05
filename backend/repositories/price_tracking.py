@@ -25,18 +25,21 @@ def upsert_tracking(post_id: int, ticker: str, market: str, w: dict) -> None:
         conn.execute(
             "INSERT INTO trade_price_tracking ("
             "  post_id, ticker, market, base_date, base_price, "
-            "  price_7d, price_1m, pct_7d, pct_1m, status"
-            ") VALUES (?,?,?,?,?,?,?,?,?,?) "
+            "  price_7d, price_1m, price_latest, latest_date, "
+            "  pct_7d, pct_1m, pct_latest, status"
+            ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) "
             "ON CONFLICT(post_id, ticker) DO UPDATE SET "
             "  market=excluded.market, base_date=excluded.base_date, "
             "  base_price=excluded.base_price, price_7d=excluded.price_7d, "
-            "  price_1m=excluded.price_1m, pct_7d=excluded.pct_7d, "
-            "  pct_1m=excluded.pct_1m, status=excluded.status, "
-            "  updated_at=datetime('now')",
+            "  price_1m=excluded.price_1m, price_latest=excluded.price_latest, "
+            "  latest_date=excluded.latest_date, pct_7d=excluded.pct_7d, "
+            "  pct_1m=excluded.pct_1m, pct_latest=excluded.pct_latest, "
+            "  status=excluded.status, updated_at=datetime('now')",
             (
                 post_id, ticker, market,
                 w["base_date"], w["base_price"],
-                w["price_7d"], w["price_1m"], w["pct_7d"], w["pct_1m"],
+                w["price_7d"], w["price_1m"], w["price_latest"], w["latest_date"],
+                w["pct_7d"], w["pct_1m"], w["pct_latest"],
                 w["status"],
             ),
         )

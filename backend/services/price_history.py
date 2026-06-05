@@ -16,10 +16,14 @@ from datetime import date, datetime, timedelta, timezone
 logger = logging.getLogger(__name__)
 
 _BUFFER_BEFORE = 4   # days of slack before the post (skip weekends/holidays)
-_BUFFER_AFTER = 8    # days past the 1-month window to ensure a trading day
+
+# Index tickers → their Yahoo symbol (大盤 tracked by points).
+_INDEX_YF = {"TAIEX": "^TWII"}
 
 
 def _yf_symbols(ticker: str, market: str) -> list[str]:
+    if market == "INDEX":
+        return [_INDEX_YF.get(ticker, ticker)]
     if market == "US":
         return [ticker]
     if market == "TW":
@@ -39,10 +43,13 @@ def _fetch_closes(symbol: str, start: date, end: date) -> dict[date, float]:
     out: dict[date, float] = {}
     for ts, close in df["Close"].items():
         try:
+            value = float(close)
             d = ts.date()
-            out[d] = float(close)
         except (AttributeError, TypeError, ValueError):
             continue
+        if value != value or value <= 0:  # skip NaN / non-positive (incomplete bar)
+            continue
+        out[d] = value
     return out
 
 
@@ -74,16 +81,16 @@ def compute_window(
     today = today or datetime.now(timezone.utc).date()
     post_date = post_dt.date()
     start = post_date - timedelta(days=_BUFFER_BEFORE)
-    end = min(today, post_date + timedelta(days=30 + _BUFFER_AFTER)) + timedelta(days=1)
+    end = today + timedelta(days=1)  # always up to the latest trading day
 
     closes = _closes_for(ticker, market, start, end)
     if not closes:
-        return _result(None, None, None, None, "unavailable")
+        return _result(None, None, None, None, None, None, "unavailable")
 
     dates = sorted(closes)
     base = next((d for d in dates if d >= post_date), None)
     if base is None:
-        return _result(None, None, None, None, "unavailable")
+        return _result(None, None, None, None, None, None, "unavailable")
     base_price = closes[base]
 
     def price_at(target: date) -> float | None:
@@ -95,6 +102,11 @@ def compute_window(
     p7 = price_at(post_date + timedelta(days=7))
     p1m = price_at(post_date + timedelta(days=30))
 
+    # "latest" = most recent close we have (current performance). Always
+    # available once we have a base price.
+    latest_d = dates[-1]
+    p_latest = closes[latest_d]
+
     if p7 is not None and p1m is not None:
         status = "done"
     elif p7 is not None:
@@ -102,10 +114,10 @@ def compute_window(
     else:
         status = "pending"
 
-    return _result(base, base_price, p7, p1m, status)
+    return _result(base, base_price, p7, p1m, p_latest, latest_d, status)
 
 
-def _result(base, base_price, p7, p1m, status) -> dict:
+def _result(base, base_price, p7, p1m, p_latest, latest_d, status) -> dict:
     def pct(p):
         if p is None or not base_price:
             return None
@@ -116,7 +128,10 @@ def _result(base, base_price, p7, p1m, status) -> dict:
         "base_price": base_price,
         "price_7d": p7,
         "price_1m": p1m,
+        "price_latest": p_latest,
+        "latest_date": latest_d.isoformat() if latest_d else None,
         "pct_7d": pct(p7),
         "pct_1m": pct(p1m),
+        "pct_latest": pct(p_latest),
         "status": status,
     }

@@ -75,8 +75,21 @@ def seed_us_static() -> int:
     return count
 
 
+def seed_indices() -> int:
+    """Market indices tracked by points (大盤). 台股/大盤/加權 → TAIEX (^TWII)."""
+    rows = [{
+        "ticker": "TAIEX", "market": "INDEX", "canonical_name": "加權指數",
+        "aliases": ["台股", "大盤", "加權", "加權指數", "台股大盤",
+                    "大盤指數", "台股指數", "指數", "集中市場"],
+    }]
+    count = upsert_reference_batch(rows, source="static")
+    logger.info("stock_ref_indices_seeded count=%d", count)
+    return count
+
+
 def run_stock_reference_sync() -> dict:
-    """Scheduler entry point: refresh TW roster + US static map."""
+    """Scheduler entry point: refresh TW roster + US static map + indices."""
     tw = sync_tw_from_finmind()
     us = seed_us_static()
-    return {"tw": tw, "us": us}
+    idx = seed_indices()
+    return {"tw": tw, "us": us, "index": idx}

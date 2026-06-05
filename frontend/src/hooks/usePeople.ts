@@ -13,7 +13,8 @@ export interface Trade {
   quantity: number | null;
   trade_date: string | null;
   confidence: number;
-  // price tracking from the post's entry time (null until the window elapses)
+  // price tracking from the post's entry time (null until computed/elapsed)
+  pct_latest: number | null;  // current price vs entry
   pct_7d: number | null;
   pct_1m: number | null;
   base_price: number | null;

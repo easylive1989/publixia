@@ -32,3 +32,10 @@ def test_unknown_returns_none():
     _seed()
     assert normalize("完全不存在的東西") == (None, None)
     assert normalize("") == (None, None)
+
+
+def test_market_aliases_map_to_taiex_index():
+    # the index row is seeded by migration 0026 (no _seed needed)
+    assert normalize("台股") == ("TAIEX", "INDEX")
+    assert normalize("大盤") == ("TAIEX", "INDEX")
+    assert normalize("加權指數") == ("TAIEX", "INDEX")

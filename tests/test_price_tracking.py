@@ -6,8 +6,9 @@ from repositories import tracked_accounts as accounts_repo
 
 WINDOW = {
     "base_date": "2026-05-01", "base_price": 100.0,
-    "price_7d": 107.0, "price_1m": 130.0,
-    "pct_7d": 0.07, "pct_1m": 0.30, "status": "done",
+    "price_7d": 107.0, "price_1m": 130.0, "price_latest": 135.0,
+    "latest_date": "2026-06-04",
+    "pct_7d": 0.07, "pct_1m": 0.30, "pct_latest": 0.35, "status": "done",
 }
 
 
@@ -35,6 +36,7 @@ def test_runner_computes_and_join_exposes_pct(monkeypatch):
     assert trade["ticker"] == "2330"
     assert round(trade["pct_7d"], 4) == 0.07
     assert round(trade["pct_1m"], 4) == 0.30
+    assert round(trade["pct_latest"], 4) == 0.35
     assert trade["price_status"] == "done"
     assert trade["base_price"] == 100.0
 
