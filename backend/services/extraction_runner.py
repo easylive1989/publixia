@@ -13,6 +13,7 @@ from repositories import posts as posts_repo
 from repositories import tracked_accounts as accounts_repo
 from repositories import trades as trades_repo
 from services.normalization import normalize
+from services.price_tracking_runner import run_price_tracking
 from services.trade_extraction import PROMPT_VERSION, extract_trades
 
 logger = logging.getLogger(__name__)
@@ -98,4 +99,12 @@ def run_extraction(limit: int = 20) -> dict:
         "errors": errors,
     }
     logger.info("run_extraction_done %s", summary)
+
+    # 新解析出的個股馬上算一輪價格，「最新」不必等下一個 price_tracking tick。
+    # 包 try/except：yfinance 出包不應該擋住 extraction 本身。
+    try:
+        run_price_tracking()
+    except Exception:  # noqa: BLE001
+        logger.exception("price_tracking_after_extraction_failed")
+
     return summary
