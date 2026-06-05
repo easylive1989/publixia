@@ -52,3 +52,16 @@ def test_blank_content_skips_ai(monkeypatch):
     monkeypatch.setattr(te, "run_ai", boom)
     assert te.extract_trades("   ") == []
     assert called["n"] == 0
+
+
+def test_prompt_version_bumped_to_v5():
+    assert te.PROMPT_VERSION == "v5"
+
+
+def test_prompt_excludes_allocation_abstractions():
+    # 類別排除規則 + few-shot 反例的關鍵字必須在 system prompt 裡，
+    # 避免日後不小心被刪（LLM 行為本身無法確定性 unit-test）。
+    prompt = te._SYSTEM_PROMPT
+    assert "題材分類" in prompt          # 排除規則
+    assert "核心部位" in prompt          # 排除規則列舉
+    assert "下半年趨勢題材" in prompt    # few-shot 反例原文
