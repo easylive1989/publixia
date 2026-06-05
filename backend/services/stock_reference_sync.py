@@ -2,10 +2,12 @@
 
 TW: the full listed-stock roster from FinMind's ``TaiwanStockInfo``, plus a
 small hand-maintained alias overlay for popular nicknames the posts use
-(護國神山, 小台電, ...). US: a curated static map of names these accounts
-mention, keyed with Chinese aliases.
+(護國神山, 小台電, ...). US: the full filer roster from SEC's
+``company_tickers.json``, plus a Chinese-alias overlay for the nicknames.
 
-Run by the ``stock_ref_sync`` scheduler job. Safe to re-run (upsert).
+Run by the ``stock_ref_sync`` scheduler job. Safe to re-run (upsert). After
+refreshing the rosters it re-normalizes trades the bigger roster can now
+resolve (see ``backfill_unnormalized_trades``).
 """
 import logging
 from datetime import date
@@ -13,6 +15,8 @@ from datetime import date
 from core.finmind import request as finmind_request
 from core.sec import fetch_company_tickers
 from repositories.stock_reference import upsert_reference_batch
+from services.backfill_normalization import backfill_unnormalized_trades
+from services.price_tracking_runner import run_price_tracking
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +106,12 @@ def seed_indices() -> int:
 
 
 def run_stock_reference_sync() -> dict:
-    """Scheduler entry point: refresh TW roster + US roster + indices."""
+    """Scheduler entry point: refresh TW + US rosters + indices, then
+    re-normalize trades the bigger roster can now resolve."""
     tw = sync_tw_from_finmind()
     us = sync_us_from_sec()
     idx = seed_indices()
-    return {"tw": tw, "us": us, "index": idx}
+    backfill = backfill_unnormalized_trades()
+    if backfill["filled"]:
+        run_price_tracking()  # newly-resolved trades get their price windows
+    return {"tw": tw, "us": us, "index": idx, "backfill": backfill}

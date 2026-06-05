@@ -62,3 +62,29 @@ def test_backfill_leaves_still_unmatched_trade_untouched():
 
     assert result == {"scanned": 1, "filled": 0}
     assert len(trades_repo.list_unnormalized_trades()) == 1
+
+
+def test_run_stock_reference_sync_backfills_and_tracks(monkeypatch):
+    from services import stock_reference_sync as svc
+
+    pid = _unnormalized_trade("intc")
+
+    # 外部全 stub：TW finmind / US SEC / yfinance 價格追蹤都不打網路
+    monkeypatch.setattr(svc, "sync_tw_from_finmind", lambda: 0)
+    # SEC 名冊這次帶進 INTC
+    monkeypatch.setattr(
+        svc, "fetch_company_tickers",
+        lambda: [{"cik_str": 1, "ticker": "INTC", "title": "Intel Corp."}],
+    )
+    tracked = {"called": False}
+    monkeypatch.setattr(
+        svc, "run_price_tracking",
+        lambda: tracked.__setitem__("called", True),
+    )
+
+    result = svc.run_stock_reference_sync()
+
+    assert result["backfill"] == {"scanned": 1, "filled": 1}
+    assert tracked["called"] is True  # 有補到 → 觸發價格追蹤
+    row = trades_repo.list_trades_for_posts([pid])[pid][0]
+    assert (row["ticker"], row["market"]) == ("INTC", "US")
