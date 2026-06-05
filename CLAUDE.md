@@ -10,7 +10,6 @@ person. Single product, single VPS service:
 - `backend/` — FastAPI app + APScheduler + SQLite (`stock_dashboard.db`) + Scrapling scrapers + Cloudflare Workers AI extraction, on the VPS
 - `frontend/` — Vite + React + Tailwind, deployed to GitHub Pages on the custom subdomain `stock.paul-learning.dev` (no path prefix — served from `/`)
 - `tests/` — pytest suite for the backend (run from repo root: `python3 -m pytest tests/`)
-- `worker/foreign-flow-ai/` — a Cloudflare Worker from the previous (stock-dashboard) product. **Dormant** — nothing calls it anymore; left in place, not part of the current flow.
 
 (The repo was pivoted from a TWSE indicators dashboard; `stock_dashboard.db` and `stock-dashboard.service` keep their old names to avoid churn.)
 
@@ -60,7 +59,6 @@ Layered: **scrapers → repositories → services → routes**, with APScheduler
 - **Push to master** triggers the relevant GitHub Action by path:
   - `frontend/**` → `deploy-frontend.yml` → GitHub Pages
   - `backend/**` or `stock-dashboard.service` → `deploy-backend.yml` → pytest gate → rsync to VPS → `pip install` → `scrapling install` (fetch browser, non-fatal) → systemd restart
-  - `worker/**` → `deploy-worker.yml` (the dormant worker; rarely needed)
 - VPS path is fixed at `/opt/stock-dashboard/`; decoupled from the repo name.
 - `init_db()` runs every backend startup → migrations are auto-applied.
 - Manual deploy fallback: `./deploy.sh` from repo root (requires `VPS_HOST` env var).

@@ -34,10 +34,9 @@
 backend/                 FastAPI app + scrapers + AI 解析 + 排程 + DB layer
 frontend/                Vite/React app（時間軸 + 篩選 + 個人頁）
 tests/                   pytest backend test suite（從 repo root 跑）
-worker/foreign-flow-ai/  舊產品的 Cloudflare Worker，已 dormant（無人呼叫）
 stock-dashboard.service  systemd unit copied to VPS
 deploy.sh                Manual VPS deploy（CI 外的後備）
-.github/workflows/       CI: deploy-backend.yml, deploy-frontend.yml, deploy-worker.yml
+.github/workflows/       CI: deploy-backend.yml, deploy-frontend.yml
 ```
 
 ## 後端架構
