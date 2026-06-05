@@ -11,6 +11,7 @@ import logging
 from datetime import date
 
 from core.finmind import request as finmind_request
+from core.sec import fetch_company_tickers
 from repositories.stock_reference import upsert_reference_batch
 
 logger = logging.getLogger(__name__)
@@ -25,18 +26,18 @@ _TW_ALIAS_OVERLAY: dict[str, list[str]] = {
     "2890": ["永豐金控"],
 }
 
-# US stocks the accounts mention, with Chinese aliases. ticker → (name, aliases)
-_US_STATIC: dict[str, tuple[str, list[str]]] = {
-    "NVDA": ("NVIDIA", ["輝達", "輝達", "輝", "黃仁勳"]),
-    "TSLA": ("Tesla", ["特斯拉", "電動車"]),
-    "AAPL": ("Apple", ["蘋果"]),
-    "MSFT": ("Microsoft", ["微軟"]),
-    "GOOGL": ("Alphabet", ["谷歌", "Google"]),
-    "AMZN": ("Amazon", ["亞馬遜"]),
-    "META": ("Meta Platforms", ["臉書", "Facebook"]),
-    "TSM": ("Taiwan Semiconductor ADR", ["台積電ADR", "台積電 ADR"]),
-    "AMD": ("Advanced Micro Devices", ["超微"]),
-    "PLTR": ("Palantir", []),
+# Common US nicknames the posts use (Chinese). ticker → aliases.
+# Canonical English names come from the SEC roster, not here.
+_US_ALIAS_OVERLAY: dict[str, list[str]] = {
+    "NVDA": ["輝達", "黃仁勳"],
+    "TSLA": ["特斯拉", "電動車"],
+    "AAPL": ["蘋果"],
+    "MSFT": ["微軟"],
+    "GOOGL": ["谷歌", "Google"],
+    "AMZN": ["亞馬遜"],
+    "META": ["臉書", "Facebook"],
+    "TSM": ["台積電ADR", "台積電 ADR"],
+    "AMD": ["超微"],
 }
 
 
@@ -64,14 +65,27 @@ def sync_tw_from_finmind() -> int:
     return count
 
 
-def seed_us_static() -> int:
-    """Upsert the curated US static map."""
-    rows = [
-        {"ticker": t, "market": "US", "canonical_name": name, "aliases": aliases}
-        for t, (name, aliases) in _US_STATIC.items()
-    ]
-    count = upsert_reference_batch(rows, source="static")
-    logger.info("stock_ref_us_seeded count=%d", count)
+def sync_us_from_sec() -> int:
+    """Upsert the full US roster from SEC (ticker → company name)."""
+    rows_raw = fetch_company_tickers()
+    # dedupe on ticker (SEC should be unique; setdefault guards anyway).
+    seen: dict[str, dict] = {}
+    for r in rows_raw:
+        ticker = r.get("ticker")
+        title = r.get("title")
+        if not ticker or not title:
+            continue
+        seen.setdefault(
+            ticker,
+            {
+                "ticker": ticker,
+                "market": "US",
+                "canonical_name": title,
+                "aliases": _US_ALIAS_OVERLAY.get(ticker),
+            },
+        )
+    count = upsert_reference_batch(list(seen.values()), source="sec")
+    logger.info("stock_ref_us_synced count=%d", count)
     return count
 
 
