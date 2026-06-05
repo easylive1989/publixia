@@ -102,8 +102,8 @@ def seed_indices() -> int:
 
 
 def run_stock_reference_sync() -> dict:
-    """Scheduler entry point: refresh TW roster + US static map + indices."""
+    """Scheduler entry point: refresh TW roster + US roster + indices."""
     tw = sync_tw_from_finmind()
-    us = seed_us_static()
+    us = sync_us_from_sec()
     idx = seed_indices()
     return {"tw": tw, "us": us, "index": idx}

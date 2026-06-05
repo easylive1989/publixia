@@ -33,3 +33,12 @@ def test_sync_us_from_sec_uses_sec_company_name(monkeypatch):
             "WHERE ticker='INTC' AND market='US'"
         ).fetchone()
     assert row["canonical_name"] == "Intel Corp."
+
+
+def test_run_stock_reference_sync_includes_us(monkeypatch):
+    # TW 與 SEC 都 stub 掉，只驗證 us 欄走 sync_us_from_sec
+    monkeypatch.setattr(svc, "sync_tw_from_finmind", lambda: 0)
+    monkeypatch.setattr(svc, "fetch_company_tickers", lambda: _SEC_PAYLOAD)
+    result = svc.run_stock_reference_sync()
+    assert result["us"] == 3
+    assert "tw" in result and "index" in result
