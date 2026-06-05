@@ -4,7 +4,7 @@ import { ExternalLink } from 'lucide-react';
 import { TradeChip } from '@/components/TradeChip';
 import { relativeTime, asUtc } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
-import { personColor } from '@/lib/person-color';
+import { usePersonColor } from '@/lib/person-color';
 import type { Direction, Post, PostAuthor } from '@/hooks/usePeople';
 
 type TimelineItem = Post & { person?: PostAuthor };
@@ -14,6 +14,7 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
   const isLong = post.content.length > 140;
   const posted = post.posted_at ? asUtc(post.posted_at) : null;
   const author = post.person;
+  const authorColor = usePersonColor(author?.person_key ?? '');
 
   // Right-side rail: one entry per (stock, direction) the post calls out — so a
   // buy and a sell of the same ticker don't collapse, and each row's % can be
@@ -59,13 +60,13 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
                   to={`/people/${author.person_key}`}
                   className={cn(
                     'inline-flex items-center gap-1.5 font-semibold hover:underline',
-                    personColor(author.person_key).name,
+                    authorColor.name,
                   )}
                 >
                   <span
                     className={cn(
                       'flex size-5 items-center justify-center rounded-full text-[10px] font-semibold text-white',
-                      personColor(author.person_key).avatar,
+                      authorColor.avatar,
                     )}
                   >
                     {author.display_name.slice(0, 1)}

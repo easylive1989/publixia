@@ -5,13 +5,14 @@ import { Masthead } from '@/components/Masthead';
 import { PostTimeline } from '@/components/PostTimeline';
 import { TradeChip } from '@/components/TradeChip';
 import { usePersonProfile, usePersonPosts, type Trade } from '@/hooks/usePeople';
-import { personColor } from '@/lib/person-color';
+import { usePersonColor } from '@/lib/person-color';
 import { cn } from '@/lib/utils';
 
 export default function PersonProfilePage() {
   const { personKey = '' } = useParams();
   const profile = usePersonProfile(personKey);
   const posts = usePersonPosts(personKey);
+  const color = usePersonColor(personKey);
 
   const recentTrades = useMemo<Trade[]>(() => {
     const out: Trade[] = [];
@@ -46,13 +47,13 @@ export default function PersonProfilePage() {
               <div
                 className={cn(
                   'flex size-16 shrink-0 items-center justify-center rounded-full font-display text-3xl font-semibold text-white',
-                  personColor(profile.data.person_key).avatar,
+                  color.avatar,
                 )}
               >
                 {profile.data.display_name.slice(0, 1)}
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className={cn('font-display text-4xl font-bold leading-none', personColor(profile.data.person_key).name)}>
+                <h1 className={cn('font-display text-4xl font-bold leading-none', color.name)}>
                   {profile.data.display_name}
                 </h1>
                 <div className="mt-3 flex flex-wrap gap-3">

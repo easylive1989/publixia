@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { Masthead } from '@/components/Masthead';
 import { PostTimeline } from '@/components/PostTimeline';
-import { usePeople, useTimeline } from '@/hooks/usePeople';
-import { personColor } from '@/lib/person-color';
+import { usePeople, useTimeline, type PersonSummary } from '@/hooks/usePeople';
+import { usePersonColor } from '@/lib/person-color';
 import { cn } from '@/lib/utils';
 
 export default function HomePage() {
@@ -34,12 +34,9 @@ export default function HomePage() {
         <div className="mb-8 flex flex-wrap items-center gap-2">
           <FilterChip label="全部" active={selected === null} onClick={() => setSelected(null)} />
           {(people.data ?? []).map((p) => (
-            <FilterChip
+            <PersonFilterChip
               key={p.person_key}
-              label={p.display_name}
-              initial={p.display_name.slice(0, 1)}
-              avatarClass={personColor(p.person_key).avatar}
-              count={p.trade_count}
+              person={p}
               active={selected === p.person_key}
               onClick={() => setSelected((cur) => (cur === p.person_key ? null : p.person_key))}
             />
@@ -63,6 +60,28 @@ export default function HomePage() {
           ))}
       </main>
     </div>
+  );
+}
+
+function PersonFilterChip({
+  person,
+  active,
+  onClick,
+}: {
+  person: PersonSummary;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const color = usePersonColor(person.person_key);
+  return (
+    <FilterChip
+      label={person.display_name}
+      initial={person.display_name.slice(0, 1)}
+      avatarClass={color.avatar}
+      count={person.trade_count}
+      active={active}
+      onClick={onClick}
+    />
   );
 }
 
