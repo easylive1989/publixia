@@ -52,12 +52,16 @@ def _notify(display_name: str, url: str, trades: list[dict]) -> None:
 
 
 def run_extraction(limit: int = 20) -> dict:
-    """Process pending posts, plus re-extract posts whose trades came from an
-    older prompt version (so prompt improvements clean up past results)."""
-    pending = posts_repo.list_pending_posts(limit=limit)
-    stale = posts_repo.list_stale_extraction_posts(PROMPT_VERSION, limit=limit)
-    seen = {p["id"] for p in pending}
-    posts = pending + [p for p in stale if p["id"] not in seen]
+    """Process pending posts only.
+
+    Stale re-extraction (reprocessing every ``done`` post when ``PROMPT_VERSION``
+    bumps) is intentionally NOT done here: it would overwrite manual corrections
+    to ``extracted_trades`` (see the fix-trade-signal skill). A prompt upgrade
+    therefore only affects new/pending posts. To deliberately reprocess old posts
+    after a prompt change, re-queue them (``set_extraction_status(id, 'pending')``)
+    — ``list_stale_extraction_posts`` is kept for that manual path.
+    """
+    posts = posts_repo.list_pending_posts(limit=limit)
 
     processed = 0
     with_trades = 0

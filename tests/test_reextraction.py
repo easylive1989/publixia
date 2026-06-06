@@ -51,19 +51,19 @@ def test_list_stale_extraction_posts():
     assert all(p["id"] not in (pid, empty) for p in posts_repo.list_stale_extraction_posts("v2"))
 
 
-def test_runner_reextracts_and_cleans_bad_trade(monkeypatch):
+def test_runner_does_not_reextract_done_posts(monkeypatch):
+    # A done post (e.g. one with a manual correction) must NOT be re-extracted by
+    # the scheduled runner — stale re-extraction is disabled so corrections stick.
     pid = _post(content="大叔多年來拒買國巨")
-    # an old, wrong extraction (treated 拒買 as buy) lands as v1/done
     trades_repo.save_trades(
-        pid, [{"raw_symbol": "國巨", "ticker": "2327", "market": "TW", "direction": "buy", "confidence": 0.5}],
-        model="m", prompt_version="v1",
+        pid, [{"raw_symbol": "國巨", "ticker": "2327", "market": "TW", "direction": "sell", "confidence": 1.0}],
+        model="manual-fix", prompt_version="manual",
     )
-    posts_repo.set_extraction_status(pid, "done")
+    posts_repo.mark_extracted(pid, "v1")  # done, older version → would be "stale"
 
-    # v2 prompt correctly extracts nothing from a "拒買" post
+    # even though run_ai would return something different, run_extraction skips it
     monkeypatch.setattr(te, "run_ai", lambda *a, **k: {"trades": []})
-    summary = er.run_extraction()
+    er.run_extraction()
 
-    assert summary["processed"] >= 1
-    assert trades_repo.list_trades_for_posts([pid])[pid] == []     # bad trade removed
-    assert all(p["id"] != pid for p in posts_repo.list_stale_extraction_posts(te.PROMPT_VERSION))
+    rows = trades_repo.list_trades_for_posts([pid])[pid]
+    assert [(r["raw_symbol"], r["direction"]) for r in rows] == [("國巨", "sell")]  # untouched
