@@ -14,7 +14,7 @@ export function Scorebar() {
         </NavLink>
         <div className="scorebar-right">
           <span className="live-pill"><span className="live-dot" />本季 LIVE</span>
-          <a className="nominate-btn" href={nominateHref}>
+          <a className="nominate-btn" href={nominateHref} target="_blank" rel="noopener noreferrer">
             <span className="plus">＋</span>推薦參戰
           </a>
         </div>

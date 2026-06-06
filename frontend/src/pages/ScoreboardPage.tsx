@@ -46,7 +46,7 @@ export default function ScoreboardPage() {
             <span className="rc-kicker">MISSING SOMEONE?</span>
             <p>覺得誰的喊單該被攤開對帳？提名他，編審台會開始追蹤。</p>
           </div>
-          <a className="nominate-btn lg" href={nominateHref}>
+          <a className="nominate-btn lg" href={nominateHref} target="_blank" rel="noopener noreferrer">
             <span className="plus">＋</span>推薦老師參戰
           </a>
         </div>
