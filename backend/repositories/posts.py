@@ -126,7 +126,9 @@ def set_extraction_status(post_id: int, status: str) -> None:
 
 
 def list_pending_transcription_posts(limit: int = 5) -> list[dict]:
-    """Podcast posts awaiting transcription, oldest first. ``error`` is retried
+    """Podcast posts awaiting transcription, **newest first** — the freshest
+    episode carries the most actionable signal, and on a first-time backfill we
+    want the latest episode transcribed before older ones. ``error`` is retried
     (download/ffmpeg/Groq failures are usually transient). The lower default
     ``limit`` reflects that transcription is heavier (audio download + ffmpeg +
     Groq rate limits) than text extraction.
@@ -135,7 +137,7 @@ def list_pending_transcription_posts(limit: int = 5) -> list[dict]:
         rows = conn.execute(
             "SELECT id, audio_url, transcript_url FROM posts "
             "WHERE transcript_status IN ('pending','error') "
-            "ORDER BY posted_at ASC LIMIT ?",
+            "ORDER BY posted_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]

@@ -37,6 +37,16 @@ def test_text_post_is_extractable_immediately():
     assert pid not in {p["id"] for p in posts_repo.list_pending_transcription_posts(limit=50)}
 
 
+def test_transcription_queue_is_newest_first():
+    acc = accounts_repo.list_accounts()[0]["id"]
+    older, _ = posts_repo.upsert_post(
+        acc, "podcast", "OLD", "u", "", "2026-05-01T00:00:00", audio_url="https://cdn/old.mp3")
+    newer, _ = posts_repo.upsert_post(
+        acc, "podcast", "NEW", "u", "", "2026-06-01T00:00:00", audio_url="https://cdn/new.mp3")
+    queue = [p["id"] for p in posts_repo.list_pending_transcription_posts(limit=10)]
+    assert queue.index(newer) < queue.index(older)  # newest transcribed first
+
+
 def test_transcription_error_is_retried():
     pid, _ = posts_repo.upsert_post(
         _acc(), "podcast", "EP2", "u", "", "2026-06-01T00:00:00",
