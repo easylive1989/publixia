@@ -7,8 +7,14 @@ export function Scorebar() {
     <header className="scorebar">
       <div className="scorebar-in">
         <NavLink to="/" className="wordmark">
-          <span className="zh">對帳時刻</span>
-          <span className="en">STOCK GURU SCOREBOARD</span>
+          <span className="logo-badge" aria-hidden>
+            <span>全</span>
+            <span>賣</span>
+          </span>
+          <span className="wordmark-text">
+            <span className="en">CALL FOR MONEY</span>
+            <span className="zh">對帳中</span>
+          </span>
         </NavLink>
         <nav className="scorebar-nav">
           <NavLink to="/" end className={navClass}>計分板</NavLink>
