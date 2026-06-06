@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from './setup';
 import ScoreboardPage from '../src/pages/ScoreboardPage';
-import TimelinePage from '../src/pages/TimelinePage';
 
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -15,7 +14,6 @@ function renderAt(path: string) {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/" element={<ScoreboardPage />} />
-          <Route path="/timeline" element={<TimelinePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </MemoryRouter>
@@ -96,14 +94,6 @@ describe('scoreboard app', () => {
     await userEvent.click(screen.getByRole('button', { name: /只看喊單/ }));
     expect(screen.getByText('家父買進台積電')).toBeInTheDocument();
     expect(screen.queryByText('巴逆逆隨手發言沒喊單')).not.toBeInTheDocument();
-  });
-
-  it('renders the leaderboard + feed at /timeline', async () => {
-    mockApi();
-    renderAt('/timeline');
-    expect(await screen.findByText('家父買進台積電')).toBeInTheDocument();
-    // leaderboard cards show 命中率 label
-    expect(screen.getAllByText('命中率').length).toBeGreaterThan(0);
   });
 
   it('redirects unknown paths to /', async () => {

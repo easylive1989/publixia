@@ -1,7 +1,5 @@
 import { NavLink } from 'react-router-dom';
 
-const navClass = ({ isActive }: { isActive: boolean }) => 'nav-link' + (isActive ? ' on' : '');
-
 export function Scorebar() {
   return (
     <header className="scorebar">
@@ -13,11 +11,7 @@ export function Scorebar() {
             <span className="zh">對帳中</span>
           </span>
         </NavLink>
-        <nav className="scorebar-nav">
-          <NavLink to="/" end className={navClass}>計分板</NavLink>
-          <NavLink to="/timeline" className={navClass}>時間軸</NavLink>
-          <span className="live-pill"><span className="live-dot" />本季 LIVE</span>
-        </nav>
+        <span className="live-pill"><span className="live-dot" />本季 LIVE</span>
       </div>
     </header>
   );
