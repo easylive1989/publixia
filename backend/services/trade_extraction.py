@@ -124,13 +124,24 @@ class _Trade(BaseModel):
         return v
 
 
-def extract_trades(content: str) -> list[dict]:
-    """Return a list of validated trade dicts for one post (may be empty).
+# Podcast transcripts can run to tens of thousands of characters — past the
+# model's context window and well into the range where quality degrades. So we
+# extract long content in overlapping windows and merge the results. Short
+# posts (Threads) stay on the single-call path unchanged.
+_CHUNK_THRESHOLD = 6000
+_CHUNK_SIZE = 4000
+_CHUNK_OVERLAP = 200
 
-    Invalid rows from the model are dropped rather than failing the post.
-    """
-    if not content or not content.strip():
-        return []
+
+def _split(content: str) -> list[str]:
+    """Overlapping windows over long content. The overlap avoids dropping a
+    trade that straddles a window boundary (it just gets deduped on merge)."""
+    step = _CHUNK_SIZE - _CHUNK_OVERLAP
+    return [content[i:i + _CHUNK_SIZE] for i in range(0, len(content), step)]
+
+
+def _extract_one(content: str) -> list[dict]:
+    """Run the model once over one piece of text and return validated trades."""
     raw = run_ai(_SYSTEM_PROMPT, content, json_schema=_JSON_SCHEMA)
     items = raw.get("trades", []) if isinstance(raw, dict) else []
     out: list[dict] = []
@@ -144,3 +155,31 @@ def extract_trades(content: str) -> list[dict]:
             continue
         out.append(trade.model_dump())
     return out
+
+
+def _merge(trades: list[dict]) -> list[dict]:
+    """Dedupe on ``(raw_symbol, direction)`` — the same key the DB enforces —
+    keeping the highest-confidence occurrence of each."""
+    best: dict[tuple[str, str], dict] = {}
+    for t in trades:
+        key = (t["raw_symbol"], t["direction"])
+        if key not in best or t["confidence"] > best[key]["confidence"]:
+            best[key] = t
+    return list(best.values())
+
+
+def extract_trades(content: str) -> list[dict]:
+    """Return a list of validated trade dicts for one post (may be empty).
+
+    Invalid rows from the model are dropped rather than failing the post. Long
+    content is extracted in overlapping windows and merged; short content makes
+    a single model call.
+    """
+    if not content or not content.strip():
+        return []
+    if len(content) <= _CHUNK_THRESHOLD:
+        return _extract_one(content)
+    all_trades: list[dict] = []
+    for window in _split(content):
+        all_trades.extend(_extract_one(window))
+    return _merge(all_trades)

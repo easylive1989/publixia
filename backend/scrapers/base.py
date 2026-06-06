@@ -12,11 +12,20 @@ class ScrapedPost:
     ``platform_post_id`` is the platform-native id (Threads shortcode);
     ``posted_at`` is a naive-UTC ISO string (``YYYY-MM-DDTHH:MM:SS``) so it
     sorts lexically, or ``None`` when the timestamp is unknown.
+
+    The trailing fields are podcast-only and default to ``None`` so text
+    platforms (Threads) build a ``ScrapedPost`` unchanged: ``audio_url`` is the
+    episode's audio enclosure to transcribe, ``transcript_url`` an RSS-supplied
+    transcript (Podcasting 2.0) used in preference to transcribing, and
+    ``title`` the episode title (Threads posts have none).
     """
     platform_post_id: str
     url: str
     content: str
     posted_at: str | None
+    audio_url: str | None = None
+    transcript_url: str | None = None
+    title: str | None = None
 
 
 def iter_dicts(node):

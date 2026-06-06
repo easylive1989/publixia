@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Mic } from 'lucide-react';
 import { TradeChip } from '@/components/TradeChip';
 import { relativeTime, asUtc } from '@/lib/relative-time';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ type TimelineItem = Post & { person?: PostAuthor };
 function PostItem({ post, index }: { post: TimelineItem; index: number }) {
   const [expanded, setExpanded] = useState(false);
   const isLong = post.content.length > 140;
+  const isPodcast = post.platform === 'podcast';
   const posted = post.posted_at ? asUtc(post.posted_at) : null;
   const author = post.person;
   const authorColor = usePersonColor(author?.person_key ?? '');
@@ -78,6 +79,11 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
               <time dateTime={posted ?? undefined} title={posted ? new Date(posted).toLocaleString('zh-TW') : ''}>
                 {posted ? relativeTime(posted) : '時間未知'}
               </time>
+              {isPodcast && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
+                  <Mic className="size-3" /> Podcast
+                </span>
+              )}
             </div>
             <a
               href={post.url}
@@ -85,9 +91,13 @@ function PostItem({ post, index }: { post: TimelineItem; index: number }) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-mono uppercase tracking-wide hover:text-foreground"
             >
-              看原文 <ExternalLink className="size-3" />
+              {isPodcast ? '聽這集' : '看原文'} <ExternalLink className="size-3" />
             </a>
           </div>
+
+          {isPodcast && post.title && (
+            <h3 className="mb-1.5 text-base font-semibold leading-snug text-foreground">{post.title}</h3>
+          )}
 
           <p className={cn('whitespace-pre-wrap text-[15px] leading-relaxed', !expanded && isLong && 'line-clamp-3')}>
             {post.content}

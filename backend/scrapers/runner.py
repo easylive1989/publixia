@@ -8,12 +8,14 @@ import logging
 
 from repositories import posts as posts_repo
 from repositories import tracked_accounts as accounts_repo
+from scrapers.podcast import PodcastScraper
 from scrapers.threads import ThreadsScraper
 
 logger = logging.getLogger(__name__)
 
 _SCRAPERS = {
     "threads": ThreadsScraper(),
+    "podcast": PodcastScraper(),
 }
 
 
@@ -40,6 +42,9 @@ def scrape_account(account: dict) -> int:
             url=post.url,
             content=post.content,
             posted_at=post.posted_at,
+            audio_url=post.audio_url,
+            transcript_url=post.transcript_url,
+            title=post.title,
         )
         if is_new:
             new_count += 1

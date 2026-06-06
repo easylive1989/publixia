@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     cf_api_token:  SecretStr | None = None
     cf_ai_model:   str = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 
+    # Groq Whisper — free-tier speech-to-text for podcast episodes.
+    groq_api_key:  SecretStr | None = None
+    groq_stt_model: str = "whisper-large-v3"
+
     # Discord webhook for new-trade notifications.
     discord_copytrade_webhook_url: SecretStr | None = None
 

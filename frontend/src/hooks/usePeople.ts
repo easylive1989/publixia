@@ -29,6 +29,7 @@ export interface Post {
   content: string;
   posted_at: string | null;
   extraction_status: string;
+  title: string | null;  // episode title for podcasts; null for text platforms
   trades: Trade[];
 }
 

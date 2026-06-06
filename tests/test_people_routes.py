@@ -54,6 +54,25 @@ def test_person_posts_with_nested_trades():
     assert posts[0]["trades"][0]["direction"] == "sell"
 
 
+def test_podcast_post_carries_title(monkeypatch):
+    acc = accounts_repo.list_accounts()[0]
+    pid, _ = posts_repo.upsert_post(
+        acc["id"], "podcast", "EP1", "https://show/ep1", "",
+        "2026-06-05T10:00:00", audio_url="https://cdn/ep1.mp3", title="第一集：台積電",
+    )
+    posts_repo.set_post_transcript(pid, "完整逐字稿", "groq")
+
+    r = client.get("/api/people/dadnini/posts")
+    assert r.status_code == 200
+    ep = next(p for p in r.json()["posts"] if p["platform_post_id"] == "EP1")
+    assert ep["title"] == "第一集：台積電"
+    assert ep["platform"] == "podcast"
+
+    # threads posts have a null title (no episode title)
+    r2 = client.get("/api/timeline")
+    assert all("title" in p for p in r2.json()["posts"])
+
+
 def test_unknown_person_404():
     assert client.get("/api/people/ghost").status_code == 404
     assert client.get("/api/people/ghost/posts").status_code == 404
