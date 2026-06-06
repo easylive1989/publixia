@@ -35,7 +35,7 @@ def _content(post_id: int) -> str:
 
 def test_successful_transcription_fills_content(monkeypatch):
     pid = _podcast_post("EP1")
-    monkeypatch.setattr(runner, "transcribe_post", lambda a, t: ("逐字稿內容", "groq"))
+    monkeypatch.setattr(runner, "transcribe_post", lambda a, t, prompt=None: ("逐字稿內容", "groq"))
 
     summary = runner.run_transcription(limit=10)
 
@@ -48,7 +48,7 @@ def test_failure_marks_error_and_continues(monkeypatch):
     p_ok = _podcast_post("OK")
     p_bad = _podcast_post("BAD")
 
-    def fake(audio, transcript):
+    def fake(audio, transcript, prompt=None):
         if "BAD" in (audio or ""):
             raise RuntimeError("boom")
         return ("好的逐字稿", "rss")
@@ -59,6 +59,22 @@ def test_failure_marks_error_and_continues(monkeypatch):
     assert summary == {"processed": 1, "errors": 1}
     assert _status(p_ok) == "done"
     assert _status(p_bad) == "error"
+
+
+def test_per_account_prompt_threaded_to_transcribe(monkeypatch):
+    from db.connection import get_connection
+    acc = accounts_repo.list_accounts()[0]["id"]
+    with get_connection() as conn:
+        conn.execute("UPDATE tracked_accounts SET transcribe_prompt=? WHERE id=?",
+                     ("節目脈絡 prompt", acc))
+    posts_repo.upsert_post(acc, "podcast", "EPX", "u", "", "2026-06-01T00:00:00",
+                           audio_url="https://cdn/epx.mp3")
+    seen = {}
+    monkeypatch.setattr(runner, "transcribe_post",
+                        lambda a, t, prompt=None: seen.update(prompt=prompt) or ("x", "groq"))
+
+    runner.run_transcription(limit=10)
+    assert seen["prompt"] == "節目脈絡 prompt"
 
 
 def test_transcribe_podcasts_job_registered_with_valid_cron():

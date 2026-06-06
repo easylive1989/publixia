@@ -48,7 +48,7 @@ def test_rss_path_preferred_skips_groq(monkeypatch):
 
 
 def test_falls_back_to_groq_when_no_transcript_url(monkeypatch):
-    monkeypatch.setattr(tx, "_transcribe_audio", lambda url: "Whisper 轉出的逐字稿")
+    monkeypatch.setattr(tx, "_transcribe_audio", lambda url, prompt=None: "Whisper 轉出的逐字稿")
     text, source = tx.transcribe_post("https://cdn/ep.mp3", None)
     assert source == "groq"
     assert text == "Whisper 轉出的逐字稿"
@@ -57,7 +57,7 @@ def test_falls_back_to_groq_when_no_transcript_url(monkeypatch):
 def test_falls_back_to_groq_when_rss_fetch_fails(monkeypatch):
     monkeypatch.setattr(tx.requests, "get",
                         lambda url, timeout=None: _Resp(status=500))
-    monkeypatch.setattr(tx, "_transcribe_audio", lambda url: "後援逐字稿")
+    monkeypatch.setattr(tx, "_transcribe_audio", lambda url, prompt=None: "後援逐字稿")
     text, source = tx.transcribe_post("https://cdn/ep.mp3", "https://cdn/bad.vtt")
     assert source == "groq"
     assert text == "後援逐字稿"
@@ -91,7 +91,7 @@ def test_audio_path_missing_ffmpeg_raises(monkeypatch):
 def test_groq_output_converted_to_traditional(monkeypatch):
     # Whisper returns Simplified; transcribe_post must return Traditional.
     monkeypatch.setattr(tx, "_transcribe_audio",
-                        lambda url: "欢迎收听股癌,本集节目由软件赞助")
+                        lambda url, prompt=None: "欢迎收听股癌,本集节目由软件赞助")
     text, source = tx.transcribe_post("https://cdn/ep.mp3", None)
     assert source == "groq"
     assert text == "歡迎收聽股癌,本集節目由軟體贊助"

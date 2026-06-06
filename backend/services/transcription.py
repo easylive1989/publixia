@@ -112,7 +112,7 @@ def _chunk(src: str, workdir: str) -> list[str]:
     )
 
 
-def _transcribe_audio(audio_url: str) -> str:
+def _transcribe_audio(audio_url: str, prompt: str | None = None) -> str:
     if not shutil.which("ffmpeg"):
         raise TranscriptionError("ffmpeg not available")
     with tempfile.TemporaryDirectory() as workdir:
@@ -126,16 +126,21 @@ def _transcribe_audio(audio_url: str) -> str:
         else:
             parts = _chunk(small_path, workdir)
 
-        texts = [groq_ai.transcribe(p, prompt=_ZH_TW_PROMPT) for p in parts]
+        texts = [groq_ai.transcribe(p, prompt=prompt or _ZH_TW_PROMPT) for p in parts]
         return "\n".join(t for t in texts if t).strip()
 
 
 # --- Orchestrator --------------------------------------------------------
 
-def transcribe_post(audio_url: str | None, transcript_url: str | None) -> tuple[str, str]:
+def transcribe_post(
+    audio_url: str | None,
+    transcript_url: str | None,
+    prompt: str | None = None,
+) -> tuple[str, str]:
     """Return ``(transcript_text, source)``, always in Traditional Chinese.
-    Tries the RSS transcript first, then Groq. Raises ``TranscriptionError`` if
-    neither yields text."""
+    Tries the RSS transcript first, then Groq. ``prompt`` is a per-podcast Whisper
+    context hint (correct show/host/term spellings) to curb proper-noun errors.
+    Raises ``TranscriptionError`` if neither path yields text."""
     if transcript_url:
         try:
             text = _fetch_transcript(transcript_url)
@@ -146,7 +151,7 @@ def transcribe_post(audio_url: str | None, transcript_url: str | None) -> tuple[
             logger.warning("transcript_rss_failed url=%s", transcript_url, exc_info=True)
 
     if audio_url:
-        text = _transcribe_audio(audio_url)
+        text = _transcribe_audio(audio_url, prompt=prompt)
         if text:
             return to_traditional(text), "groq"
 

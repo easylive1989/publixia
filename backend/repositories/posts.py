@@ -135,9 +135,11 @@ def list_pending_transcription_posts(limit: int = 5) -> list[dict]:
     """
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, audio_url, transcript_url FROM posts "
-            "WHERE transcript_status IN ('pending','error') "
-            "ORDER BY posted_at DESC LIMIT ?",
+            "SELECT p.id, p.audio_url, p.transcript_url, t.transcribe_prompt "
+            "FROM posts p "
+            "JOIN tracked_accounts t ON t.id = p.account_id "
+            "WHERE p.transcript_status IN ('pending','error') "
+            "ORDER BY p.posted_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]

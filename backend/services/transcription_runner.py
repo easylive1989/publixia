@@ -23,7 +23,10 @@ def run_transcription(limit: int = 5) -> dict:
     errors = 0
     for post in pending:
         try:
-            text, source = transcribe_post(post.get("audio_url"), post.get("transcript_url"))
+            text, source = transcribe_post(
+                post.get("audio_url"), post.get("transcript_url"),
+                prompt=post.get("transcribe_prompt"),
+            )
         except Exception:  # noqa: BLE001 — mark error (retryable), keep going
             logger.exception("transcription_failed post_id=%s", post["id"])
             posts_repo.set_transcript_status(post["id"], "error")
