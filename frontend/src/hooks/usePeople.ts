@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch, ApiError } from '@/lib/api-client';
+import { apiFetch } from '@/lib/api-client';
 
 export type Direction = 'buy' | 'sell' | 'hold' | 'bullish' | 'bearish';
 
@@ -52,17 +52,17 @@ export interface PersonSummary {
   trade_count: number;
 }
 
-export interface PersonAccount {
-  platform: string;
-  handle: string;
-  profile_url: string;
-}
-
-export interface PersonProfile {
+export interface Standing {
   person_key: string;
   display_name: string;
-  avatar_url: string | null;
-  accounts: PersonAccount[];
+  win_count: number;
+  loss_count: number;
+  signal_count: number;
+  win_rate: number | null;   // 0..1
+  cum_return: number | null; // fraction sum, e.g. -0.342
+  form: ('w' | 'l')[];       // newest first, up to 5
+  dnp: boolean;              // no evaluated call
+  rank: number | null;
 }
 
 export const PEOPLE_KEY = ['people'] as const;
@@ -87,28 +87,12 @@ export function useTimeline(limit = 60) {
   });
 }
 
-export function usePersonProfile(personKey: string) {
-  return useQuery<PersonProfile | null>({
-    queryKey: [...PEOPLE_KEY, personKey],
+export function useScoreboard() {
+  return useQuery<Standing[]>({
+    queryKey: [...PEOPLE_KEY, 'scoreboard'],
     queryFn: async () => {
-      try {
-        return await apiFetch<PersonProfile>(`/api/people/${personKey}`);
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 404) return null;
-        throw e;
-      }
-    },
-  });
-}
-
-export function usePersonPosts(personKey: string, limit = 50) {
-  return useQuery<Post[]>({
-    queryKey: [...PEOPLE_KEY, personKey, 'posts', limit],
-    queryFn: async () => {
-      const data = await apiFetch<{ posts: Post[] }>(
-        `/api/people/${personKey}/posts?limit=${limit}`,
-      );
-      return data.posts;
+      const data = await apiFetch<{ standings: Standing[] }>('/api/scoreboard');
+      return data.standings;
     },
   });
 }
