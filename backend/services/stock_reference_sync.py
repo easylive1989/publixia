@@ -28,6 +28,11 @@ _TW_ALIAS_OVERLAY: dict[str, list[str]] = {
     "2603": ["長榮海運"],
     "3231": ["緯創資通"],
     "2890": ["永豐金控"],
+    "2327": ["國巨", "Yageo"],
+    # Active ETFs use a 00xxxA code; people drop the leading "00" (403A=00403A).
+    "00403A": ["403A"],
+    "00980A": ["980A"],
+    "00981A": ["981A"],
 }
 
 # Common US nicknames the posts/podcasts use. ticker → aliases. The SEC roster

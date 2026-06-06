@@ -71,6 +71,16 @@ def find_by_alias_or_ticker(raw_symbol: str) -> tuple[str | None, str | None]:
         if row:
             return row["ticker"], row["market"]
 
+        # FinMind tags attention/disposition stocks with a trailing '*'
+        # (e.g. 國巨*), which people never type. Match on the de-starred name.
+        row = conn.execute(
+            "SELECT ticker, market FROM stock_reference "
+            "WHERE rtrim(canonical_name, '*') = ? COLLATE NOCASE LIMIT 1",
+            (raw,),
+        ).fetchone()
+        if row:
+            return row["ticker"], row["market"]
+
         # alias array stored as JSON text; match the quoted token to avoid
         # partial-substring false positives. NOCASE so English nicknames match
         # regardless of how the model cased them (NVIDIA / Nvidia / nvidia).

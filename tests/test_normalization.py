@@ -57,3 +57,21 @@ def test_canonical_match_case_insensitive():
         {"ticker": "AAPL", "market": "US", "canonical_name": "Apple Inc.", "aliases": []},
     ], source="test")
     assert normalize("apple inc.") == ("AAPL", "US")
+
+
+def test_attention_stock_asterisk_stripped():
+    # FinMind names attention stocks with a trailing '*'; users type the plain name.
+    upsert_reference_batch([
+        {"ticker": "2327", "market": "TW", "canonical_name": "國巨*", "aliases": []},
+    ], source="finmind")
+    assert normalize("國巨") == ("2327", "TW")
+    assert normalize("國巨*") == ("2327", "TW")  # exact still works too
+
+
+def test_active_etf_short_code_alias():
+    # 403A is the everyday abbreviation of ETF 00403A.
+    upsert_reference_batch([
+        {"ticker": "00403A", "market": "TW", "canonical_name": "主動統一升級50", "aliases": ["403A"]},
+    ], source="finmind")
+    assert normalize("403A") == ("00403A", "TW")
+    assert normalize("00403A") == ("00403A", "TW")
