@@ -186,6 +186,69 @@ function Play({ post, spark }) {
   );
 }
 
+/* ---------- nomination modal ---------- */
+function NominateModal({ onClose }) {
+  const [done, setDone] = useState(false);
+  const [form, setForm] = useState({ name: '', link: '', stance: 'long', reason: '' });
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const valid = form.name.trim() && form.link.trim();
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!valid) return;
+    setDone(true);
+  };
+
+  return (
+    <div className="modal-scrim" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-x" onClick={onClose} aria-label="關閉">✕</button>
+        {done ? (
+          <div className="modal-done">
+            <span className="md-stamp">SUBMITTED</span>
+            <h3>收到推薦！</h3>
+            <p>編審台會排隊驗證 <b>{form.name}</b> 的喊單紀錄，通過後就會排進排行榜。</p>
+            <button className="btn-primary" onClick={onClose}>完成</button>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <div className="modal-head">
+              <span className="modal-kicker">ROSTER NOMINATION</span>
+              <h3>推薦老師參戰</h3>
+              <p>覺得誰的喊單該被攤開對帳？提名他，編審台會開始追蹤。</p>
+            </div>
+            <label className="fld">
+              <span className="fld-k">名人 / 帳號名稱 <i>*</i></span>
+              <input value={form.name} onChange={set('name')} placeholder="例：某某投顧老師" />
+            </label>
+            <label className="fld">
+              <span className="fld-k">社群連結 <i>*</i></span>
+              <input value={form.link} onChange={set('link')} placeholder="貼上 FB / IG / X / Podcast 連結" />
+            </label>
+            <div className="fld">
+              <span className="fld-k">最近主要立場</span>
+              <div className="seg">
+                {[['long', '常喊多'], ['sell', '常喊空'], ['mix', '多空都喊']].map(([v, l]) => (
+                  <button type="button" key={v} className={'seg-btn' + (form.stance === v ? ' on' : '')}
+                    onClick={() => setForm({ ...form, stance: v })}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <label className="fld">
+              <span className="fld-k">推薦理由 <i className="opt">（選填）</i></span>
+              <textarea value={form.reason} onChange={set('reason')} rows="3" placeholder="他最近喊了什麼？為什麼想看他對帳？" />
+            </label>
+            <div className="modal-foot">
+              <button type="button" className="btn-ghost" onClick={onClose}>取消</button>
+              <button type="submit" className="btn-primary" disabled={!valid}>送出提名</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- app ---------- */
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "night": "off",
@@ -205,6 +268,7 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [person, setPerson] = useState('all');
   const [signalOnly, setSignalOnly] = useState(false);
+  const [nom, setNom] = useState(false);
 
   const a = ACCENTS[t.accent] || ACCENTS["#D14B2A"];
   const rootStyle = { '--accent': `oklch(${a[2]} ${a[1]} ${a[0]})`, color: 'var(--ink)', background: 'var(--field)', minHeight: '100vh' };
@@ -227,10 +291,18 @@ function App() {
       <header className="scorebar">
         <div className="scorebar-in">
           <div className="wordmark">
-            <span className="zh">對帳時刻</span>
-            <span className="en">STOCK GURU SCOREBOARD</span>
+            <span className="wm-vert"><span>全</span><span>員</span></span>
+            <span className="wm-main">
+              <span className="wm-en">Call for money</span>
+              <span className="wm-zh">對帳中</span>
+            </span>
           </div>
-          <span className="live-pill"><span className="live-dot"></span>本季 LIVE</span>
+          <div className="scorebar-right">
+            <span className="live-pill"><span className="live-dot"></span>本季 LIVE</span>
+            <button className="nominate-btn" onClick={() => setNom(true)}>
+              <span className="plus">＋</span>推薦參戰
+            </button>
+          </div>
         </div>
       </header>
 
@@ -238,7 +310,7 @@ function App() {
         <div className="sec-head">
           <h2>戰績排行榜</h2>
           <span className="en">STANDINGS</span>
-          <span className="note">依累積跟單損益排名 · 點名字可篩選下方喊單</span>
+          <span className="note">依累積跟單損益排名，老師無處可逃 · 點名字可篩選下方</span>
         </div>
 
         <div className="standings">
@@ -280,7 +352,27 @@ function App() {
           {visible.map((p) => <Play key={p.id} post={p} spark={t.spark} />)}
           {visible.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--ink-3)', fontStyle: 'italic' }}>這個篩選條件下沒有貼文。</div>}
         </div>
+
+        <div className="roster-cta">
+          <div className="rc-text">
+            <span className="rc-kicker">MISSING SOMEONE?</span>
+            <p>覺得誰的喊單該被攤開對帳？提名他，編審台會開始追蹤。</p>
+          </div>
+          <button className="nominate-btn lg" onClick={() => setNom(true)}><span className="plus">＋</span>推薦老師參戰</button>
+        </div>
       </main>
+
+      <footer className="site-foot">
+        <div className="foot-in">
+          <a className="byline" href="#" onClick={(e) => e.preventDefault()}>
+            <span className="byline-k">編審</span>
+            <span className="byline-v">@StockRefAI</span>
+          </a>
+          <span className="foot-note">喊單訊號由 AI 自動標記 · 成效僅供娛樂，不構成投資建議</span>
+        </div>
+      </footer>
+
+      {nom && <NominateModal onClose={() => setNom(false)} />}
 
       <TweaksPanel>
         <TweakSection label="賽場" />
