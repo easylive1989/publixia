@@ -14,7 +14,7 @@ from datetime import date
 
 from core.finmind import request as finmind_request
 from core.sec import fetch_company_tickers
-from repositories.stock_reference import upsert_reference_batch
+from repositories.stock_reference import update_aliases, upsert_reference_batch
 from services.backfill_normalization import backfill_unnormalized_trades
 from services.price_tracking_runner import run_price_tracking
 
@@ -30,18 +30,23 @@ _TW_ALIAS_OVERLAY: dict[str, list[str]] = {
     "2890": ["永豐金控"],
 }
 
-# Common US nicknames the posts use (Chinese). ticker → aliases.
-# Canonical English names come from the SEC roster, not here.
+# Common US nicknames the posts/podcasts use. ticker → aliases. The SEC roster
+# canonical is the legal name (e.g. "NVIDIA CORP"), so the everyday brand name
+# ("NVIDIA", "Tesla") must live here as an alias to resolve. Matching is
+# case-insensitive, so one casing per name is enough.
 _US_ALIAS_OVERLAY: dict[str, list[str]] = {
-    "NVDA": ["輝達", "黃仁勳"],
-    "TSLA": ["特斯拉", "電動車"],
-    "AAPL": ["蘋果"],
-    "MSFT": ["微軟"],
-    "GOOGL": ["谷歌", "Google"],
-    "AMZN": ["亞馬遜"],
-    "META": ["臉書", "Facebook"],
-    "TSM": ["台積電ADR", "台積電 ADR"],
-    "AMD": ["超微"],
+    "NVDA": ["輝達", "黃仁勳", "NVIDIA"],
+    "TSLA": ["特斯拉", "電動車", "Tesla"],
+    "AAPL": ["蘋果", "Apple"],
+    "MSFT": ["微軟", "Microsoft"],
+    "GOOGL": ["谷歌", "Google", "Alphabet"],
+    "AMZN": ["亞馬遜", "Amazon"],
+    "META": ["臉書", "Facebook", "Meta"],
+    "TSM": ["台積電ADR", "台積電 ADR", "TSMC ADR"],
+    "AMD": ["超微", "AMD"],
+    "AVGO": ["博通", "Broadcom"],
+    "MU": ["美光", "Micron"],
+    "PLTR": ["Palantir"],
 }
 
 
@@ -103,6 +108,19 @@ def seed_indices() -> int:
     count = upsert_reference_batch(rows, source="static")
     logger.info("stock_ref_indices_seeded count=%d", count)
     return count
+
+
+def apply_alias_overlays() -> int:
+    """Push the code-defined alias overlays onto existing reference rows without
+    a roster fetch, so alias additions take effect immediately on deploy (not
+    only at the next full ``stock_ref_sync``). Idempotent; rows whose ticker
+    isn't in the roster yet are simply skipped. Returns rows updated."""
+    updated = 0
+    for market, overlay in (("TW", _TW_ALIAS_OVERLAY), ("US", _US_ALIAS_OVERLAY)):
+        for ticker, aliases in overlay.items():
+            updated += update_aliases(ticker, market, aliases)
+    logger.info("stock_ref_alias_overlays_applied updated=%d", updated)
+    return updated
 
 
 def run_stock_reference_sync() -> dict:

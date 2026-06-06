@@ -39,3 +39,21 @@ def test_market_aliases_map_to_taiex_index():
     assert normalize("台股") == ("TAIEX", "INDEX")
     assert normalize("大盤") == ("TAIEX", "INDEX")
     assert normalize("加權指數") == ("TAIEX", "INDEX")
+
+
+def test_alias_match_case_insensitive():
+    _seed()
+    # English nicknames resolve regardless of casing
+    upsert_reference_batch([
+        {"ticker": "NVDA", "market": "US", "canonical_name": "NVIDIA CORP", "aliases": ["輝達", "NVIDIA"]},
+    ], source="test")
+    assert normalize("NVIDIA") == ("NVDA", "US")
+    assert normalize("nvidia") == ("NVDA", "US")
+    assert normalize("Nvidia") == ("NVDA", "US")
+
+
+def test_canonical_match_case_insensitive():
+    upsert_reference_batch([
+        {"ticker": "AAPL", "market": "US", "canonical_name": "Apple Inc.", "aliases": []},
+    ], source="test")
+    assert normalize("apple inc.") == ("AAPL", "US")

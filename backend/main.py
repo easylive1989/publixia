@@ -64,6 +64,15 @@ def startup():
         backfill_podcast_traditional()
     except Exception:  # noqa: BLE001 — never block startup on a backfill
         logger.exception("backfill_traditional_failed")
+    # Apply code-defined alias overlays (e.g. NVIDIA→NVDA) and re-normalize any
+    # ticker-less trades they now resolve — without waiting for the daily sync.
+    try:
+        from services.stock_reference_sync import apply_alias_overlays
+        from services.backfill_normalization import backfill_unnormalized_trades
+        apply_alias_overlays()
+        backfill_unnormalized_trades()
+    except Exception:  # noqa: BLE001 — never block startup on a backfill
+        logger.exception("alias_overlay_backfill_failed")
     try:
         from scheduler import start_scheduler
         start_scheduler()

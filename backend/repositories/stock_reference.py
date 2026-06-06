@@ -65,19 +65,33 @@ def find_by_alias_or_ticker(raw_symbol: str) -> tuple[str | None, str | None]:
 
         row = conn.execute(
             "SELECT ticker, market FROM stock_reference "
-            "WHERE canonical_name = ? LIMIT 1",
+            "WHERE canonical_name = ? COLLATE NOCASE LIMIT 1",
             (raw,),
         ).fetchone()
         if row:
             return row["ticker"], row["market"]
 
         # alias array stored as JSON text; match the quoted token to avoid
-        # partial-substring false positives.
+        # partial-substring false positives. NOCASE so English nicknames match
+        # regardless of how the model cased them (NVIDIA / Nvidia / nvidia).
         row = conn.execute(
             "SELECT ticker, market FROM stock_reference "
-            "WHERE aliases LIKE ? LIMIT 1",
+            "WHERE aliases LIKE ? COLLATE NOCASE LIMIT 1",
             (f'%"{raw}"%',),
         ).fetchone()
         if row:
             return row["ticker"], row["market"]
     return None, None
+
+
+def update_aliases(ticker: str, market: str, aliases: list[str]) -> int:
+    """Overwrite the aliases of an existing reference row. Returns rows changed
+    (0 if the ticker isn't in the roster yet). Lets code-defined alias overlays
+    take effect without a full roster re-sync."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE stock_reference SET aliases=?, updated_at=datetime('now') "
+            "WHERE market=? AND ticker=?",
+            (json.dumps(aliases, ensure_ascii=False), market, ticker),
+        )
+        return cur.rowcount
