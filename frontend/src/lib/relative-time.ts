@@ -5,6 +5,17 @@ export function asUtc(iso: string): string {
   return /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`;
 }
 
+/** Explicit local date+time, e.g. "2026-06-03 14:30" — for the play-by-play
+ *  where an absolute "對帳" date is clearer than "X 天前". */
+export function formatDate(iso: string, withTime = true): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return withTime ? `${date} ${p(d.getHours())}:${p(d.getMinutes())}` : date;
+}
+
 export function relativeTime(iso: string, now: Date = new Date()): string {
   if (!iso) return '';
   const t = new Date(iso).getTime();

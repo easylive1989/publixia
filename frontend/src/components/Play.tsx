@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { asUtc, relativeTime } from '@/lib/relative-time';
+import { asUtc, formatDate } from '@/lib/relative-time';
 import { initialOf, personHue } from '@/lib/person-hue';
 import { fmtPct, isCall, pnl, side, verdict } from '@/lib/verdict';
 import type { TimelinePost, Trade } from '@/hooks/usePeople';
@@ -70,7 +70,7 @@ export function Play({ post, allKeys }: { post: TimelinePost; allKeys: string[] 
           </span>
           <div>
             <div className="fx-name">{post.person.display_name}</div>
-            <div className="fx-time">{posted ? relativeTime(posted) : '時間未知'}</div>
+            <div className="fx-time">{posted ? formatDate(posted) : '時間未知'}</div>
           </div>
         </div>
         {has && main ? (
