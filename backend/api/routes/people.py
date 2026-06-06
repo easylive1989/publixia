@@ -38,6 +38,14 @@ def list_people():
     return {"people": accounts_repo.list_people_with_stats()}
 
 
+@router.get("/scoreboard")
+def get_scoreboard():
+    """戰績排行榜：每位追蹤對象依跟單損益評分（命中率／累積損益／近5場），
+    依累積損益排名，無可評分喊單者列為 DNP。"""
+    from services.scoreboard import compute_standings
+    return {"standings": compute_standings()}
+
+
 @router.get("/people/{person_key}")
 def get_person(person_key: str):
     person = accounts_repo.get_person(person_key)
