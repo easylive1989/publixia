@@ -269,6 +269,42 @@
 
 .empty-note { padding: 40px; text-align: center; color: var(--ink-3); font-style: italic; }
 
+/* 推薦參戰 button + roster CTA + footer (ported from the design) */
+.scorebar-right { display: flex; align-items: center; gap: 12px; }
+.nominate-btn {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-family: var(--sans); font-weight: 800; font-size: 13px; line-height: 1;
+  color: #fff; background: var(--accent); border: none; text-decoration: none;
+  padding: 9px 14px; border-radius: 4px; white-space: nowrap;
+  box-shadow: 0 2px 0 oklch(0 0 0 / 0.35); transition: transform .12s, filter .12s;
+}
+.nominate-btn .plus { font-size: 15px; line-height: 0; font-weight: 700; }
+.nominate-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.nominate-btn:active { transform: translateY(1px); box-shadow: 0 0 0 oklch(0 0 0 / 0.35); }
+.nominate-btn.lg { font-size: 15px; padding: 13px 22px; box-shadow: 0 3px 0 oklch(0 0 0 / 0.3); }
+
+.roster-cta {
+  margin-top: 18px; border: 2px dashed var(--line-strong); background: var(--panel-2);
+  padding: 22px 26px; display: flex; align-items: center; justify-content: space-between;
+  gap: 22px; flex-wrap: wrap;
+}
+.rc-kicker { font-family: var(--label); letter-spacing: 2px; font-size: 13px; color: var(--accent); }
+.rc-text p { margin: 5px 0 0; font-weight: 700; font-size: 16px; }
+
+.site-foot { border-top: 2px solid var(--line-strong); background: var(--panel); }
+.foot-in {
+  max-width: var(--maxw); margin: 0 auto; padding: 20px 26px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.byline { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; white-space: nowrap; }
+.byline-k { font-family: var(--label); letter-spacing: 1.5px; font-size: 12px; color: var(--ink-3); }
+.byline-v {
+  font-family: var(--mono); font-weight: 600; font-size: 14px; color: var(--ink);
+  padding-bottom: 1px; border-bottom: 1.5px solid var(--accent); transition: color .14s;
+}
+.byline:hover .byline-v { color: var(--accent); }
+.foot-note { font-size: 12px; color: var(--ink-3); margin-left: auto; }
+
 /* responsive — from the mockup */
 @media (max-width: 900px) {
   .st-row { grid-template-columns: 44px minmax(0,1fr) 150px 120px; gap: 10px; }

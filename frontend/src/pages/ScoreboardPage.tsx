@@ -3,6 +3,8 @@ import { Scorebar } from '@/components/Scorebar';
 import { SectionHead } from '@/components/SectionHead';
 import { Standings } from '@/components/Standings';
 import { PlayByPlay } from '@/components/PlayByPlay';
+import { Footer } from '@/components/Footer';
+import { nominateHref } from '@/lib/nominate';
 import { useScoreboard, useTimeline } from '@/hooks/usePeople';
 
 export default function ScoreboardPage() {
@@ -38,7 +40,19 @@ export default function ScoreboardPage() {
           signalOnly={signalOnly}
           setSignalOnly={setSignalOnly}
         />
+
+        <div className="roster-cta">
+          <div className="rc-text">
+            <span className="rc-kicker">MISSING SOMEONE?</span>
+            <p>覺得誰的喊單該被攤開對帳？提名他，編審台會開始追蹤。</p>
+          </div>
+          <a className="nominate-btn lg" href={nominateHref}>
+            <span className="plus">＋</span>推薦老師參戰
+          </a>
+        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
