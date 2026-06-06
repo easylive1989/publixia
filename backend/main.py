@@ -69,8 +69,12 @@ def startup():
     try:
         from services.stock_reference_sync import apply_alias_overlays
         from services.backfill_normalization import backfill_unnormalized_trades
+        from services.price_tracking_runner import run_price_tracking
         apply_alias_overlays()
         backfill_unnormalized_trades()
+        # Price any trades still missing a window (e.g. ones the overlay resolved
+        # on a previous boot). run_price_tracking only touches non-done targets.
+        run_price_tracking()
     except Exception:  # noqa: BLE001 — never block startup on a backfill
         logger.exception("alias_overlay_backfill_failed")
     try:
