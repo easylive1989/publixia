@@ -7,10 +7,7 @@ export function Scorebar() {
     <header className="scorebar">
       <div className="scorebar-in">
         <NavLink to="/" className="wordmark">
-          <span className="logo-mark" aria-hidden>
-            <span>全</span>
-            <span>賣</span>
-          </span>
+          <span className="logo-mark" aria-hidden>全<br />賣</span>
           <span className="wordmark-text">
             <span className="en">CALL FOR MONEY</span>
             <span className="zh">對帳中</span>
