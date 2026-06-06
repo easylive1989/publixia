@@ -99,7 +99,7 @@
    design's single-gradient sheen, not a per-glyph highlight). */
 .logo-mark {
   flex: 0 0 auto; text-align: center;
-  font-family: var(--display); font-weight: 900; font-size: 26px; line-height: 0.86;
+  font-family: var(--display); font-weight: 900; font-size: 24px; line-height: 1.0;
   letter-spacing: 0; color: var(--logo-green);
   background: linear-gradient(180deg,
     oklch(0.61 0.155 152) 0%,
