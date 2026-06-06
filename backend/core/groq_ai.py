@@ -25,11 +25,18 @@ class GroqAIError(RuntimeError):
     """Raised when Groq is unconfigured or returns a non-OK response."""
 
 
-def transcribe(audio_path: str, language: str | None = "zh", timeout: int = 300) -> str:
+def transcribe(
+    audio_path: str,
+    language: str | None = "zh",
+    prompt: str | None = None,
+    timeout: int = 300,
+) -> str:
     """Transcribe one audio file and return its plain text.
 
     ``language`` is an ISO-639-1 hint (default ``zh``); pass ``None`` to let
-    Whisper auto-detect. Raises ``GroqAIError`` on misconfig / API failure.
+    Whisper auto-detect. ``prompt`` biases the model's vocabulary/style (we pass
+    a Traditional-Chinese sample to nudge it away from Simplified output). Raises
+    ``GroqAIError`` on misconfig / API failure.
     """
     if not settings.groq_api_key:
         raise GroqAIError("Groq not configured (groq_api_key)")
@@ -38,6 +45,8 @@ def transcribe(audio_path: str, language: str | None = "zh", timeout: int = 300)
     data = {"model": settings.groq_stt_model, "response_format": "json"}
     if language:
         data["language"] = language
+    if prompt:
+        data["prompt"] = prompt
 
     try:
         with open(audio_path, "rb") as fh:

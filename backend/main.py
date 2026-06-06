@@ -57,6 +57,13 @@ def startup():
     setup_logging()
     from db import init_db
     init_db()
+    # One-time (idempotent) cleanup: rewrite any Simplified podcast transcripts
+    # stored before the OpenCC step to Traditional, re-queueing them to extract.
+    try:
+        from services.backfill_traditional import backfill_podcast_traditional
+        backfill_podcast_traditional()
+    except Exception:  # noqa: BLE001 — never block startup on a backfill
+        logger.exception("backfill_traditional_failed")
     try:
         from scheduler import start_scheduler
         start_scheduler()

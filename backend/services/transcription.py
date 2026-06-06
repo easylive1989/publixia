@@ -24,6 +24,7 @@ import tempfile
 import requests
 
 from core import groq_ai
+from core.chinese import to_traditional
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,9 @@ _FETCH_TIMEOUT = 60
 # regardless of whether Groq means 25 MB (decimal) or 25 MiB.
 _MAX_CHUNK_BYTES = 24 * 1000 * 1000
 _CHUNK_SECONDS = 1200  # 20-minute chunks when an episode is still too large
+# A Traditional-Chinese sample to bias Whisper away from Simplified output
+# (OpenCC is the guarantee; this just reduces the conversion it has to do).
+_ZH_TW_PROMPT = "以下是繁體中文的內容。"
 
 _CUE_TIMESTAMP_RE = re.compile(r"-->")
 
@@ -122,20 +126,21 @@ def _transcribe_audio(audio_url: str) -> str:
         else:
             parts = _chunk(small_path, workdir)
 
-        texts = [groq_ai.transcribe(p) for p in parts]
+        texts = [groq_ai.transcribe(p, prompt=_ZH_TW_PROMPT) for p in parts]
         return "\n".join(t for t in texts if t).strip()
 
 
 # --- Orchestrator --------------------------------------------------------
 
 def transcribe_post(audio_url: str | None, transcript_url: str | None) -> tuple[str, str]:
-    """Return ``(transcript_text, source)``. Tries the RSS transcript first,
-    then Groq. Raises ``TranscriptionError`` if neither yields text."""
+    """Return ``(transcript_text, source)``, always in Traditional Chinese.
+    Tries the RSS transcript first, then Groq. Raises ``TranscriptionError`` if
+    neither yields text."""
     if transcript_url:
         try:
             text = _fetch_transcript(transcript_url)
             if text:
-                return text, "rss"
+                return to_traditional(text), "rss"
             logger.warning("transcript_rss_empty url=%s", transcript_url)
         except Exception:  # noqa: BLE001 — fall back to audio transcription
             logger.warning("transcript_rss_failed url=%s", transcript_url, exc_info=True)
@@ -143,6 +148,6 @@ def transcribe_post(audio_url: str | None, transcript_url: str | None) -> tuple[
     if audio_url:
         text = _transcribe_audio(audio_url)
         if text:
-            return text, "groq"
+            return to_traditional(text), "groq"
 
     raise TranscriptionError("no transcript produced")

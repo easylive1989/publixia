@@ -76,7 +76,7 @@ def test_audio_path_transcodes_chunks_and_joins(monkeypatch, tmp_path):
     def fake_transcode(src, dst):
         open(dst, "wb").write(b"x")  # tiny → under cap → single chunk
     monkeypatch.setattr(tx, "_transcode", fake_transcode)
-    monkeypatch.setattr(tx.groq_ai, "transcribe", lambda p: "整段逐字稿")
+    monkeypatch.setattr(tx.groq_ai, "transcribe", lambda p, prompt=None: "整段逐字稿")
 
     text = tx._transcribe_audio("https://cdn/ep.mp3")
     assert text == "整段逐字稿"
@@ -86,3 +86,20 @@ def test_audio_path_missing_ffmpeg_raises(monkeypatch):
     monkeypatch.setattr(tx.shutil, "which", lambda _: None)
     with pytest.raises(tx.TranscriptionError):
         tx._transcribe_audio("https://cdn/ep.mp3")
+
+
+def test_groq_output_converted_to_traditional(monkeypatch):
+    # Whisper returns Simplified; transcribe_post must return Traditional.
+    monkeypatch.setattr(tx, "_transcribe_audio",
+                        lambda url: "欢迎收听股癌,本集节目由软件赞助")
+    text, source = tx.transcribe_post("https://cdn/ep.mp3", None)
+    assert source == "groq"
+    assert text == "歡迎收聽股癌,本集節目由軟體贊助"
+
+
+def test_rss_output_converted_to_traditional(monkeypatch):
+    monkeypatch.setattr(tx.requests, "get",
+                        lambda url, timeout=None: _Resp(text="收听简体内容"))
+    text, source = tx.transcribe_post("https://cdn/ep.mp3", "https://cdn/ep.txt")
+    assert source == "rss"
+    assert text == "收聽簡體內容"
