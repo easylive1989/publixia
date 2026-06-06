@@ -49,7 +49,8 @@
     --band: var(--ink);
     --band-ink: oklch(0.97 0.005 250);
     --accent: oklch(0.66 0.17 30);
-    --logo-green: oklch(0.62 0.16 150);
+    --logo-green: oklch(0.61 0.155 152);
+    --logo-red: oklch(0.53 0.205 27);
 
     --maxw: 1120px;
     --display: "Anton", "Noto Sans TC", sans-serif;
@@ -91,22 +92,22 @@
   max-width: var(--maxw); margin: 0 auto; padding: 14px 26px;
   display: flex; align-items: center; justify-content: space-between; gap: 18px;
 }
-.wordmark { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
-.logo-badge {
-  flex: 0 0 auto; display: grid; place-items: center; gap: 0;
-  background: var(--logo-green); color: #fff; border-radius: 5px;
-  font-family: var(--display); font-size: 19px; line-height: 0.92; letter-spacing: 1px;
-  padding: 5px 9px;
+.wordmark { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+/* 「全賣」logotype: heavy green glyphs stacked directly on the dark band (no badge) */
+.logo-mark {
+  flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+  font-family: var(--display); font-weight: 900; font-size: 26px; line-height: 0.86;
+  letter-spacing: 0; color: var(--logo-green);
 }
-.logo-badge span { display: block; }
-.wordmark-text { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
+.logo-mark span { display: block; }
+.wordmark-text { display: flex; flex-direction: column; gap: 2px; line-height: 1; }
 .wordmark-text .en {
   font-family: var(--label); font-size: 13px; letter-spacing: 3px; line-height: 1;
-  color: color-mix(in oklab, var(--band-ink) 70%, transparent); white-space: nowrap;
+  color: color-mix(in oklab, var(--band-ink) 60%, transparent); white-space: nowrap;
 }
 .wordmark-text .zh {
-  font-family: var(--display); font-size: 30px; letter-spacing: 2px; line-height: 1;
-  color: var(--accent);
+  font-family: var(--display); font-weight: 900; font-size: 40px; letter-spacing: 1px;
+  line-height: 0.95; color: var(--logo-red);
 }
 .scorebar-nav { display: flex; align-items: center; gap: 4px; }
 .nav-link {

@@ -7,7 +7,7 @@ export function Scorebar() {
     <header className="scorebar">
       <div className="scorebar-in">
         <NavLink to="/" className="wordmark">
-          <span className="logo-badge" aria-hidden>
+          <span className="logo-mark" aria-hidden>
             <span>全</span>
             <span>賣</span>
           </span>
