@@ -15,7 +15,7 @@ const RANGES: { label: string; days: number | null }[] = [
 ];
 
 export default function MarketHeatPage() {
-  const [days, setDays] = useState<number | null>(240);
+  const [days, setDays] = useState<number | null>(66);
   const heat = useMarketHeat(days);
   const rows = heat.data?.days ?? [];
 
