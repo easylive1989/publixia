@@ -46,7 +46,14 @@
 .empty-note { padding: 40px; text-align: center; color: var(--ink-3); font-style: italic; }
 
 /* 區間切換 */
-.filters { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 18px; border: 2px solid var(--line-strong); width: fit-content; max-width: 100%; background: var(--panel); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.method-link {
+  font-size: 13px; font-weight: 700; color: var(--ink-2); text-decoration: none;
+  border-bottom: 1.5px solid var(--line); padding-bottom: 1px; white-space: nowrap;
+  transition: color .12s, border-color .12s;
+}
+.method-link:hover { color: var(--ink); border-color: var(--ink); }
+.filters { display: flex; flex-wrap: wrap; gap: 0; border: 2px solid var(--line-strong); width: fit-content; max-width: 100%; background: var(--panel); }
 .tab { font-family: var(--sans); font-weight: 700; font-size: 13.5px; cursor: pointer; background: var(--panel); color: var(--ink-2); border: none; border-right: 2px solid var(--line-strong); padding: 9px 15px; line-height: 1; transition: background .12s, color .12s; }
 .tab:last-child { border-right: none; }
 .tab:hover { background: var(--panel-2); color: var(--ink); }
@@ -104,6 +111,20 @@
 .heat-key i { width: 10px; height: 10px; border-radius: 2px; }
 .heat-key.line-key i { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--ink); opacity: 0.65; }
 
+/* ===== 大盤位階 vs 量能判讀 ===== */
+.panel { background: var(--panel); border: 2px solid var(--line-strong); margin-bottom: 18px; }
+.panel-title {
+  margin: 0; padding: 12px 16px 10px; border-bottom: 1px solid var(--line);
+  font-family: var(--display); font-weight: 900; font-size: 18px; letter-spacing: 0.5px;
+}
+.idx-panel { padding-bottom: 12px; }
+.idx-panel .heat-legend { padding: 8px 16px 0; }
+.idx-plot-scroll { overflow-x: auto; padding: 12px 16px 0; }
+.idx-line { fill: none; stroke: var(--ink-3); stroke-width: 1.75; stroke-linejoin: round; }
+.idx-dot { stroke: var(--panel); stroke-width: 1.2; }  /* 2px-ish ring keeps overlapping dots readable */
+.heat-key.dot-key i { border-radius: 50%; }
+.heat-key.line-key i.idx { width: 16px; height: 0; border-radius: 0; border-top: 2px solid var(--ink-3); }
+
 /* ===== Google Sheet 比較表 ===== */
 .sheet-wrap {
   background: var(--panel); border: 2px solid var(--line-strong);
@@ -122,6 +143,33 @@
   display: inline-block; min-width: 74px; padding: 3px 10px 2px; border-radius: 3px;
   font-weight: 900; font-size: 12.5px; line-height: 1.5;
 }
+
+/* ===== 計算原理說明頁 ===== */
+.doc { max-width: 760px; }
+.doc h1 { font-family: var(--display); font-weight: 900; font-size: 34px; letter-spacing: 0.5px; margin: 0 0 12px; }
+.doc h2 { font-family: var(--display); font-weight: 900; font-size: 22px; letter-spacing: 0.5px; margin: 34px 0 10px; }
+.doc h3 { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 900; margin: 0 0 8px; }
+.doc p { margin: 0 0 12px; line-height: 1.85; }
+.doc ul { margin: 0 0 12px; padding-left: 20px; }
+.doc li { line-height: 1.85; margin-bottom: 6px; }
+.doc .lede { font-size: 17px; line-height: 1.9; color: var(--ink-2); }
+.doc .note { font-size: 14px; color: var(--ink-2); border-left: 3px solid var(--line); padding-left: 12px; }
+.step { background: var(--panel); border: 2px solid var(--line-strong); padding: 18px 20px 8px; margin-bottom: 14px; }
+.step-n {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--field);
+  display: grid; place-items: center; font-family: var(--mono); font-size: 14px; font-weight: 700;
+}
+.formula {
+  font-family: var(--mono); font-size: 14px; line-height: 1.8; margin: 0 0 12px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
+  padding: 12px 14px; overflow-x: auto; white-space: pre;
+}
+.band-table { border-collapse: collapse; margin-bottom: 8px; }
+.band-table th {
+  background: var(--band); color: var(--band-ink); font-family: var(--label); font-weight: 400;
+  letter-spacing: 1.6px; font-size: 13px; padding: 9px 16px 7px; text-align: left;
+}
+.band-table td { padding: 7px 16px; border-top: 1px solid var(--line); }
 
 @media (max-width: 900px) {
   .heat { grid-template-columns: 1fr; }

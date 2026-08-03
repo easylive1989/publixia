@@ -54,7 +54,8 @@ scoreboard/timeline UI was removed; the backend people/scrape/extract pipeline
 still runs but nothing renders it).
 
 - `frontend/vite.config.ts` — `base: '/'` (served from a subdomain root); `frontend/src/router.tsx` — react-router without basename: `/` → `MarketHeatPage`, everything else redirects home.
-- `MarketHeatPage` = range tabs (近一月/近一季/近半年/近一年/全部, in trading days; 全部 omits `days`) + `MarketHeat` (今日判讀 card, 冷熱 meter, scrollable bar chart vs 位階常態 line) + `HeatTable` (the Google Sheet 比較表: same columns/判讀 wording, newest first).
+- `MarketHeatPage` (`/`) = range tabs (近一月/近一季/近半年/近一年/全部, in trading days; 全部 omits `days`) + `MarketHeat` (今日判讀 card, 冷熱 meter, scrollable 成交金額 bar chart vs 位階常態 dashed line) + `IndexChart` (大盤位階 vs 量能判讀: 加權指數 line, one 判讀-colored dot per day) + `HeatTable` (the Google Sheet 比較表: same columns/判讀 wording, newest first).
+- `MethodPage` (`/method`) — the derivation written out (why a flat average misreads, the OLS 位階常態, 量能比/殘差, 近一年百分位, the five bands) plus data source and an explicit note on why numbers drift from the source spreadsheet (its coefficients are frozen; ours refit each read). Keep it in sync when the method changes.
 - API client (`src/lib/api-client.ts`) reads `import.meta.env.PROD` to switch dev (relative `/api`) vs prod (`https://api.paul-learning.dev`). Data hook: `src/hooks/useMarketHeat.ts`; level colors/labels in `src/lib/market-heat.ts` (diverging blue↔red, 判讀 always printed next to color).
 
 ## Deployment
