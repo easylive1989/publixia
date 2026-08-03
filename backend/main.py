@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 # trigger partial-loading of the same packages.
 import db  # noqa: F401
 
-from api.routes import people
+from api.routes import market, people
 from core.errors import (
     FetcherError, RepositoryError, StockDashboardError,
 )
@@ -27,6 +27,7 @@ app.add_middleware(
 )
 
 app.include_router(people.router)
+app.include_router(market.router)
 
 
 _ERROR_TO_STATUS: list[tuple[type[StockDashboardError], int]] = [

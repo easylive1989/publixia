@@ -1,4 +1,6 @@
 """Incremental-scrape plumbing: known-id lookup, href parsing, mode selection."""
+import time
+
 import scrapers.threads as threads
 from repositories import posts as posts_repo
 from repositories import tracked_accounts as accounts_repo
@@ -26,9 +28,13 @@ class _FakeResp:
         self.captured_xhr = []
 
 
+# taken_at must stay inside fetch_recent's months=1 cutoff, so stamp the
+# fixture "yesterday" instead of a fixed epoch that ages out of the window.
+_YESTERDAY = int(time.time()) - 86_400
+
 _FIXTURE = (
     '<script type="application/json" data-sjs>'
-    '{"x":{"code":"DZ1","taken_at":1780451794,"caption":{"text":"買進台積電"}}}'
+    f'{{"x":{{"code":"DZ1","taken_at":{_YESTERDAY},"caption":{{"text":"買進台積電"}}}}}}'
     "</script>"
 )
 
@@ -40,7 +46,7 @@ def test_fetch_recent_accepts_known_ids_and_parses(monkeypatch):
         captured["kwargs"] = kwargs
         return _FakeResp(_FIXTURE)
 
-    monkeypatch.setattr(threads.StealthyFetcher, "fetch", staticmethod(fake_fetch))
+    monkeypatch.setattr(threads, "_stealthy_fetch", fake_fetch)
 
     account = {"handle": "ajhsu0820", "profile_url": "https://www.threads.com/@ajhsu0820"}
     out = threads.ThreadsScraper().fetch_recent(account, months=1, known_ids=frozenset({"OLD"}))
