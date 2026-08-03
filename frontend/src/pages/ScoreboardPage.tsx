@@ -5,11 +5,14 @@ import { Standings } from '@/components/Standings';
 import { PlayByPlay } from '@/components/PlayByPlay';
 import { Footer } from '@/components/Footer';
 import { nominateHref } from '@/lib/nominate';
+import { MarketHeat } from '@/components/MarketHeat';
+import { useMarketHeat } from '@/hooks/useMarketHeat';
 import { useScoreboard, useTimeline } from '@/hooks/usePeople';
 
 export default function ScoreboardPage() {
   const scoreboard = useScoreboard();
   const timeline = useTimeline(120);
+  const marketHeat = useMarketHeat(90);
   const [person, setPerson] = useState('all');
   const [signalOnly, setSignalOnly] = useState(false);
 
@@ -21,6 +24,9 @@ export default function ScoreboardPage() {
     <div>
       <Scorebar />
       <main className="wrap">
+        <SectionHead zh="大盤量能溫度計" en="MARKET HEAT" note="成交金額 vs 指數位階常態 · 依近一年殘差百分位判讀冷熱" />
+        <MarketHeat data={marketHeat.data} isLoading={marketHeat.isLoading} />
+
         <SectionHead zh="戰績排行榜" en="STANDINGS" note="依累積跟單損益排名 · 點名字可篩選下方喊單" />
         {scoreboard.isLoading ? (
           <div className="empty-note">載入中…</div>

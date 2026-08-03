@@ -23,6 +23,9 @@ function renderAt(path: string) {
 
 function mockApi() {
   server.use(
+    http.get('*/api/market/volume-heat', () =>
+      HttpResponse.json({ latest: null, days: [] }),
+    ),
     http.get('*/api/scoreboard', () =>
       HttpResponse.json({
         standings: [

@@ -269,6 +269,63 @@
 
 .empty-note { padding: 40px; text-align: center; color: var(--ink-3); font-style: italic; }
 
+/* ===== 大盤量能溫度計 (market volume heat) ===== */
+.heat {
+  display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 0;
+  background: var(--panel); border: 2px solid var(--line-strong); margin-bottom: 46px;
+}
+.heat-today {
+  border-right: 1px solid var(--line); padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.heat-stamp {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 9px; border-radius: 4px;
+}
+.heat-stamp .zh { font-family: var(--display); font-weight: 900; font-size: 27px; line-height: 1; letter-spacing: 1px; white-space: nowrap; }
+.heat-stamp .en { font-family: var(--label); letter-spacing: 2px; font-size: 12px; opacity: 0.75; white-space: nowrap; }
+.heat-date { font-size: 13px; color: var(--ink-3); }
+.heat-stats { display: flex; flex-direction: column; gap: 7px; margin: 0; }
+.heat-stats > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.heat-stats dt { font-family: var(--label); letter-spacing: 1.2px; font-size: 12px; color: var(--ink-3); }
+.heat-stats dd { margin: 0; font-weight: 600; font-size: 15px; }
+.heat-meter { margin-top: auto; padding-top: 8px; }
+.heat-meter-track { position: relative; display: flex; height: 10px; border-radius: 3px; overflow: visible; }
+.heat-meter-track > i { flex: 1; }
+.heat-meter-track > i:first-child { border-radius: 3px 0 0 3px; }
+.heat-meter-track > i:nth-child(5) { border-radius: 0 3px 3px 0; }
+.heat-meter-pin {
+  position: absolute; top: -4px; bottom: -4px; width: 3px; transform: translateX(-50%);
+  background: var(--ink); border-radius: 2px; box-shadow: 0 0 0 2px var(--panel);
+}
+.heat-meter-cap { display: flex; justify-content: space-between; margin-top: 5px;
+  font-family: var(--label); letter-spacing: 1.5px; font-size: 11px; color: var(--ink-3); }
+.heat-chart { padding: 14px 16px 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.heat-plot { position: relative; }
+.heat-plot svg { display: block; width: 100%; height: auto; }
+.heat-plot .grid { stroke: var(--line); stroke-width: 1; }
+.heat-plot .tick { font-family: var(--mono); font-size: 10px; fill: var(--ink-3); }
+.heat-plot .expected-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; opacity: 0.65; }
+.heat-tip {
+  position: absolute; top: 4px; z-index: 5; pointer-events: none;
+  background: var(--panel); border: 1.5px solid var(--line-strong); border-radius: 4px;
+  padding: 9px 12px; min-width: 178px; box-shadow: 0 3px 10px oklch(0 0 0 / 0.12);
+}
+.tip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; margin-bottom: 6px; }
+.tip-label { font-weight: 900; }
+.tip-row { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; line-height: 1.6; }
+.tip-row > span:first-child { color: var(--ink-3); }
+.heat-legend { display: flex; flex-wrap: wrap; gap: 12px; padding-left: 4px; }
+.heat-key { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-2); }
+.heat-key i { width: 10px; height: 10px; border-radius: 2px; }
+.heat-key.line-key i { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--ink); opacity: 0.65; }
+
+@media (max-width: 900px) {
+  .heat { grid-template-columns: 1fr; }
+  .heat-today { border-right: none; border-bottom: 1px solid var(--line); }
+  .heat-meter { margin-top: 4px; }
+}
+
 /* 推薦參戰 button + roster CTA + footer (ported from the design) */
 .scorebar-right { display: flex; align-items: center; gap: 12px; }
 .nominate-btn {
