@@ -44,9 +44,9 @@ describe('market heat page', () => {
     const requests: string[] = [];
     mockApi(requests);
     renderAt('/');
-    // 近一年 is the default range
+    // 近一季 is the default range
     expect((await screen.findAllByText('明顯偏冷')).length).toBeGreaterThan(0);
-    expect(requests[0]).toBe('?days=240');
+    expect(requests[0]).toBe('?days=66');
     // sheet-style table: headers + newest-first rows + 判讀 values
     expect(screen.getByText('位階常態(億元)')).toBeInTheDocument();
     // 近一年百分位 appears in the today card (dt) and the table header (th)
