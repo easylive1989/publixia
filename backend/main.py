@@ -1,4 +1,4 @@
-"""Copy-Trading Tracker FastAPI application."""
+"""大盤成交金額冷熱判讀 FastAPI application."""
 import logging
 
 from fastapi import FastAPI, Request
@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 # trigger partial-loading of the same packages.
 import db  # noqa: F401
 
-from api.routes import market, people
+from api.routes import market
 from core.errors import (
     FetcherError, RepositoryError, StockDashboardError,
 )
@@ -17,7 +17,7 @@ from core.settings import settings
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Copy-Trading Tracker API")
+app = FastAPI(title="Market Heat API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +26,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(people.router)
 app.include_router(market.router)
 
 
@@ -58,26 +57,6 @@ def startup():
     setup_logging()
     from db import init_db
     init_db()
-    # One-time (idempotent) cleanup: rewrite any Simplified podcast transcripts
-    # stored before the OpenCC step to Traditional, re-queueing them to extract.
-    try:
-        from services.backfill_traditional import backfill_podcast_traditional
-        backfill_podcast_traditional()
-    except Exception:  # noqa: BLE001 — never block startup on a backfill
-        logger.exception("backfill_traditional_failed")
-    # Apply code-defined alias overlays (e.g. NVIDIA→NVDA) and re-normalize any
-    # ticker-less trades they now resolve — without waiting for the daily sync.
-    try:
-        from services.stock_reference_sync import apply_alias_overlays
-        from services.backfill_normalization import backfill_unnormalized_trades
-        from services.price_tracking_runner import run_price_tracking
-        apply_alias_overlays()
-        backfill_unnormalized_trades()
-        # Price any trades still missing a window (e.g. ones the overlay resolved
-        # on a previous boot). run_price_tracking only touches non-done targets.
-        run_price_tracking()
-    except Exception:  # noqa: BLE001 — never block startup on a backfill
-        logger.exception("alias_overlay_backfill_failed")
     try:
         from scheduler import start_scheduler
         start_scheduler()

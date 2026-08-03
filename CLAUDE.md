@@ -4,14 +4,16 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Repository overview
 
-Personal **copy-trading tracker**. It scrapes the Threads posts of a few tracked
-people, uses AI to extract which stocks they bought/sold, and shows it per
-person. Single product, single VPS service:
-- `backend/` — FastAPI app + APScheduler + SQLite (`stock_dashboard.db`) + Scrapling scrapers + Cloudflare Workers AI extraction, on the VPS
+Personal **大盤成交金額冷熱判讀** tracker. It syncs TWSE 大盤成交統計, derives a
+冷熱 reading from it, shows it on a single page, and pushes a 盤中 reading to
+Discord each trading day. Single product, single VPS service:
+- `backend/` — FastAPI app + APScheduler + SQLite (`stock_dashboard.db`), on the VPS
 - `frontend/` — Vite + React + Tailwind, deployed to GitHub Pages on the custom subdomain `stock.paul-learning.dev` (no path prefix — served from `/`)
 - `tests/` — pytest suite for the backend (run from repo root: `python3 -m pytest tests/`)
 
-(The repo was pivoted from a TWSE indicators dashboard; `stock_dashboard.db` and `stock-dashboard.service` keep their old names to avoid churn.)
+(The repo was pivoted twice: first from a TWSE indicators dashboard, then from a
+Threads copy-trading tracker. `stock_dashboard.db` and `stock-dashboard.service`
+keep their old names to avoid churn.)
 
 ## Running locally
 
@@ -20,7 +22,6 @@ person. Single product, single VPS service:
 cd backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/scrapling install        # one-time: fetch the stealth browser Scrapling drives
 .venv/bin/uvicorn main:app --reload --port 8000
 
 # Frontend (separate terminal)
@@ -29,7 +30,7 @@ npm install
 npm run dev   # http://localhost:5173, vite proxies /api → :8000
 ```
 
-Test suites (both run with no network / no browser — scrapers and AI are exercised via fixtures + mocks):
+Test suites (both run with no network — TWSE is exercised via fixtures + mocks):
 ```bash
 python3 -m pytest tests/                    # backend (conftest sets DB_PATH=:memory:)
 cd frontend && npm test                     # frontend (vitest + MSW)
@@ -37,21 +38,34 @@ cd frontend && npm test                     # frontend (vitest + MSW)
 
 ## Backend architecture
 
-Layered: **scrapers → repositories → services → routes**, with APScheduler driving the periodic jobs.
+Layered: **core (fetchers) → repositories → services → routes**, with APScheduler driving the periodic jobs.
 
-- `backend/main.py` — FastAPI app (`Copy-Trading Tracker API`), registers `api/routes/people.py` and `api/routes/market.py` (大盤成交金額冷熱判讀).
-- `backend/scheduler.py` + `backend/jobs/registry.py` — APScheduler in TST, DB-driven. `JOBS` is the name → callable + default-cron map; rows are seeded into `scheduler_jobs` on startup (insert-if-missing), and edits to that table take effect on the next restart. Jobs: `scrape_accounts` (`*/30`), `extract_trades` (`5,35 * * * *`, just after each scrape), `stock_ref_sync` (`0 7`), `market_volume_sync` (`0 16 * * 1-5`, TWSE 收盤後), `backup_db` (`0 3`).
-- `backend/scrapers/` — Scrapling-based. `threads.py` drives a stealth browser (`StealthyFetcher`), scrolls to lazy-load history, and parses posts from BOTH the inline `data-sjs` JSON and captured `/graphql` XHR (post `code` / `caption.text` / `taken_at`). Logged-out works for public profiles; `tracked_accounts.session_cookie` is an optional per-account fallback if a profile gets gated. `runner.py` picks a scraper by `platform` and upserts posts. **Don't** parse Threads HTML with brittle CSS — the embedded JSON is the stable source.
-- `backend/repositories/` — SQLite access, all **upserts**: `posts` on `(platform, platform_post_id)` (returns `is_new`); `extracted_trades` on `(post_id, raw_symbol, direction)`; `stock_reference` on `(market, ticker)`; `tracked_accounts` on `(platform, handle)`.
-- `backend/services/` — `trade_extraction.py` (Cloudflare Workers AI + JSON schema + pydantic validation; `PROMPT_VERSION`), `normalization.py` (raw stock string → canonical `(ticker, market)`), `extraction_runner.py` (drains pending posts → extract → normalize → save → Discord notify on the pending→done transition only), `stock_reference_sync.py` (TW roster from FinMind + a curated US static map), `market_volume_sync.py` (TWSE FMTQIK 大盤成交統計 → `market_volume_daily`; empty table backfills from 2016, or hit `POST /api/market/volume-heat/refresh`), `market_heat.py` (冷熱判讀 — ln成交金額 vs ln指數 OLS 位階常態 → 殘差近一年百分位 → 五級判讀, all derived on read), `backup.py` (SQLite → R2).
-- `backend/core/cloudflare_ai.py` — calls the Workers AI REST API directly (`/accounts/{id}/ai/run/{model}`). `core/discord.py` — `send_to_discord`.
+- `backend/main.py` — FastAPI app (`Market Heat API`), registers `api/routes/market.py`.
+- `backend/scheduler.py` + `backend/jobs/registry.py` — APScheduler in TST, DB-driven. `JOBS` is the name → callable + default-cron map; rows are seeded into `scheduler_jobs` on startup (insert-if-missing), and edits to that table take effect on the next restart. Jobs: `intraday_heat_signal` (`0 13 * * 1-5`, 盤中判讀推 Discord), `market_volume_sync` (`0 16 * * 1-5`, TWSE 收盤後), `backup_db` (`0 3`).
+- `backend/core/twse.py` — FMTQIK 收盤月報 (the authoritative daily rows). `core/twse_intraday.py` — 盤中快照 via MIS 即時行情 (`getStockInfo.jsp` 指數 + `getStatis.jsp` 累計成交金額), falling back to FMTQIK when MIS has nothing for today. `core/discord.py` — `send_to_discord`.
+- `backend/services/` — `market_volume_sync.py` (TWSE FMTQIK → `market_volume_daily`; empty table backfills from 2016, or hit `POST /api/market/volume-heat/refresh`), `market_heat.py` (冷熱判讀 — ln成交金額 vs ln指數 OLS 位階常態 → 殘差近一年百分位 → 五級判讀, all derived on read), `intraday_heat.py` (盤中快照 → 線性外推全日成交金額 → 判讀 → Discord), `backup.py` (SQLite → R2).
 - `backend/db/runner.py` — forward-only migration runner; `init_db()` runs on every startup.
+
+### 盤中判讀 (`services/intraday_heat.py`)
+
+Runs at 13:00 TST, half an hour before the 13:30 close. Takes the MIS snapshot's
+cumulative turnover, **linearly extrapolates** it over the 09:00–13:30 session
+(at 13:00 that is ×1.125), feeds the estimate through the same `market_heat`
+regression, and posts the reading to Discord labelled as an estimate.
+
+Two things to preserve when touching it:
+- It **must not write to `market_volume_daily`**. An estimated row would show up
+  in the frontend as a real bar until the 16:00 sync overwrites it.
+- `core/twse_intraday.py` guards the turnover magnitude (10–100,000 億元) and
+  raises with the actual response keys when MIS's 成交金額 field is missing —
+  a silently wrong unit is worse than a missing reading. **The MIS 大盤統計
+  endpoint/field (`getStatis.jsp` → `tm`) has not been verified against a live
+  session**; if the first production run logs `mis_intraday_unavailable`, the
+  log line names exactly what came back — fix it in that one module.
 
 ## Frontend architecture
 
-Single minimal page: 大盤成交金額冷熱判讀 (the whole UI — the earlier copy-trading
-scoreboard/timeline UI was removed; the backend people/scrape/extract pipeline
-still runs but nothing renders it).
+Single minimal page: 大盤成交金額冷熱判讀.
 
 - `frontend/vite.config.ts` — `base: '/'` (served from a subdomain root); `frontend/src/router.tsx` — react-router without basename: `/` → `MarketHeatPage`, everything else redirects home.
 - `MarketHeatPage` (`/`) = range tabs (近一月/近一季/近半年/近一年/全部, in trading days; 全部 omits `days`) + a 半年區間 dropdown (2026 上 / 2025 下 / … down to 2016 上; picking one fetches the full history — same query key as 全部 — and slices client-side via `src/lib/half-year.ts`, since the API only takes 近 N 日. Tabs and dropdown are mutually exclusive; the 今日判讀 card then shows that half's last trading day) + `MarketHeat` (今日判讀 card, 冷熱 meter, scrollable 成交金額 bar chart vs 位階常態 dashed line) + `IndexChart` (大盤位階 vs 量能判讀: 加權指數 line, one 判讀-colored dot per day) + `HeatTable` (the Google Sheet 比較表: same columns/判讀 wording, newest first).
@@ -62,20 +76,19 @@ still runs but nothing renders it).
 
 - **Push to master** triggers the relevant GitHub Action by path:
   - `frontend/**` → `deploy-frontend.yml` → GitHub Pages
-  - `backend/**` or `stock-dashboard.service` → `deploy-backend.yml` → pytest gate → rsync to VPS → `pip install` → `scrapling install` (fetch browser, non-fatal) → systemd restart
+  - `backend/**` or `stock-dashboard.service` → `deploy-backend.yml` → pytest gate → rsync to VPS → `pip install` → systemd restart
 - VPS path is fixed at `/opt/stock-dashboard/`; decoupled from the repo name.
 - `init_db()` runs every backend startup → migrations are auto-applied.
 - Manual deploy fallback: `./deploy.sh` from repo root (requires `VPS_HOST` env var).
 
 ## Secrets
 
-Stored in GitHub Actions, written into `/opt/stock-dashboard/backend/.env` on every backend deploy (hand-edits on the VPS are overwritten on next push — add to Secrets to persist). Current set: `FINMIND_TOKEN` (stock list), `R2_*` (DB backup), `CF_ACCOUNT_ID` / `CF_API_TOKEN` / `CF_AI_MODEL` (Workers AI extraction), `DISCORD_COPYTRADE_WEBHOOK_URL` (new-trade notifications). Without the `CF_*` secrets, scraping still populates posts but extraction errors out (caught) and no trade chips appear.
+Stored in GitHub Actions, written into `/opt/stock-dashboard/backend/.env` on every backend deploy (hand-edits on the VPS are overwritten on next push — add to Secrets to persist). Current set: `R2_*` (DB backup) and `DISCORD_STOCK_WEBHOOK_URL`, which the workflow writes as `DISCORD_MARKET_WEBHOOK_URL` (盤中判讀 推播). Without the webhook the 盤中 job computes the reading and logs `no_webhook` instead of posting.
 
 **Never commit secrets** (API tokens, webhooks, VPS hostname, SSH keys, `.env`). If something slips into a commit, rotate the secret — `git push --force` doesn't undo what's already been copied elsewhere.
 
 ## DB schema gotchas
 
-- Core tables (migration 0023): `tracked_accounts`, `posts`, `extracted_trades`, `stock_reference`. Every write path must use the upsert keys above (enforced by UNIQUE constraints). `posts.extraction_status` (`pending|done|error|skipped`) is the extraction work queue.
+- The live table is `market_volume_daily` (migration `0034`): one row per trading day, upserted on `date`. Everything the UI shows is derived from it on read — no computed values are persisted.
 - Migration `0022` **dropped all old dashboard tables** (indicator/futures/institutional/etc.). It's destructive and runs on startup — the only safety net for the old data is the nightly R2 backup. Don't resurrect those tables.
-- Tracked accounts are **data-driven** (seeded in migration `0024`: 爸逆逆 `@ajhsu0820`, 巴逆逆 `@banini31`). Add a person by inserting a `tracked_accounts` row, not by hardcoding.
-- `purge_old_data` (in `db/__init__.py`) prunes posts older than 3 years but is **not currently wired into the scheduler** — call it manually or add a cleanup job if retention becomes a concern.
+- The copy-trading tables (`tracked_accounts`, `posts`, `extracted_trades`, `stock_reference`, price-tracking) are **orphaned but intentionally still there**: the code that read them was removed, the tables were not (a DROP is unrecoverable). Migration `0035` only cleared their `scheduler_jobs` rows. Don't wire anything new to them; drop them deliberately if the data is confirmed unwanted.
