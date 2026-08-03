@@ -17,11 +17,21 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 
-from scrapling.fetchers import StealthyFetcher
-
 from scrapers.base import ScrapedPost, epoch_to_iso, iter_dicts
 
 logger = logging.getLogger(__name__)
+
+
+def _stealthy_fetch(url: str, **kwargs):
+    """Drive the stealth browser. scrapling generates browser fingerprints at
+    import time, which needs its bundled datapoints and can raise on a broken
+    or partial install — so the import lives here, not at module top. App
+    startup, the scheduler, and the test suite (which stubs this function and
+    never drives a browser) stay decoupled from scrapling's health; only an
+    actual scrape run degrades when it's unhealthy."""
+    from scrapling.fetchers import StealthyFetcher
+
+    return StealthyFetcher.fetch(url, **kwargs)
 
 _SCRIPT_JSON_RE = re.compile(
     r'<script type="application/json"[^>]*>(.*?)</script>', re.DOTALL
@@ -190,7 +200,7 @@ class ThreadsScraper:
         if cookies:
             fetch_kwargs["cookies"] = cookies
 
-        resp = StealthyFetcher.fetch(url, **fetch_kwargs)
+        resp = _stealthy_fetch(url, **fetch_kwargs)
 
         posts = _posts_from_html(resp.html_content)
         for code, post in _posts_from_xhr(getattr(resp, "captured_xhr", None)).items():
