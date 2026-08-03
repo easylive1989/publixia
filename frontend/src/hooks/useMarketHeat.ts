@@ -19,9 +19,13 @@ export interface MarketHeatPayload {
   days: MarketHeatDay[];      // date-ascending
 }
 
-export function useMarketHeat(days = 90) {
+/** ``days = null`` 抓全歷史（2016 起）。 */
+export function useMarketHeat(days: number | null) {
   return useQuery<MarketHeatPayload>({
-    queryKey: ['market-heat', days],
-    queryFn: () => apiFetch<MarketHeatPayload>(`/api/market/volume-heat?days=${days}`),
+    queryKey: ['market-heat', days ?? 'all'],
+    queryFn: () =>
+      apiFetch<MarketHeatPayload>(
+        days ? `/api/market/volume-heat?days=${days}` : '/api/market/volume-heat',
+      ),
   });
 }

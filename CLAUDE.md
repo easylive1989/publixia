@@ -49,10 +49,13 @@ Layered: **scrapers → repositories → services → routes**, with APScheduler
 
 ## Frontend architecture
 
-- `frontend/vite.config.ts` — `base: '/'` (served from a subdomain root); `frontend/src/router.tsx` — react-router without basename: `/` (HomePage) + `/people/:personKey` (PersonProfilePage).
-- API client (`src/lib/api-client.ts`) reads `import.meta.env.PROD` to switch dev (relative `/api`) vs prod (`https://api.paul-learning.dev`). Data hooks live in `src/hooks/usePeople.ts`.
-- Design: editorial/finance look — Fraunces (display) + IBM Plex Mono (tickers) + Noto Sans TC (body), warm-paper theme, direction-coded `TradeChip`. Tokens in `src/index.css`, fonts via a Google Fonts `@import`.
-- `posted_at` from the backend is **naive-UTC ISO** (no zone) — pass it through `asUtc()` (in `src/lib/relative-time.ts`) before `new Date()` so it isn't parsed as local time.
+Single minimal page: 大盤成交金額冷熱判讀 (the whole UI — the earlier copy-trading
+scoreboard/timeline UI was removed; the backend people/scrape/extract pipeline
+still runs but nothing renders it).
+
+- `frontend/vite.config.ts` — `base: '/'` (served from a subdomain root); `frontend/src/router.tsx` — react-router without basename: `/` → `MarketHeatPage`, everything else redirects home.
+- `MarketHeatPage` = range tabs (近一月/近一季/近半年/近一年/全部, in trading days; 全部 omits `days`) + `MarketHeat` (今日判讀 card, 冷熱 meter, scrollable bar chart vs 位階常態 line) + `HeatTable` (the Google Sheet 比較表: same columns/判讀 wording, newest first).
+- API client (`src/lib/api-client.ts`) reads `import.meta.env.PROD` to switch dev (relative `/api`) vs prod (`https://api.paul-learning.dev`). Data hook: `src/hooks/useMarketHeat.ts`; level colors/labels in `src/lib/market-heat.ts` (diverging blue↔red, 判讀 always printed next to color).
 
 ## Deployment
 

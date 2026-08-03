@@ -99,11 +99,11 @@ def compute_heat(rows: list[dict]) -> list[dict]:
     return out
 
 
-def get_market_heat(days: int = 90) -> dict:
+def get_market_heat(days: int | None = None) -> dict:
     """API payload: the latest reading + the last ``days`` readings
-    (date-ascending, chart-ready)."""
+    (date-ascending, chart-ready). ``days=None`` returns the full history."""
     heat = compute_heat(repo.list_days())
     return {
         "latest": heat[-1] if heat else None,
-        "days": heat[-days:],
+        "days": heat[-days:] if days else heat,
     }

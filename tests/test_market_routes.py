@@ -41,9 +41,16 @@ def test_volume_heat_empty_db_is_not_an_error():
     assert r.json() == {"latest": None, "days": []}
 
 
+def test_volume_heat_without_days_returns_full_history():
+    _seed(120)
+    r = client.get("/api/market/volume-heat")
+    assert r.status_code == 200
+    assert len(r.json()["days"]) == 120
+
+
 def test_volume_heat_days_out_of_range():
     assert client.get("/api/market/volume-heat?days=0").status_code == 400
-    assert client.get("/api/market/volume-heat?days=999").status_code == 400
+    assert client.get("/api/market/volume-heat?days=4001").status_code == 400
 
 
 def test_refresh_schedules_background_sync():

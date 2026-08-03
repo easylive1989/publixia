@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MarketHeatDay, MarketHeatPayload } from '@/hooks/useMarketHeat';
 import { HEAT_LEVELS, HEAT_META, fmtBillion, fmtPercentile } from '@/lib/market-heat';
 
-// ---- chart geometry (viewBox units; rendered responsive at width 100%) ----
-const W = 660;
+// ---- chart geometry (viewBox units ≈ px; wide ranges scroll horizontally) ----
 const H = 190;
 const PAD_L = 46;   // room for the 億元 tick labels
 const PAD_R = 6;
 const PAD_T = 10;
 const PAD_B = 20;   // room for month labels
+const SLOT_MIN = 5.5; // px per trading day before the chart starts scrolling
 
 export function MarketHeat({ data, isLoading }: { data?: MarketHeatPayload; isLoading: boolean }) {
   if (isLoading) return <div className="empty-note">載入中…</div>;
@@ -67,11 +67,18 @@ function HeatMeter({ percentile }: { percentile: number }) {
   );
 }
 
-/** 近 N 個交易日：成交金額 bar（依判讀上色）＋ 位階常態折線。 */
+/** 區間內每個交易日：成交金額 bar（依判讀上色）＋ 位階常態折線。
+ *  區間一長（近一年/全部）圖會超出面板寬，改為橫向捲動並停在最新一端。 */
 function HeatChart({ days }: { days: MarketHeatDay[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth; // land on the latest days
+  }, [days]);
   if (days.length === 0) return null;
 
+  const W = Math.max(660, Math.round(PAD_L + PAD_R + days.length * SLOT_MIN));
   const innerW = W - PAD_L - PAD_R;
   const innerH = H - PAD_T - PAD_B;
   const maxY = Math.max(...days.map((d) => Math.max(d.turnover, d.expected_turnover))) * 1.06;
@@ -92,65 +99,67 @@ function HeatChart({ days }: { days: MarketHeatDay[] }) {
 
   const hovered = hover === null ? null : days[hover];
   return (
-    <div className="heat-plot">
-      <svg viewBox={`0 0 ${W} ${H}`} onMouseLeave={() => setHover(null)}>
-        {ticks.map((v) => (
-          <g key={v}>
-            <line x1={PAD_L} x2={W - PAD_R} y1={y(v)} y2={y(v)} className="grid" />
-            <text x={PAD_L - 6} y={y(v) + 3.5} className="tick" textAnchor="end">{fmtBillion(v)}</text>
-          </g>
-        ))}
-        {monthStarts.map(({ d, i }) => (
-          <text key={d.date} x={x(i)} y={H - 6} className="tick" textAnchor="middle">
-            {Number(d.date.slice(5, 7))}月
-          </text>
-        ))}
-        {days.map((d, i) => (
-          <rect
-            key={d.date}
-            x={x(i) - barW / 2}
-            y={y(d.turnover)}
-            width={barW}
-            height={Math.max(1, PAD_T + innerH - y(d.turnover))}
-            rx={1.5}
-            fill={HEAT_META[d.level].color}
-            opacity={hover === null || hover === i ? 1 : 0.45}
-          />
-        ))}
-        <path d={expectedPath} className="expected-line" />
-        {/* hover hit targets: full-height slots, wider than the bars */}
-        {days.map((d, i) => (
-          <rect
-            key={`h-${d.date}`}
-            x={PAD_L + slot * i}
-            y={PAD_T}
-            width={slot}
-            height={innerH}
-            fill="transparent"
-            onMouseEnter={() => setHover(i)}
-          />
-        ))}
-      </svg>
-      {hovered && hover !== null && (
-        <div
-          className="heat-tip"
-          style={{
-            left: `${((x(hover)) / W) * 100}%`,
-            transform: `translateX(${hover > days.length / 2 ? '-100%' : '0'})`,
-          }}
-        >
-          <div className="tip-head">
-            <span className="mono">{hovered.date}</span>
-            <span className="tip-label" style={{ color: HEAT_META[hovered.level].color }}>
-              {hovered.label}
-            </span>
+    <div className="heat-plot-scroll" ref={scrollRef}>
+      <div className="heat-plot" style={{ width: `${W}px` }}>
+        <svg viewBox={`0 0 ${W} ${H}`} onMouseLeave={() => setHover(null)}>
+          {ticks.map((v) => (
+            <g key={v}>
+              <line x1={PAD_L} x2={W - PAD_R} y1={y(v)} y2={y(v)} className="grid" />
+              <text x={PAD_L - 6} y={y(v) + 3.5} className="tick" textAnchor="end">{fmtBillion(v)}</text>
+            </g>
+          ))}
+          {monthStarts.map(({ d, i }) => (
+            <text key={d.date} x={x(i)} y={H - 6} className="tick" textAnchor="middle">
+              {d.date.slice(5, 7) === '01' ? `${d.date.slice(0, 4)}/1` : `${Number(d.date.slice(5, 7))}月`}
+            </text>
+          ))}
+          {days.map((d, i) => (
+            <rect
+              key={d.date}
+              x={x(i) - barW / 2}
+              y={y(d.turnover)}
+              width={barW}
+              height={Math.max(1, PAD_T + innerH - y(d.turnover))}
+              rx={1.5}
+              fill={HEAT_META[d.level].color}
+              opacity={hover === null || hover === i ? 1 : 0.45}
+            />
+          ))}
+          <path d={expectedPath} className="expected-line" />
+          {/* hover hit targets: full-height slots, wider than the bars */}
+          {days.map((d, i) => (
+            <rect
+              key={`h-${d.date}`}
+              x={PAD_L + slot * i}
+              y={PAD_T}
+              width={slot}
+              height={innerH}
+              fill="transparent"
+              onMouseEnter={() => setHover(i)}
+            />
+          ))}
+        </svg>
+        {hovered && hover !== null && (
+          <div
+            className="heat-tip"
+            style={{
+              left: `${((x(hover)) / W) * 100}%`,
+              transform: `translateX(${hover > days.length / 2 ? '-100%' : '0'})`,
+            }}
+          >
+            <div className="tip-head">
+              <span className="mono">{hovered.date}</span>
+              <span className="tip-label" style={{ color: HEAT_META[hovered.level].color }}>
+                {hovered.label}
+              </span>
+            </div>
+            <div className="tip-row"><span>成交金額</span><span className="mono">{fmtBillion(hovered.turnover)} 億</span></div>
+            <div className="tip-row"><span>位階常態</span><span className="mono">{fmtBillion(hovered.expected_turnover)} 億</span></div>
+            <div className="tip-row"><span>量能比</span><span className="mono">×{hovered.volume_ratio.toFixed(2)}</span></div>
+            <div className="tip-row"><span>近一年百分位</span><span className="mono">{fmtPercentile(hovered.percentile)}</span></div>
           </div>
-          <div className="tip-row"><span>成交金額</span><span className="mono">{fmtBillion(hovered.turnover)} 億</span></div>
-          <div className="tip-row"><span>位階常態</span><span className="mono">{fmtBillion(hovered.expected_turnover)} 億</span></div>
-          <div className="tip-row"><span>量能比</span><span className="mono">×{hovered.volume_ratio.toFixed(2)}</span></div>
-          <div className="tip-row"><span>近一年百分位</span><span className="mono">{fmtPercentile(hovered.percentile)}</span></div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

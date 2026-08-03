@@ -69,3 +69,25 @@ describe('<MarketHeat />', () => {
     expect(screen.getByText(/大盤資料同步中/)).toBeInTheDocument();
   });
 });
+
+describe('<HeatTable />', () => {
+  it('mirrors the sheet columns, newest first', async () => {
+    const { HeatTable } = await import('../src/components/HeatTable');
+    render(<HeatTable rows={payload.days} />);
+    for (const h of ['日期', '加權指數', '成交金額(億元)', '位階常態(億元)', '量能比', '殘差', '近一年百分位', '判讀']) {
+      expect(screen.getByText(h)).toBeInTheDocument();
+    }
+    const rows = screen.getAllByRole('row');
+    expect(rows).toHaveLength(1 + payload.days.length);
+    expect(rows[1].textContent).toContain('2026-07-31');       // newest first
+    expect(rows[1].textContent).toContain('明顯偏冷');          // 判讀 badge
+    expect(rows[1].textContent).toContain('-0.319');           // 殘差 3dp
+    expect(rows[1].textContent).toContain('0.042');            // 百分位 as sheet
+  });
+
+  it('renders nothing for an empty range', async () => {
+    const { HeatTable } = await import('../src/components/HeatTable');
+    const { container } = render(<HeatTable rows={[]} />);
+    expect(container.querySelector('table')).toBeNull();
+  });
+});
