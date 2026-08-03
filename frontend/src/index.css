@@ -58,6 +58,16 @@
 .tab:last-child { border-right: none; }
 .tab:hover { background: var(--panel-2); color: var(--ink); }
 .tab.on { background: var(--ink); color: var(--field); }
+.range-picker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.half-select {
+  font-family: var(--sans); font-weight: 700; font-size: 13.5px; cursor: pointer;
+  background: var(--panel); color: var(--ink-2); border: 2px solid var(--line-strong);
+  padding: 7px 10px; line-height: 1.2; transition: background .12s, color .12s;
+}
+.half-select:hover { background: var(--panel-2); color: var(--ink); }
+.half-select.on { background: var(--ink); color: var(--field); }
+/* 選單展開的清單不跟著 .on 反白，維持面板底色 */
+.half-select option { background: var(--panel); color: var(--ink); }
 
 /* ===== 大盤量能溫度計 (market volume heat) ===== */
 .heat {
