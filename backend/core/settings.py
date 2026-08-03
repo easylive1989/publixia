@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     )
     discord_stock_webhook_url: SecretStr | None = None
     discord_ops_webhook_url: SecretStr | None = None
-    finmind_token: SecretStr = SecretStr("")
     log_level: str = "INFO"
     cors_origins: list[str] = ["https://stock.paul-learning.dev"]
 
@@ -25,18 +24,9 @@ class Settings(BaseSettings):
     r2_endpoint_url: str | None = None
     r2_bucket: str | None = None
 
-    # Cloudflare Workers AI — used to extract buy/sell signals from posts.
-    # Backend calls the REST API directly (no separate Worker).
-    cf_account_id: str | None = None
-    cf_api_token:  SecretStr | None = None
-    cf_ai_model:   str = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
-
-    # Groq Whisper — free-tier speech-to-text for podcast episodes.
-    groq_api_key:  SecretStr | None = None
-    groq_stt_model: str = "whisper-large-v3"
-
-    # Discord webhook for new-trade notifications.
-    discord_copytrade_webhook_url: SecretStr | None = None
+    # Discord webhook for 盤中大盤冷熱判讀. Falls back to
+    # ``discord_stock_webhook_url`` so no new secret is required.
+    discord_market_webhook_url: SecretStr | None = None
 
 
 settings = Settings()

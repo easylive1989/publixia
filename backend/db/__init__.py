@@ -6,7 +6,6 @@ having to know about repository layout.
 """
 import logging
 import os
-from datetime import datetime, timedelta, timezone
 
 from db.connection import (
     get_connection, DB_PATH, _memory_conn, _memory_lock,
@@ -21,17 +20,3 @@ def init_db():
     migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")
     with get_connection() as conn:
         run_migrations(conn, migrations_dir)
-
-
-def purge_old_data(days: int = 1095):
-    """Delete posts (and their cascaded trades) older than ``days``.
-
-    Run weekly by the scheduler. ``extracted_trades`` rows are removed via
-    the ON DELETE CASCADE foreign key on ``posts``.
-    """
-    cutoff = (
-        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-    ).strftime("%Y-%m-%dT%H:%M:%S")
-    with get_connection() as conn:
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("DELETE FROM posts WHERE posted_at IS NOT NULL AND posted_at < ?", (cutoff,))

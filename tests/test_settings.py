@@ -14,15 +14,15 @@ def test_settings_db_path_env_override(monkeypatch):
     assert settings_mod.settings.db_path == ":memory:"
 
 
-def test_settings_secret_finmind_token_not_in_repr(monkeypatch):
-    """SecretStr must not leak the token in repr/str."""
-    monkeypatch.setenv("FINMIND_TOKEN", "super-secret")
+def test_settings_secret_webhook_not_in_repr(monkeypatch):
+    """SecretStr must not leak the webhook URL in repr/str."""
+    monkeypatch.setenv("DISCORD_MARKET_WEBHOOK_URL", "super-secret")
     import core.settings as settings_mod
     importlib.reload(settings_mod)
     s = settings_mod.settings
     assert "super-secret" not in repr(s)
     assert "super-secret" not in str(s)
-    assert s.finmind_token.get_secret_value() == "super-secret"
+    assert s.discord_market_webhook_url.get_secret_value() == "super-secret"
 
 
 def test_settings_cors_origins_default():
