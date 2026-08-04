@@ -7,7 +7,9 @@ import pytest
 from pydantic import SecretStr
 
 import core.twse_intraday as intraday
-from core.errors import FetcherParseError
+from core.errors import (
+    FetcherError, FetcherParseError, MarketClosed, StockDashboardError,
+)
 from core.twse_intraday import IntradaySnapshot
 from repositories import market_volume as repo
 from services import intraday_heat as svc
@@ -87,24 +89,31 @@ def test_mis_snapshot_parses_index_and_turnover():
     )
 
 
-def test_mis_snapshot_falls_back_when_index_date_is_stale(monkeypatch):
-    """休市日 MIS 仍回上一交易日的快照 —— 不能當成今天。"""
+def test_stale_index_date_is_reported_as_market_closed(monkeypatch):
+    """休市日 MIS 仍回上一交易日的快照 —— 是「今天沒有盤」，不是抓不到。"""
     monkeypatch.setattr(
         intraday.requests, "get",
         _mis_responses(_mis_index(d="20260731"), _mis_statis()),
     )
     monkeypatch.setattr(intraday, "fetch_month", lambda y, m: [])
-    assert intraday.fetch_snapshot(date(2026, 8, 3)) is None
+    with pytest.raises(MarketClosed) as e:
+        intraday.fetch_snapshot(date(2026, 8, 3))
+    assert "20260731" in str(e.value)
 
 
-def test_mis_snapshot_rejects_turnover_with_wrong_magnitude(monkeypatch):
-    """欄位若已經是億元（而非元），數量級守門要擋下來而不是產生垃圾判讀。"""
+def test_wrong_turnover_magnitude_raises_instead_of_going_quiet(monkeypatch):
+    """欄位若已經是億元（而非元），要擋下來並且吵 —— 不是靜靜地沒有判讀。"""
     monkeypatch.setattr(
         intraday.requests, "get",
         _mis_responses(_mis_index(), _mis_statis(tm="7,890")),
     )
     monkeypatch.setattr(intraday, "fetch_month", lambda y, m: [])
-    assert intraday.fetch_snapshot(date(2026, 8, 3)) is None
+    with pytest.raises(FetcherError) as e:
+        intraday.fetch_snapshot(date(2026, 8, 3))
+    # 這不是休市，別被歸到安靜那一類
+    assert not isinstance(e.value, MarketClosed)
+    # 通報要能照著訊息直接定位到欄位跟數量級
+    assert "'tm'" in str(e.value) and "raw=7890.0" in str(e.value)
 
 
 def test_mis_missing_turnover_field_names_the_keys_it_saw():
@@ -115,6 +124,41 @@ def test_mis_missing_turnover_field_names_the_keys_it_saw():
         with pytest.raises(FetcherParseError) as e:
             intraday._from_mis(date(2026, 8, 3))
     assert "'tv'" in str(e.value)  # 實際欄位列在訊息裡，好照著修
+
+
+def test_empty_msgarray_reports_rtcode_and_rtmessage():
+    """MIS 就是用 rtcode/rtmessage 講「你沒有 session」的，通報要看得到。"""
+    with patch.object(
+        intraday.requests, "get",
+        side_effect=_mis_responses(
+            {"msgArray": [], "rtcode": "5004", "rtmessage": "Fail"}, _mis_statis(),
+        ),
+    ):
+        with pytest.raises(FetcherParseError) as e:
+            intraday._from_mis(date(2026, 8, 3))
+    assert "5004" in str(e.value) and "Fail" in str(e.value)
+
+
+def test_non_dict_payload_is_a_parse_error_not_an_attribute_error():
+    """回應形狀沒對過真實 session，list 之類的東西不能炸成 AttributeError。"""
+    with patch.object(
+        intraday.requests, "get",
+        side_effect=_mis_responses([{"ex": "tse"}], _mis_statis()),
+    ):
+        with pytest.raises(FetcherParseError) as e:
+            intraday._from_mis(date(2026, 8, 3))
+    assert "list" in str(e.value)
+
+
+def test_snapshot_failure_carries_the_mis_reason_for_the_alert(monkeypatch):
+    """FMTQIK 也救不回來時，例外訊息要留著 MIS 的原始原因。"""
+    def boom(*a, **kw):
+        raise intraday.FetcherError("MIS down: connection reset")
+    monkeypatch.setattr(intraday, "_get", boom)
+    monkeypatch.setattr(intraday, "fetch_month", lambda y, m: [])
+    with pytest.raises(FetcherError) as e:
+        intraday.fetch_snapshot(date(2026, 8, 3))
+    assert "connection reset" in str(e.value)
 
 
 def test_snapshot_falls_back_to_fmtqik_after_close(monkeypatch):
@@ -225,23 +269,64 @@ def test_run_sends_reading_to_discord(monkeypatch):
     assert "大盤成交金額冷熱判讀" in sent["content"]
 
 
-def test_run_skips_quietly_on_a_non_trading_day(monkeypatch):
+def test_non_trading_day_still_says_so_on_discord(monkeypatch):
+    """休市不是失敗，但也不能沒聲音 —— 「沒訊息」只該代表 job 沒跑。"""
     repo.upsert_days(_history())
-    monkeypatch.setattr(svc, "fetch_snapshot", lambda today: None)
-    monkeypatch.setattr(svc, "send_to_discord", lambda *a: pytest.fail("不該推播"))
+
+    def closed(today):
+        raise MarketClosed("TWSE MIS 指數資料停在 '20260731'")
+    monkeypatch.setattr(svc, "fetch_snapshot", closed)
+    monkeypatch.setattr(svc, "send_to_discord", lambda *a: pytest.fail("不該推判讀"))
+    alerts = []
+    monkeypatch.setattr(svc, "send_alert", lambda title, **kw: alerts.append((title, kw)))
+
     assert svc.run_intraday_heat_signal(today=date(2026, 8, 3)) == {
-        "sent": False, "reason": "no_snapshot",
+        "sent": False, "reason": "market_closed",
     }
+    (title, kw), = alerts
+    assert kw["level"] == "info"
+    assert "沒有盤" in title
 
 
-def test_run_without_a_webhook_reports_it_instead_of_crashing(monkeypatch):
+def test_snapshot_failure_propagates_so_the_scheduler_alerts(monkeypatch):
+    """抓不到快照是故障，不能被吞成一個安靜的 return。"""
+    repo.upsert_days(_history())
+
+    def boom(today):
+        raise FetcherError("MIS msgArray 是空的 rtcode='5004'")
+    monkeypatch.setattr(svc, "fetch_snapshot", boom)
+    with pytest.raises(FetcherError, match="5004"):
+        svc.run_intraday_heat_signal(today=date(2026, 8, 3))
+
+
+def test_insufficient_history_raises_with_the_row_count(monkeypatch):
+    repo.upsert_days(_history(n=5))
+    monkeypatch.setattr(svc, "fetch_snapshot", lambda today: IntradaySnapshot(
+        date="2026-03-30", time="13:00:00", taiex=20800.0, turnover=8000.0, is_final=False,
+    ))
+    with pytest.raises(StockDashboardError) as e:
+        svc.run_intraday_heat_signal(today=date(2026, 3, 30))
+    assert "5 列" in str(e.value)  # 通報看得到實際有幾列
+
+
+def test_missing_webhook_raises_and_names_the_env_var(monkeypatch):
     repo.upsert_days(_history())
     monkeypatch.setattr(svc.settings, "discord_market_webhook_url", None)
     monkeypatch.setattr(svc.settings, "discord_stock_webhook_url", None)
     monkeypatch.setattr(svc, "fetch_snapshot", lambda today: IntradaySnapshot(
         date="2026-03-30", time="13:00:00", taiex=20800.0, turnover=8000.0, is_final=False,
     ))
-    assert svc.run_intraday_heat_signal(today=date(2026, 3, 30))["reason"] == "no_webhook"
+    with pytest.raises(StockDashboardError, match="DISCORD_MARKET_WEBHOOK_URL"):
+        svc.run_intraday_heat_signal(today=date(2026, 3, 30))
+
+
+def test_blank_webhook_counts_as_unset(monkeypatch):
+    """未設定的 secret 會被 deploy 寫成空值，不能拿去 POST。"""
+    monkeypatch.setattr(svc.settings, "discord_market_webhook_url", SecretStr("  "))
+    monkeypatch.setattr(
+        svc.settings, "discord_stock_webhook_url", SecretStr("https://fallback.test"),
+    )
+    assert svc._webhook() == "https://fallback.test"
 
 
 def test_run_does_not_persist_the_estimate(monkeypatch):

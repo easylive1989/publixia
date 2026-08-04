@@ -99,3 +99,95 @@ def test_start_scheduler_respects_disabled_rows(monkeypatch):
     assert "market_volume_sync" not in added_ids
     # Other jobs still present.
     assert "intraday_heat_signal" in added_ids
+
+
+# --- 失敗要吵 -------------------------------------------------------------
+
+def _stub_scheduler(monkeypatch):
+    """把 APScheduler 換掉，並回傳被掛上的 (id, callable)。"""
+    import scheduler as scheduler_module
+
+    added: list[tuple] = []
+
+    class _StubScheduler:
+        def __init__(self, *a, **kw): pass
+        def add_job(self, fn, trigger, **kw): added.append((kw.get("id"), fn))
+        def start(self): pass
+
+    monkeypatch.setattr(scheduler_module, "BackgroundScheduler", _StubScheduler)
+    return scheduler_module, added
+
+
+def _capture_alerts(scheduler_module, monkeypatch) -> list:
+    alerts: list[tuple] = []
+    monkeypatch.setattr(
+        scheduler_module, "send_alert",
+        lambda title, **kw: alerts.append((title, kw)),
+    )
+    return alerts
+
+
+def test_a_failing_job_records_the_error_and_alerts(monkeypatch):
+    """排程沒人盯著看 —— 壞了要自己找上門，不能只留在 log 裡。"""
+    db.init_db()
+    scheduler_module, added = _stub_scheduler(monkeypatch)
+    alerts = _capture_alerts(scheduler_module, monkeypatch)
+
+    from jobs.registry import JOBS, JobSpec
+
+    def boom():
+        raise RuntimeError("MIS 又掛了")
+
+    monkeypatch.setitem(
+        JOBS, "intraday_heat_signal",
+        JobSpec(boom, "0 13 * * 1-5", "盤中大盤冷熱判讀推 Discord"),
+    )
+    scheduler_module.start_scheduler()
+
+    runner = dict(added)["intraday_heat_signal"]
+    runner()  # job 自己丟例外不該讓 scheduler 整個倒掉
+
+    row = get_job("intraday_heat_signal")
+    assert row["last_status"] == "error"
+    assert "MIS 又掛了" in row["last_error"]
+
+    (title, kw), = alerts
+    assert "intraday_heat_signal" in title
+    assert str(kw["error"]) == "MIS 又掛了"
+    # 通報要帶得走：這是哪支 job、幾點跑、去哪裡看 log
+    fields = " ".join(str(v) for v in kw["fields"].values())
+    assert "0 13 * * 1-5" in fields and "journalctl" in fields
+
+
+def test_a_successful_job_does_not_alert(monkeypatch):
+    db.init_db()
+    scheduler_module, added = _stub_scheduler(monkeypatch)
+    alerts = _capture_alerts(scheduler_module, monkeypatch)
+
+    from jobs.registry import JOBS, JobSpec
+    monkeypatch.setitem(
+        JOBS, "backup_db", JobSpec(lambda: {"ok": True}, "0 3 * * *", "DB 備份"),
+    )
+    scheduler_module.start_scheduler()
+    dict(added)["backup_db"]()
+
+    assert alerts == []
+    assert get_job("backup_db")["last_status"] == "ok"
+
+
+def test_an_unparseable_cron_alerts_at_startup(monkeypatch):
+    """掛不上的 job 永遠不會執行，last_run_at 只會一直不動 —— 開機就得講。"""
+    db.init_db()
+    scheduler_module, added = _stub_scheduler(monkeypatch)
+    alerts = _capture_alerts(scheduler_module, monkeypatch)
+
+    scheduler_module.start_scheduler()   # seed
+    update_cron("intraday_heat_signal", "毫無道理")
+    alerts.clear()
+    added.clear()
+    scheduler_module.start_scheduler()
+
+    assert "intraday_heat_signal" not in dict(added)
+    (title, kw), = alerts
+    assert "intraday_heat_signal" in title
+    assert "毫無道理" in str(kw["fields"])

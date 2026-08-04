@@ -21,23 +21,38 @@ import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from jobs.registry import JOBS
+from core.alerts import send_alert
+from jobs.registry import JOBS, JobSpec
 from repositories.scheduler import insert_default, list_jobs, record_run
 
 logger = logging.getLogger(__name__)
 TST = pytz.timezone("Asia/Taipei")
 
 
-def _wrap(name: str, fn):
-    """Wrap a job callable so each run stamps last_run_at / status."""
+def _wrap(name: str, spec: JobSpec, cron: str):
+    """Wrap a job callable so each run stamps last_run_at / status.
+
+    失敗一律推 Discord。排程沒人盯，log 要有人主動去翻才看得到，而一支每天
+    只跑一次的 job 壞掉可以壞很久都沒人發現 —— 通報要自己找上門。
+    """
     def runner():
         try:
-            fn()
+            result = spec.fn()
         except Exception as e:
             logger.exception("scheduler_job_failed name=%s", name)
-            record_run(name, "error", str(e)[:500])
+            record_run(name, "error", f"{type(e).__name__}: {e}"[:500])
+            send_alert(
+                f"排程失敗｜{name}",
+                error=e,
+                fields={
+                    "工作": spec.description,
+                    "排程": f"`{cron}`（Asia/Taipei）",
+                    "查 log": f"`journalctl -u stock-dashboard --since today | grep {name}`",
+                },
+            )
         else:
             record_run(name, "ok", None)
+            logger.info("scheduler_job_ok name=%s result=%s", name, result)
     runner.__name__ = f"job_{name}"
     return runner
 
@@ -64,13 +79,25 @@ def start_scheduler() -> BackgroundScheduler:
         try:
             trigger = CronTrigger.from_crontab(row["cron_expr"], timezone=TST)
         except Exception as e:
+            # 掛不上的 job 不會有任何執行紀錄，光看 scheduler_jobs 也看不出
+            # 異常（last_run_at 就只是一直沒更新）—— 開機當下就得講。
             logger.error(
                 "scheduler_cron_invalid name=%s expr=%r err=%s",
                 name, row["cron_expr"], e,
             )
+            send_alert(
+                f"排程掛不上｜{name}",
+                error=e,
+                fields={
+                    "cron_expr": f"`{row['cron_expr']}`",
+                    "後果": "這支 job 完全不會執行，直到 scheduler_jobs 的 "
+                            "cron_expr 修好並重啟 backend",
+                },
+            )
             continue
         scheduler.add_job(
-            _wrap(name, spec.fn), trigger, id=name, replace_existing=True,
+            _wrap(name, spec, row["cron_expr"]), trigger, id=name,
+            replace_existing=True,
         )
         logger.info("scheduler_job_added name=%s cron=%s", name, row["cron_expr"])
 
