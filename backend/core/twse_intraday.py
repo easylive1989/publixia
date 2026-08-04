@@ -18,7 +18,7 @@ from datetime import date
 
 import requests
 
-from core.errors import FetcherError, FetcherParseError
+from core.errors import FetcherError, FetcherParseError, MarketClosed
 from core.twse import fetch_month
 
 logger = logging.getLogger(__name__)
@@ -72,11 +72,33 @@ def _get(url: str, params: dict) -> dict:
         raise FetcherError(f"TWSE MIS {url}: {e}") from e
 
 
-def _first_msg(payload: dict, what: str) -> dict:
+def _first_msg(payload, what: str) -> dict:
+    """``msgArray[0]``，形狀不對就丟出「實際拿到什麼」。
+
+    這支端點的回應形狀沒對過真實 session，所以每個假設都要自己驗：payload
+    可能根本不是物件。訊息裡一定要有 ``rtcode``/``rtmessage`` —— MIS 就是在
+    那兩個欄位講「你沒有 session」的，通報看得到才修得動。
+    """
+    if not isinstance(payload, dict):
+        raise FetcherParseError(
+            f"TWSE MIS {what}: 回應不是物件而是 "
+            f"{type(payload).__name__}（{payload!r:.200}）"
+        )
+
     arr = payload.get("msgArray") or []
     if not arr:
-        raise FetcherParseError(f"TWSE MIS {what}: msgArray 是空的 ({payload!r:.200})")
-    return arr[0]
+        raise FetcherParseError(
+            f"TWSE MIS {what}: msgArray 是空的 "
+            f"rtcode={payload.get('rtcode')!r} "
+            f"rtmessage={payload.get('rtmessage')!r} keys={sorted(payload)}"
+        )
+
+    row = arr[0]
+    if not isinstance(row, dict):
+        raise FetcherParseError(
+            f"TWSE MIS {what}: msgArray[0] 不是物件（{row!r:.200}）"
+        )
+    return row
 
 
 def _from_mis(today: date) -> IntradaySnapshot:
@@ -86,8 +108,11 @@ def _from_mis(today: date) -> IntradaySnapshot:
     )
     stamp = (index_row.get("d") or "").strip()
     if stamp != today.strftime("%Y%m%d"):
-        # 休市日 MIS 仍會回上一個交易日的快照 —— 別把它當成今天。
-        raise FetcherParseError(f"TWSE MIS 指數日期 {stamp!r} 不是 {today}")
+        # 休市日 MIS 仍會回上一個交易日的快照 —— 別把它當成今天。MIS 有正常
+        # 回話、只是資料不是今天的，這是「今天沒有盤」而不是「抓不到」。
+        raise MarketClosed(
+            f"TWSE MIS 指數資料停在 {stamp!r}，不是 {today} —— 今天沒有盤"
+        )
 
     taiex = _num(index_row.get("z")) or _num(index_row.get("o"))
     if not taiex:
@@ -104,7 +129,8 @@ def _from_mis(today: date) -> IntradaySnapshot:
     turnover = amount / _YI
     if not _MIN_YI <= turnover <= _MAX_YI:
         raise FetcherParseError(
-            f"TWSE MIS 成交金額 {turnover:,.1f} 億元 超出合理範圍 —— "
+            # 用 %g：欄位單位若差好幾個數量級，%.1f 會把它印成無意義的 0.0
+            f"TWSE MIS 成交金額 {turnover:,.6g} 億元 超出合理範圍 —— "
             f"{_TURNOVER_KEY!r} 的單位可能不是元 (raw={amount!r})"
         )
 
@@ -131,11 +157,35 @@ def _from_fmtqik(today: date) -> IntradaySnapshot | None:
     return None
 
 
-def fetch_snapshot(today: date) -> IntradaySnapshot | None:
-    """今天的大盤快照，MIS 優先、FMTQIK 墊底；都沒有當天資料時回 None。"""
+def fetch_snapshot(today: date) -> IntradaySnapshot:
+    """今天的大盤快照，MIS 優先、FMTQIK 墊底。
+
+    拿不到時一律丟例外、不回 None：回 None 會讓「今天休市」和「MIS 壞掉」
+    長得一模一樣，呼叫端就沒辦法決定該安靜跳過還是該吵人。休市丟
+    ``MarketClosed``，其餘丟 ``FetcherError`` 且訊息裡帶著 MIS 那邊的實際
+    失敗原因 —— 通報就是靠這句話定位的。
+    """
+    mis_error: FetcherError
     try:
         return _from_mis(today)
     except FetcherError as e:
-        # 休市/開盤前是常態，不是故障 —— 記 info 等級，讓 FMTQIK 決定有沒有資料。
+        mis_error = e
         logger.info("mis_intraday_unavailable date=%s err=%s", today, e)
-    return _from_fmtqik(today)
+
+    try:
+        # job 延到收盤後才跑時，FMTQIK 已經有定案值可以救回來。
+        final = _from_fmtqik(today)
+    except FetcherError as e:
+        raise FetcherError(
+            f"MIS 取不到 {today} 的盤中快照（{mis_error}），"
+            f"FMTQIK 退路也失敗（{e}）"
+        ) from e
+
+    if final is not None:
+        return final
+
+    if isinstance(mis_error, MarketClosed):
+        raise MarketClosed(f"{mis_error}；FMTQIK 當月也沒有 {today} 這一列") from mis_error
+    raise FetcherError(
+        f"MIS 取不到 {today} 的盤中快照（{mis_error}），FMTQIK 當月也沒有這一列"
+    ) from mis_error

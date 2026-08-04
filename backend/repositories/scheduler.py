@@ -6,9 +6,12 @@ Backs the `scheduler_jobs` table. Used by:
 - the admin CLI (which talks to SQLite directly) to list and edit
   schedules — see `admin/scheduler_ops.py`
 """
+import logging
 from datetime import datetime, timezone
 
 from db.connection import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 def _now_iso() -> str:
@@ -72,7 +75,11 @@ def set_enabled(name: str, enabled: bool) -> bool:
 
 
 def record_run(name: str, status: str, error: str | None = None) -> None:
-    """Stamp a job's last_run_at / last_status. Best-effort — never raises."""
+    """Stamp a job's last_run_at / last_status. Best-effort — never raises.
+
+    不往外丟是因為記錄狀態失敗不該連帶讓 job 算失敗，但也不能整個吞掉：
+    記不進去代表 scheduler_jobs 的狀態是騙人的，那件事本身要留在 log 裡。
+    """
     try:
         with get_connection() as conn:
             conn.execute(
@@ -81,4 +88,6 @@ def record_run(name: str, status: str, error: str | None = None) -> None:
                 (_now_iso(), status, error, name),
             )
     except Exception:
-        pass
+        logger.exception(
+            "scheduler_record_run_failed name=%s status=%s", name, status
+        )

@@ -12,7 +12,9 @@ from datetime import date, datetime, time as dtime
 
 import pytz
 
+from core.alerts import send_alert
 from core.discord import send_to_discord
+from core.errors import MarketClosed, StockDashboardError
 from core.settings import settings
 from core.twse_intraday import IntradaySnapshot, fetch_snapshot
 from repositories import market_volume as repo
@@ -126,32 +128,54 @@ def format_message(reading: dict) -> str:
 
 
 def _webhook() -> str | None:
-    url = settings.discord_market_webhook_url or settings.discord_stock_webhook_url
-    return url.get_secret_value() if url else None
+    """判讀要推去的 webhook。空字串當成沒設定（未設定的 secret 會寫成空值）。"""
+    for candidate in (
+        settings.discord_market_webhook_url,
+        settings.discord_stock_webhook_url,
+    ):
+        url = candidate.get_secret_value().strip() if candidate else ""
+        if url:
+            return url
+    return None
 
 
 def run_intraday_heat_signal(today: date | None = None) -> dict:
     """Scheduler entry point（每個交易日盤中跑一次）。
 
-    休市、開盤前、或今天還沒有任何成交資料時安靜跳過 —— 不推 Discord、也不
-    算失敗。Discord 送不出去才是真的錯誤，讓它往上拋給 scheduler 記 error。
+    只有「今天休市」算正常跳過，而且照樣推一則 ℹ️ 說明為什麼沒有判讀；其餘
+    每一種跑不出判讀的情況都往上拋，由 scheduler 記 error 並推 🚨 通報。
+
+    這裡刻意沒有任何一條「安靜 return」的路徑：這支 job 一天只跑一次，靜默
+    跳過和成功在 Discord 上長得一模一樣，壞掉可以壞很多天沒人發現。
     """
     today = today or datetime.now(TST).date()
 
-    snapshot = fetch_snapshot(today)
-    if snapshot is None:
-        logger.info("intraday_heat_skipped reason=no_snapshot date=%s", today)
-        return {"sent": False, "reason": "no_snapshot"}
+    try:
+        snapshot = fetch_snapshot(today)
+    except MarketClosed as e:
+        logger.info("intraday_heat_skipped reason=market_closed date=%s err=%s", today, e)
+        send_alert(
+            "盤中判讀跳過：今天沒有盤",
+            level="info",
+            fields={"日期": today, "來源回報": e},
+        )
+        return {"sent": False, "reason": "market_closed"}
 
     reading = build_reading(snapshot)
     if reading is None:
-        logger.warning("intraday_heat_skipped reason=insufficient_history date=%s", today)
-        return {"sent": False, "reason": "insufficient_history"}
+        raise StockDashboardError(
+            f"{today} 盤中判讀算不出來：market_volume_daily 的歷史不足以做迴歸"
+            f"（共 {len(repo.list_days())} 列，最新 {repo.latest_date()}）—— "
+            "先跑 POST /api/market/volume-heat/refresh 回補"
+        )
 
     webhook = _webhook()
     if not webhook:
-        logger.warning("intraday_heat_skipped reason=no_webhook date=%s", today)
-        return {"sent": False, "reason": "no_webhook"}
+        raise StockDashboardError(
+            f"{today} 盤中判讀算好了卻沒有 Discord webhook 可推 —— 檢查 "
+            "/opt/stock-dashboard/backend/.env 的 DISCORD_MARKET_WEBHOOK_URL"
+            "（deploy 時由 DISCORD_STOCK_WEBHOOK_URL 這個 secret 寫入）"
+        )
 
     send_to_discord(webhook, {"content": format_message(reading)})
     result = {

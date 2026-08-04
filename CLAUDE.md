@@ -42,9 +42,26 @@ Layered: **core (fetchers) → repositories → services → routes**, with APSc
 
 - `backend/main.py` — FastAPI app (`Market Heat API`), registers `api/routes/market.py`.
 - `backend/scheduler.py` + `backend/jobs/registry.py` — APScheduler in TST, DB-driven. `JOBS` is the name → callable + default-cron map; rows are seeded into `scheduler_jobs` on startup (insert-if-missing), and edits to that table take effect on the next restart. Jobs: `intraday_heat_signal` (`0 13 * * 1-5`, 盤中判讀推 Discord), `market_volume_sync` (`0 16 * * 1-5`, TWSE 收盤後), `backup_db` (`0 3`).
-- `backend/core/twse.py` — FMTQIK 收盤月報 (the authoritative daily rows). `core/twse_intraday.py` — 盤中快照 via MIS 即時行情 (`getStockInfo.jsp` 指數 + `getStatis.jsp` 累計成交金額), falling back to FMTQIK when MIS has nothing for today. `core/discord.py` — `send_to_discord`.
+- `backend/core/twse.py` — FMTQIK 收盤月報 (the authoritative daily rows). `core/twse_intraday.py` — 盤中快照 via MIS 即時行情 (`getStockInfo.jsp` 指數 + `getStatis.jsp` 累計成交金額), falling back to FMTQIK when MIS has nothing for today. `core/discord.py` — `send_to_discord`. `core/alerts.py` — `send_alert` (維運通報, see 失敗一定要有聲音 below).
 - `backend/services/` — `market_volume_sync.py` (TWSE FMTQIK → `market_volume_daily`; empty table backfills from 2016, or hit `POST /api/market/volume-heat/refresh`), `market_heat.py` (冷熱判讀 — ln成交金額 vs ln指數 OLS 位階常態 → 殘差近一年百分位 → 五級判讀, all derived on read), `intraday_heat.py` (盤中快照 → 線性外推全日成交金額 → 判讀 → Discord), `backup.py` (SQLite → R2).
 - `backend/db/runner.py` — forward-only migration runner; `init_db()` runs on every startup.
+
+### 失敗一定要有聲音 (`core/alerts.py`)
+
+**沒有靜默失敗。** 排程一天只跑一次，「安靜跳過」和「成功」在 Discord 上長得一模一樣，
+壞掉可以壞很多天沒人發現 —— 盤中判讀第一次上線那天就是這樣沒聲沒息地跳過。所以：
+
+- `scheduler._wrap` 攔到任何例外 → `record_run(error)` + `send_alert` 推 🚨，訊息帶
+  job 名稱、cron、例外類型/訊息，非領域例外還附 traceback 尾巴。開機時 cron 解析
+  失敗（那支 job 永遠不會跑）也推一則。
+- 服務層跑不出結果時**往上拋，不要 return 一個安靜的 dict**，並把定位資訊寫進例外
+  訊息裡（實際欄位、`rtcode`/`rtmessage`、有幾列資料、該檢查哪個環境變數）——
+  通報就只有這句話可以看。
+- 唯一的例外是休市：丟 `MarketClosed`（`FetcherError` 的子類），呼叫端推一則低調的
+  ℹ️ 說明今天為什麼沒判讀。所以 Discord 上「什麼都沒有」永遠只代表 job 沒跑到。
+- Webhook 順序 `DISCORD_OPS_WEBHOOK_URL` → market → stock，空字串視同未設定（未設定的
+  GitHub secret 會被 deploy 寫成空值）。設第一支就能把維運噪音跟判讀分頻道。
+- `send_alert` 自己絕不往外丟例外，推不出去時把整則內容寫進 log。
 
 ### 盤中判讀 (`services/intraday_heat.py`)
 
@@ -60,8 +77,9 @@ Two things to preserve when touching it:
   raises with the actual response keys when MIS's 成交金額 field is missing —
   a silently wrong unit is worse than a missing reading. **The MIS 大盤統計
   endpoint/field (`getStatis.jsp` → `tm`) has not been verified against a live
-  session**; if the first production run logs `mis_intraday_unavailable`, the
-  log line names exactly what came back — fix it in that one module.
+  session**; `fetch_snapshot` raises (never returns `None`) so the failure
+  reason reaches Discord — 空 `msgArray` 會連 `rtcode`/`rtmessage` 一起報，那正是
+  MIS 講「你沒有 session」的地方。修的時候就改這一個模組。
 
 ## Frontend architecture
 
@@ -83,7 +101,7 @@ Single minimal page: 大盤成交金額冷熱判讀.
 
 ## Secrets
 
-Stored in GitHub Actions, written into `/opt/stock-dashboard/backend/.env` on every backend deploy (hand-edits on the VPS are overwritten on next push — add to Secrets to persist). Current set: `R2_*` (DB backup) and `DISCORD_STOCK_WEBHOOK_URL`, which the workflow writes as `DISCORD_MARKET_WEBHOOK_URL` (盤中判讀 推播). Without the webhook the 盤中 job computes the reading and logs `no_webhook` instead of posting.
+Stored in GitHub Actions, written into `/opt/stock-dashboard/backend/.env` on every backend deploy (hand-edits on the VPS are overwritten on next push — add to Secrets to persist). Current set: `R2_*` (DB backup), `DISCORD_STOCK_WEBHOOK_URL` (written as `DISCORD_MARKET_WEBHOOK_URL`, 盤中判讀 推播), and the optional `DISCORD_OPS_WEBHOOK_URL` (維運通報; unset → alerts fall back to the 判讀 webhook). Without any webhook the 盤中 job raises and the alert content is written to the log instead.
 
 **Never commit secrets** (API tokens, webhooks, VPS hostname, SSH keys, `.env`). If something slips into a commit, rotate the secret — `git push --force` doesn't undo what's already been copied elsewhere.
 

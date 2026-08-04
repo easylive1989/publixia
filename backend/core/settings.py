@@ -15,6 +15,8 @@ class Settings(BaseSettings):
         os.path.dirname(__file__), "..", "stock_dashboard.db"
     )
     discord_stock_webhook_url: SecretStr | None = None
+    # 維運通報（排程失敗等）的去處。沒設定時 core.alerts 會退回下面兩支判讀
+    # 用的 webhook —— 跟判讀混頻道也好過完全沒聲音。
     discord_ops_webhook_url: SecretStr | None = None
     log_level: str = "INFO"
     cors_origins: list[str] = ["https://stock.paul-learning.dev"]

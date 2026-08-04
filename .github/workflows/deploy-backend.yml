@@ -55,6 +55,7 @@ jobs:
           R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
           R2_BUCKET=${{ secrets.R2_BUCKET }}
           DISCORD_MARKET_WEBHOOK_URL=${{ secrets.DISCORD_STOCK_WEBHOOK_URL }}
+          DISCORD_OPS_WEBHOOK_URL=${{ secrets.DISCORD_OPS_WEBHOOK_URL }}
           EOF
           chmod 600 /opt/stock-dashboard/backend/.env"
 
