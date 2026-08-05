@@ -1,8 +1,9 @@
 import type { MarketHeatDay } from '@/hooks/useMarketHeat';
 import { HEAT_META, fmtBillion } from '@/lib/market-heat';
+import type { MarketConfig } from '@/lib/markets';
 
 /** Google Sheet 原始比較表：同欄位、同判讀字，最新在上。 */
-export function HeatTable({ rows }: { rows: MarketHeatDay[] }) {
+export function HeatTable({ rows, market }: { rows: MarketHeatDay[]; market: MarketConfig }) {
   if (rows.length === 0) return null;
   const desc = [...rows].reverse();
   return (
@@ -11,9 +12,9 @@ export function HeatTable({ rows }: { rows: MarketHeatDay[] }) {
         <thead>
           <tr>
             <th>日期</th>
-            <th>加權指數</th>
-            <th>成交金額(億元)</th>
-            <th>位階常態(億元)</th>
+            <th>{market.indexLabel}</th>
+            <th>{market.volumeLabel}({market.columnUnit})</th>
+            <th>位階常態({market.columnUnit})</th>
             <th>量能比</th>
             <th>殘差</th>
             <th>近一年百分位</th>
@@ -26,7 +27,7 @@ export function HeatTable({ rows }: { rows: MarketHeatDay[] }) {
             return (
               <tr key={d.date}>
                 <td className="mono">{d.date}</td>
-                <td className="mono">{d.taiex_close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td className="mono">{d.index_close.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td className="mono">{fmtBillion(d.turnover)}</td>
                 <td className="mono">{fmtBillion(d.expected_turnover)}</td>
                 <td className="mono">{d.volume_ratio.toFixed(2)}</td>

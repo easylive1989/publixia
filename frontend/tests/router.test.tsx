@@ -22,7 +22,7 @@ function renderAt(path: string) {
 }
 
 const day = (date: string, level: string, label: string, percentile: number) => ({
-  date, taiex_close: 43119.75, turnover: 8877, expected_turnover: 12209.5,
+  date, index_close: 43119.75, turnover: 8877, expected_turnover: 12209.5,
   volume_ratio: 0.727, residual: -0.319, percentile, level, label,
 });
 
@@ -46,7 +46,7 @@ describe('market heat page', () => {
     renderAt('/');
     // 近一季 is the default range
     expect((await screen.findAllByText('明顯偏冷')).length).toBeGreaterThan(0);
-    expect(requests[0]).toBe('?days=66');
+    expect(requests[0]).toBe('?market=TW&days=66');
     // sheet-style table: headers + newest-first rows + 判讀 values
     expect(screen.getByText('位階常態(億元)')).toBeInTheDocument();
     // 近一年百分位 appears in the today card (dt) and the table header (th)
@@ -65,8 +65,24 @@ describe('market heat page', () => {
     await screen.findByText('位階常態(億元)');
     await userEvent.click(screen.getByRole('tab', { name: '近一月' }));
     await userEvent.click(screen.getByRole('tab', { name: '全部' }));
-    expect(requests).toContain('?days=22');
-    expect(requests).toContain('');
+    expect(requests).toContain('?market=TW&days=22');
+    expect(requests).toContain('?market=TW');
+  });
+
+  it('切換市場 refetches Nasdaq 並換掉指數/量能的稱呼與單位', async () => {
+    const requests: string[] = [];
+    mockApi(requests);
+    renderAt('/');
+    await screen.findByText('位階常態(億元)');
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Nasdaq' }));
+
+    await screen.findByText('位階常態(億股)');
+    expect(requests).toContain('?market=US&days=66');
+    // 美股的量能是成交股數，不是成交金額 —— 標題不能沿用台股的字
+    expect(screen.getByText('成交股數(億股)')).toBeInTheDocument();
+    expect(screen.queryByText('成交金額(億元)')).toBeNull();
+    expect(screen.getAllByText('Nasdaq 指數').length).toBeGreaterThan(0);
   });
 
   it('redirects unknown paths to /', async () => {

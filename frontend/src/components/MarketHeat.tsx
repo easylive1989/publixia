@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MarketHeatDay, MarketHeatPayload } from '@/hooks/useMarketHeat';
-import { HEAT_LEVELS, HEAT_META, fmtBillion, fmtPercentile } from '@/lib/market-heat';
+import { HEAT_LEVELS, HEAT_META, fmtBillion, fmtPercentile, niceTicks } from '@/lib/market-heat';
+import type { MarketConfig } from '@/lib/markets';
 
 // ---- chart geometry (viewBox units ≈ px; wide ranges scroll horizontally) ----
 const H = 190;
@@ -10,11 +11,23 @@ const PAD_T = 10;
 const PAD_B = 20;   // room for month labels
 const SLOT_MIN = 5.5; // px per trading day before the chart starts scrolling
 
-export function MarketHeat({ data, isLoading }: { data?: MarketHeatPayload; isLoading: boolean }) {
+export function MarketHeat({
+  data,
+  isLoading,
+  market,
+}: {
+  data?: MarketHeatPayload;
+  isLoading: boolean;
+  market: MarketConfig;
+}) {
   if (isLoading) return <div className="empty-note">載入中…</div>;
   const latest = data?.latest;
   if (!latest) {
-    return <div className="empty-note">大盤資料同步中，第一次同步需要幾分鐘，稍後再來看看。</div>;
+    return (
+      <div className="empty-note">
+        {market.tab}資料同步中，第一次同步需要幾分鐘，稍後再來看看。
+      </div>
+    );
   }
   const meta = HEAT_META[latest.level];
   return (
@@ -29,16 +42,16 @@ export function MarketHeat({ data, isLoading }: { data?: MarketHeatPayload; isLo
         </div>
         <div className="heat-date mono">{latest.date}</div>
         <dl className="heat-stats">
-          <div><dt>加權指數</dt><dd className="mono">{latest.taiex_close.toLocaleString('en-US')}</dd></div>
-          <div><dt>成交金額</dt><dd className="mono">{fmtBillion(latest.turnover)} 億</dd></div>
-          <div><dt>位階常態</dt><dd className="mono">{fmtBillion(latest.expected_turnover)} 億</dd></div>
+          <div><dt>{market.indexLabel}</dt><dd className="mono">{latest.index_close.toLocaleString('en-US')}</dd></div>
+          <div><dt>{market.volumeLabel}</dt><dd className="mono">{fmtBillion(latest.turnover)} {market.unit}</dd></div>
+          <div><dt>位階常態</dt><dd className="mono">{fmtBillion(latest.expected_turnover)} {market.unit}</dd></div>
           <div><dt>量能比</dt><dd className="mono">×{latest.volume_ratio.toFixed(2)}</dd></div>
           <div><dt>近一年百分位</dt><dd className="mono">{fmtPercentile(latest.percentile)}</dd></div>
         </dl>
         <HeatMeter percentile={latest.percentile} />
       </div>
       <div className="heat-chart">
-        <HeatChart days={data.days} />
+        <HeatChart days={data.days} market={market} />
         <div className="heat-legend">
           {HEAT_LEVELS.map((lv) => (
             <span key={lv} className="heat-key">
@@ -67,9 +80,9 @@ function HeatMeter({ percentile }: { percentile: number }) {
   );
 }
 
-/** 區間內每個交易日：成交金額 bar（依判讀上色）＋ 位階常態折線。
+/** 區間內每個交易日：量能 bar（依判讀上色）＋ 位階常態折線。
  *  區間一長（近一年/全部）圖會超出面板寬，改為橫向捲動並停在最新一端。 */
-function HeatChart({ days }: { days: MarketHeatDay[] }) {
+function HeatChart({ days, market }: { days: MarketHeatDay[]; market: MarketConfig }) {
   const [hover, setHover] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -91,8 +104,9 @@ function HeatChart({ days }: { days: MarketHeatDay[] }) {
     .map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(d.expected_turnover).toFixed(1)}`)
     .join(' ');
 
-  const ticks = [0.25, 0.5, 0.75, 1].map((f) => Math.round((maxY * f) / 1000) * 1000)
-    .filter((v, i, a) => v > 0 && a.indexOf(v) === i);
+  // 刻度交給 niceTicks：台股的量能是幾千（億元）、Nasdaq 是幾十（億股），
+  // 寫死「取到千位」會讓美股的刻度全部歸零。
+  const ticks = niceTicks(0, maxY).filter((v) => v > 0);
   const monthStarts = days
     .map((d, i) => ({ d, i }))
     .filter(({ d, i }) => i > 0 && d.date.slice(5, 7) !== days[i - 1].date.slice(5, 7));
@@ -153,8 +167,8 @@ function HeatChart({ days }: { days: MarketHeatDay[] }) {
                 {hovered.label}
               </span>
             </div>
-            <div className="tip-row"><span>成交金額</span><span className="mono">{fmtBillion(hovered.turnover)} 億</span></div>
-            <div className="tip-row"><span>位階常態</span><span className="mono">{fmtBillion(hovered.expected_turnover)} 億</span></div>
+            <div className="tip-row"><span>{market.volumeLabel}</span><span className="mono">{fmtBillion(hovered.turnover)} {market.unit}</span></div>
+            <div className="tip-row"><span>位階常態</span><span className="mono">{fmtBillion(hovered.expected_turnover)} {market.unit}</span></div>
             <div className="tip-row"><span>量能比</span><span className="mono">×{hovered.volume_ratio.toFixed(2)}</span></div>
             <div className="tip-row"><span>近一年百分位</span><span className="mono">{fmtPercentile(hovered.percentile)}</span></div>
           </div>

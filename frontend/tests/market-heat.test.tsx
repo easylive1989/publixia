@@ -4,10 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { MarketHeat } from '../src/components/MarketHeat';
 import type { MarketHeatDay, MarketHeatPayload } from '../src/hooks/useMarketHeat';
 import { HEAT_META, fmtBillion, fmtPercentile } from '../src/lib/market-heat';
+import { MARKETS } from '../src/lib/markets';
+
+const TW = MARKETS[0];
 
 function day(over: Partial<MarketHeatDay>): MarketHeatDay {
   return {
-    date: '2026-07-31', taiex_close: 43119.75, turnover: 8877,
+    date: '2026-07-31', index_close: 43119.75, turnover: 8877,
     expected_turnover: 12209.5, volume_ratio: 0.727, residual: -0.3188,
     percentile: 0.042, level: 'very_cold', label: '明顯偏冷',
     ...over,
@@ -15,6 +18,7 @@ function day(over: Partial<MarketHeatDay>): MarketHeatDay {
 }
 
 const payload: MarketHeatPayload = {
+  market: "TW",
   latest: day({}),
   days: [
     day({ date: '2026-07-29', turnover: 11492, volume_ratio: 1.06, percentile: 0.738, level: 'hot', label: '偏熱' }),
@@ -38,7 +42,7 @@ describe('market heat helpers', () => {
 
 describe('<MarketHeat />', () => {
   it('shows the latest 判讀 with its stats', () => {
-    render(<MarketHeat data={payload} isLoading={false} />);
+    render(<MarketHeat data={payload} isLoading={false} market={TW} />);
     // 判讀 shows in the badge and again in the legend
     expect(screen.getAllByText('明顯偏冷')).toHaveLength(2);
     expect(screen.getByText('2026-07-31')).toBeInTheDocument();
@@ -49,14 +53,14 @@ describe('<MarketHeat />', () => {
   });
 
   it('legend names every band so color is never alone', () => {
-    render(<MarketHeat data={payload} isLoading={false} />);
+    render(<MarketHeat data={payload} isLoading={false} market={TW} />);
     for (const zh of ['明顯偏熱', '偏熱', '正常', '偏冷', '明顯偏冷', '位階常態']) {
       expect(screen.getAllByText(zh).length).toBeGreaterThanOrEqual(1);
     }
   });
 
   it('hovering a day reveals its tooltip', async () => {
-    const { container } = render(<MarketHeat data={payload} isLoading={false} />);
+    const { container } = render(<MarketHeat data={payload} isLoading={false} market={TW} />);
     const hits = container.querySelectorAll('svg rect[fill="transparent"]');
     expect(hits).toHaveLength(3);
     await userEvent.hover(hits[0]);
@@ -65,7 +69,7 @@ describe('<MarketHeat />', () => {
   });
 
   it('empty payload renders the syncing note, not a crash', () => {
-    render(<MarketHeat data={{ latest: null, days: [] }} isLoading={false} />);
+    render(<MarketHeat data={{ market: "TW", latest: null, days: [] }} isLoading={false} market={TW} />);
     expect(screen.getByText(/大盤資料同步中/)).toBeInTheDocument();
   });
 });
@@ -73,7 +77,7 @@ describe('<MarketHeat />', () => {
 describe('<HeatTable />', () => {
   it('mirrors the sheet columns, newest first', async () => {
     const { HeatTable } = await import('../src/components/HeatTable');
-    render(<HeatTable rows={payload.days} />);
+    render(<HeatTable rows={payload.days} market={TW} />);
     for (const h of ['日期', '加權指數', '成交金額(億元)', '位階常態(億元)', '量能比', '殘差', '近一年百分位', '判讀']) {
       expect(screen.getByText(h)).toBeInTheDocument();
     }
@@ -87,7 +91,7 @@ describe('<HeatTable />', () => {
 
   it('renders nothing for an empty range', async () => {
     const { HeatTable } = await import('../src/components/HeatTable');
-    const { container } = render(<HeatTable rows={[]} />);
+    const { container } = render(<HeatTable rows={[]} market={TW} />);
     expect(container.querySelector('table')).toBeNull();
   });
 });

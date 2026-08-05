@@ -45,6 +45,10 @@
 .wrap { max-width: var(--maxw); margin: 0 auto; padding: 26px 26px 80px; }
 .empty-note { padding: 40px; text-align: center; color: var(--ink-3); font-style: italic; }
 
+/* 市場切換（台股大盤 / Nasdaq）——比區間高一階，所以字大一點、獨佔一列 */
+.market-tabs { margin-bottom: 14px; }
+.market-tabs .tab { font-size: 15px; padding: 11px 22px; letter-spacing: .02em; }
+
 /* 區間切換 */
 .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
 .method-link {

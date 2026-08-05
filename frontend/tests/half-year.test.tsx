@@ -49,7 +49,7 @@ describe('half-year helpers', () => {
 });
 
 const day = (date: string) => ({
-  date, taiex_close: 43119.75, turnover: 8877, expected_turnover: 12209.5,
+  date, index_close: 43119.75, turnover: 8877, expected_turnover: 12209.5,
   volume_ratio: 0.727, residual: -0.319, percentile: 0.042,
   level: 'very_cold', label: '明顯偏冷',
 });
@@ -62,7 +62,7 @@ function renderPage(requests: string[]) {
       const search = new URL(request.url).search;
       requests.push(search);
       // 近 N 日的請求只回最後一筆，全歷史回全部 —— 讓「有沒有抓全歷史」看得出來
-      const days = search ? HISTORY.slice(-1) : HISTORY;
+      const days = search.includes('days=') ? HISTORY.slice(-1) : HISTORY;
       return HttpResponse.json({ latest: HISTORY[HISTORY.length - 1], days });
     }),
   );
@@ -83,7 +83,7 @@ describe('半年區間 dropdown', () => {
     await screen.findByText('位階常態(億元)');
 
     await userEvent.selectOptions(screen.getByLabelText('半年區間'), '2025H2');
-    expect(requests).toContain('');   // 全歷史（沒有 days 參數）
+    expect(requests).toContain('?market=TW');   // 全歷史（沒有 days 參數）
 
     const dates = await screen.findAllByText(/^2025-08-01$/);
     expect(dates.length).toBeGreaterThan(0);
@@ -104,7 +104,7 @@ describe('半年區間 dropdown', () => {
     await userEvent.click(screen.getByRole('tab', { name: '近一月' }));
     expect(select.value).toBe('');
     expect(screen.getByRole('tab', { name: '近一月' })).toHaveAttribute('aria-selected', 'true');
-    expect(requests).toContain('?days=22');
+    expect(requests).toContain('?market=TW&days=22');
   });
 
   it('選項到最新資料所在的半年為止', async () => {

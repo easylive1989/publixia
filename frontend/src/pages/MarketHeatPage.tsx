@@ -12,6 +12,7 @@ import {
   parseHalfYear,
   type HalfYear,
 } from '@/lib/half-year';
+import { DEFAULT_MARKET, MARKETS, type MarketConfig } from '@/lib/markets';
 
 // 區間以交易日計：一月 ~22、一季 ~66、半年 ~130、一年 ~240。
 const RANGES: { label: string; days: number | null }[] = [
@@ -23,18 +24,33 @@ const RANGES: { label: string; days: number | null }[] = [
 ];
 
 export default function MarketHeatPage() {
+  const [market, setMarket] = useState<MarketConfig>(DEFAULT_MARKET);
   const [days, setDays] = useState<number | null>(66);
   // 選了半年區間就改抓全歷史，再於前端切出該半年；此時區間 tab 不亮。
   const [half, setHalf] = useState<HalfYear | null>(null);
-  const heat = useMarketHeat(half ? null : days);
+  const heat = useMarketHeat(half ? null : days, market.id);
   const all = heat.data?.days ?? [];
   const rows = half ? filterHalfYear(all, half) : all;
   // 今日判讀卡跟著區間走：看半年區間時顯示該半年最後一個交易日。
-  const shown = { latest: rows.length ? rows[rows.length - 1] : null, days: rows };
-  const options = halfYearOptions(heat.data?.latest?.date);
+  const shown = { market: market.id, latest: rows.length ? rows[rows.length - 1] : null, days: rows };
+  const options = halfYearOptions(heat.data?.latest?.date, market.dataStartYear);
 
   return (
     <main className="wrap">
+      <div className="filters market-tabs" role="tablist" aria-label="市場">
+        {MARKETS.map((m) => (
+          <button
+            key={m.id}
+            role="tab"
+            aria-selected={market.id === m.id}
+            className={`tab${market.id === m.id ? ' on' : ''}`}
+            onClick={() => setMarket(m)}
+          >
+            {m.tab}
+          </button>
+        ))}
+      </div>
+
       <div className="toolbar">
         <div className="range-picker">
           <div className="filters" role="tablist" aria-label="區間">
@@ -73,18 +89,18 @@ export default function MarketHeatPage() {
       {half && !heat.isLoading && rows.length === 0 ? (
         <div className="empty-note">{halfYearLabel(half)}半年沒有資料。</div>
       ) : (
-        <MarketHeat data={shown} isLoading={heat.isLoading} />
+        <MarketHeat data={shown} isLoading={heat.isLoading} market={market} />
       )}
 
       {rows.length > 0 && (
         <section className="panel idx-panel">
-          <h2 className="panel-title">大盤位階 vs 量能判讀</h2>
-          <IndexChart days={rows} />
-          <IndexLegend />
+          <h2 className="panel-title">{market.indexLabel}位階 vs 量能判讀</h2>
+          <IndexChart days={rows} market={market} />
+          <IndexLegend market={market} />
         </section>
       )}
 
-      <HeatTable rows={rows} />
+      <HeatTable rows={rows} market={market} />
     </main>
   );
 }
