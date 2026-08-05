@@ -91,4 +91,33 @@ jobs:
           print("latest:", heat[-1])
           from collections import Counter
           print("level 分佈（近 240 日）:", Counter(h["level"] for h in heat[-240:]))
+          print("level 分佈（全歷史）:", Counter(h["level"] for h in heat))
+
+          # 殘差是不是在趨勢性下滑？百分位擋得掉常數偏移，擋不掉趨勢。
+          import statistics
+          print("--- 各年殘差中位數（負且遞減 = 量能相對擬合線持續走弱）---")
+          by_year = {}
+          for h in heat:
+              by_year.setdefault(h["date"][:4], []).append(h["residual"])
+          for y in sorted(by_year):
+              rs = by_year[y]
+              print(f"  {y}  n={len(rs):4d}  median={statistics.median(rs):+.3f}")
+
+          # 對照組：改用滾動 3 年迴歸，冷熱分佈會不會回到均勻？
+          print("--- 滾動 3 年迴歸（每天只用前 750 個交易日擬合）---")
+          from services.market_heat import WINDOW, classify
+          import math
+          resid = []
+          for i in range(len(rows)):
+              lo = max(0, i - 749)
+              a2, b2 = fit_log_regression(rows[lo:i + 1]) if i - lo >= 59 else (a, b)
+              exp = math.exp(a2 + b2 * math.log(rows[i]["index_close"]))
+              resid.append(math.log(rows[i]["turnover"] / exp))
+          levels = []
+          for i in range(len(resid)):
+              w = resid[max(0, i - WINDOW + 1): i + 1]
+              p = 0.5 if len(w) == 1 else sum(1 for r in w if r < resid[i]) / (len(w) - 1)
+              levels.append(classify(p)[0])
+          print("level 分佈（近 240 日，滾動迴歸）:", Counter(levels[-240:]))
+          print("level 分佈（全歷史，滾動迴歸）:", Counter(levels))
           PY
