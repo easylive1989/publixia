@@ -15,6 +15,7 @@ import pytz
 from core.alerts import send_alert
 from core.discord import send_to_discord
 from core.errors import MarketClosed, StockDashboardError
+from core.markets import TW
 from core.settings import settings
 from core.twse_intraday import IntradaySnapshot, fetch_snapshot
 from repositories import market_volume as repo
@@ -71,11 +72,12 @@ def build_reading(snapshot: IntradaySnapshot) -> dict | None:
         else extrapolate_turnover(snapshot.turnover, at)
     )
 
+    # 盤中判讀只做台股：MIS 快照是 TWSE 的，外推用的也是台股 09:00–13:30 場次。
     # 今天若已經有列（收盤 sync 跑過了）就換掉，別讓同一天出現兩列。
-    rows = [r for r in repo.list_days() if r["date"] < snapshot.date]
+    rows = [r for r in repo.list_days(TW) if r["date"] < snapshot.date]
     rows.append({
         "date": snapshot.date,
-        "taiex_close": snapshot.taiex,
+        "index_close": snapshot.taiex,
         "turnover": estimated,
     })
 
@@ -105,7 +107,7 @@ def format_message(reading: dict) -> str:
         "",
         f"{_EMOJI.get(today['level'], '')} **{today['label']}**"
         f"（近一年百分位 PR {round(today['percentile'] * 100)}）",
-        f"加權指數　{today['taiex_close']:,.2f}",
+        f"加權指數　{today['index_close']:,.2f}",
     ]
     if reading["is_final"]:
         lines.append(f"成交金額　{_yi(today['turnover'])} 億")
@@ -164,8 +166,8 @@ def run_intraday_heat_signal(today: date | None = None) -> dict:
     reading = build_reading(snapshot)
     if reading is None:
         raise StockDashboardError(
-            f"{today} 盤中判讀算不出來：market_volume_daily 的歷史不足以做迴歸"
-            f"（共 {len(repo.list_days())} 列，最新 {repo.latest_date()}）—— "
+            f"{today} 盤中判讀算不出來：market_volume_daily 的台股歷史不足以做迴歸"
+            f"（共 {len(repo.list_days(TW))} 列，最新 {repo.latest_date(TW)}）—— "
             "先跑 POST /api/market/volume-heat/refresh 回補"
         )
 

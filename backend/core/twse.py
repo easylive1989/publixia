@@ -34,7 +34,7 @@ def _num(s: str) -> float:
 def fetch_month(year: int, month: int) -> list[dict]:
     """Fetch one month of daily market totals.
 
-    Returns ``[{date, taiex_close, turnover}, ...]`` (turnover in 億元),
+    Returns ``[{date, index_close, turnover}, ...]`` (turnover in 億元),
     empty list for months TWSE has no data for (future / pre-1999).
     """
     params = {"date": f"{year:04d}{month:02d}01", "response": "json"}
@@ -54,7 +54,7 @@ def fetch_month(year: int, month: int) -> list[dict]:
         try:
             rows.append({
                 "date": _roc_to_iso(raw[0]),
-                "taiex_close": _num(raw[4]),
+                "index_close": _num(raw[4]),
                 "turnover": _num(raw[2]) / _YI,
             })
         except (IndexError, ValueError) as e:

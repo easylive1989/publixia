@@ -150,7 +150,7 @@ def _from_fmtqik(today: date) -> IntradaySnapshot | None:
             return IntradaySnapshot(
                 date=row["date"],
                 time="收盤",
-                taiex=row["taiex_close"],
+                taiex=row["index_close"],
                 turnover=row["turnover"],
                 is_final=True,
             )

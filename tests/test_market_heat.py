@@ -1,6 +1,7 @@
 """market_heat computation: regression, percentile, classification, payload."""
 import math
 
+from core.markets import TW
 from repositories import market_volume as repo
 from services.market_heat import (
     MIN_ROWS, classify, compute_heat, fit_log_regression, get_market_heat,
@@ -19,7 +20,7 @@ def _rows_on_powerlaw(n, a=-7.75, b=1.608, bump=None):
             turnover *= bump[i]
         rows.append({
             "date": f"2026-{1 + i // 28:02d}-{1 + i % 28:02d}",
-            "taiex_close": index,
+            "index_close": index,
             "turnover": turnover,
         })
     return rows
@@ -78,7 +79,7 @@ def test_compute_heat_requires_min_history():
 
 
 def test_get_market_heat_payload_from_db():
-    repo.upsert_days(_rows_on_powerlaw(120, bump={119: 3.0}))
+    repo.upsert_days(TW, _rows_on_powerlaw(120, bump={119: 3.0}))
     payload = get_market_heat(days=30)
     assert len(payload["days"]) == 30
     assert payload["latest"]["date"] == payload["days"][-1]["date"]
@@ -89,4 +90,4 @@ def test_get_market_heat_payload_from_db():
 
 
 def test_get_market_heat_empty_db():
-    assert get_market_heat() == {"latest": None, "days": []}
+    assert get_market_heat() == {"market": "TW", "latest": None, "days": []}

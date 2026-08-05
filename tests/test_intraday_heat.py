@@ -11,6 +11,7 @@ from core.errors import (
     FetcherError, FetcherParseError, MarketClosed, StockDashboardError,
 )
 from core.twse_intraday import IntradaySnapshot
+from core.markets import TW
 from repositories import market_volume as repo
 from services import intraday_heat as svc
 
@@ -53,7 +54,7 @@ def _history(n=80, start=date(2026, 1, 1)):
         turnover = 3000.0 * (taiex / 20000.0) ** 1.6 * wobble
         rows.append({
             "date": (start + timedelta(days=i)).isoformat(),
-            "taiex_close": taiex,
+            "index_close": taiex,
             "turnover": turnover,
         })
     return rows
@@ -166,7 +167,7 @@ def test_snapshot_falls_back_to_fmtqik_after_close(monkeypatch):
         raise intraday.FetcherError("MIS down")
     monkeypatch.setattr(intraday, "_get", boom)
     monkeypatch.setattr(intraday, "fetch_month", lambda y, m: [
-        {"date": "2026-08-03", "taiex_close": 43119.75, "turnover": 8877.0},
+        {"date": "2026-08-03", "index_close": 43119.75, "turnover": 8877.0},
     ])
     snap = intraday.fetch_snapshot(date(2026, 8, 3))
     assert snap.is_final is True
@@ -176,7 +177,7 @@ def test_snapshot_falls_back_to_fmtqik_after_close(monkeypatch):
 # --- 判讀組裝 -----------------------------------------------------------
 
 def test_build_reading_extrapolates_and_classifies_hot():
-    repo.upsert_days(_history())
+    repo.upsert_days(TW, _history())
     snap = IntradaySnapshot(
         date="2026-03-30", time="13:00:00",
         taiex=20800.0, turnover=8000.0, is_final=False,
@@ -194,19 +195,19 @@ def test_build_reading_extrapolates_and_classifies_hot():
 def test_build_reading_replaces_todays_existing_row():
     """收盤 sync 已寫過今天時，盤中判讀要換掉那一列而不是多長一天。"""
     rows = _history()
-    repo.upsert_days(rows)
+    repo.upsert_days(TW, rows)
     today = rows[-1]["date"]
     snap = IntradaySnapshot(
         date=today, time="13:00:00", taiex=99999.0, turnover=1.0, is_final=True,
     )
     reading = svc.build_reading(snap)
     assert reading["today"]["date"] == today
-    assert reading["today"]["taiex_close"] == 99999.0
+    assert reading["today"]["index_close"] == 99999.0
     assert reading["prev"]["date"] == rows[-2]["date"]
 
 
 def test_build_reading_needs_enough_history():
-    repo.upsert_days(_history(n=5))
+    repo.upsert_days(TW, _history(n=5))
     snap = IntradaySnapshot(
         date="2026-03-30", time="13:00:00", taiex=20800.0, turnover=8000.0, is_final=False,
     )
@@ -216,7 +217,7 @@ def test_build_reading_needs_enough_history():
 def test_intraday_message_labels_the_estimate_and_shows_both_numbers():
     reading = {
         "today": {
-            "date": "2026-08-03", "taiex_close": 43119.75, "turnover": 9000.0,
+            "date": "2026-08-03", "index_close": 43119.75, "turnover": 9000.0,
             "expected_turnover": 6540.0, "volume_ratio": 1.376,
             "percentile": 0.92, "level": "very_hot", "label": "明顯偏熱",
         },
@@ -237,7 +238,7 @@ def test_intraday_message_labels_the_estimate_and_shows_both_numbers():
 def test_final_message_drops_the_estimate_caveat():
     reading = {
         "today": {
-            "date": "2026-08-03", "taiex_close": 43119.75, "turnover": 8877.0,
+            "date": "2026-08-03", "index_close": 43119.75, "turnover": 8877.0,
             "expected_turnover": 6540.0, "volume_ratio": 1.36,
             "percentile": 0.5, "level": "normal", "label": "正常",
         },
@@ -252,7 +253,7 @@ def test_final_message_drops_the_estimate_caveat():
 # --- job ----------------------------------------------------------------
 
 def test_run_sends_reading_to_discord(monkeypatch):
-    repo.upsert_days(_history())
+    repo.upsert_days(TW, _history())
     monkeypatch.setattr(
         svc.settings, "discord_market_webhook_url", SecretStr("https://hook.test"),
     )
@@ -271,7 +272,7 @@ def test_run_sends_reading_to_discord(monkeypatch):
 
 def test_non_trading_day_still_says_so_on_discord(monkeypatch):
     """休市不是失敗，但也不能沒聲音 —— 「沒訊息」只該代表 job 沒跑。"""
-    repo.upsert_days(_history())
+    repo.upsert_days(TW, _history())
 
     def closed(today):
         raise MarketClosed("TWSE MIS 指數資料停在 '20260731'")
@@ -290,7 +291,7 @@ def test_non_trading_day_still_says_so_on_discord(monkeypatch):
 
 def test_snapshot_failure_propagates_so_the_scheduler_alerts(monkeypatch):
     """抓不到快照是故障，不能被吞成一個安靜的 return。"""
-    repo.upsert_days(_history())
+    repo.upsert_days(TW, _history())
 
     def boom(today):
         raise FetcherError("MIS msgArray 是空的 rtcode='5004'")
@@ -300,7 +301,7 @@ def test_snapshot_failure_propagates_so_the_scheduler_alerts(monkeypatch):
 
 
 def test_insufficient_history_raises_with_the_row_count(monkeypatch):
-    repo.upsert_days(_history(n=5))
+    repo.upsert_days(TW, _history(n=5))
     monkeypatch.setattr(svc, "fetch_snapshot", lambda today: IntradaySnapshot(
         date="2026-03-30", time="13:00:00", taiex=20800.0, turnover=8000.0, is_final=False,
     ))
@@ -310,7 +311,7 @@ def test_insufficient_history_raises_with_the_row_count(monkeypatch):
 
 
 def test_missing_webhook_raises_and_names_the_env_var(monkeypatch):
-    repo.upsert_days(_history())
+    repo.upsert_days(TW, _history())
     monkeypatch.setattr(svc.settings, "discord_market_webhook_url", None)
     monkeypatch.setattr(svc.settings, "discord_stock_webhook_url", None)
     monkeypatch.setattr(svc, "fetch_snapshot", lambda today: IntradaySnapshot(
@@ -332,7 +333,7 @@ def test_blank_webhook_counts_as_unset(monkeypatch):
 def test_run_does_not_persist_the_estimate(monkeypatch):
     """估計值不能落地，否則前端在收盤資料回補前會把它當定案數字。"""
     rows = _history()
-    repo.upsert_days(rows)
+    repo.upsert_days(TW, rows)
     monkeypatch.setattr(
         svc.settings, "discord_market_webhook_url", SecretStr("https://hook.test"),
     )
@@ -342,8 +343,8 @@ def test_run_does_not_persist_the_estimate(monkeypatch):
     monkeypatch.setattr(svc, "send_to_discord", lambda url, payload: None)
 
     svc.run_intraday_heat_signal(today=date(2026, 8, 3))
-    assert repo.latest_date() == rows[-1]["date"]
-    assert len(repo.list_days()) == len(rows)
+    assert repo.latest_date(TW) == rows[-1]["date"]
+    assert len(repo.list_days(TW)) == len(rows)
 
 
 def test_webhook_falls_back_to_the_stock_hook(monkeypatch):

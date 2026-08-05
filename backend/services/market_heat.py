@@ -2,22 +2,29 @@
 
 Method (ported from the reference Google Sheet):
 
-1. 位階常態 — OLS of ln(成交金額) on ln(加權指數) over the full history:
+1. 位階常態 — OLS of ln(量能) on ln(指數) over the full history:
    expected turnover at today's index level. Volume grows superlinearly with
-   the index (fitted slope ≈ 1.6), so a raw moving average would misread
-   every rally as "hot"; regressing on the index level removes that drift.
-2. 量能比 = 成交金額 / 位階常態; 殘差 = ln(量能比).
+   the index (台股成交金額的擬合斜率 ≈ 1.6), so a raw moving average would
+   misread every rally as "hot"; regressing on the index level removes that
+   drift.
+2. 量能比 = 量能 / 位階常態; 殘差 = ln(量能比).
 3. 近一年百分位 — PERCENTRANK.INC of today's residual within the trailing
    ``WINDOW`` trading days (incl. today): share of the window strictly below
    today, over window size - 1.
 4. 判讀 — five bands on the percentile:
    ≥0.8 明顯偏熱 / ≥0.6 偏熱 / >0.4 正常 / >0.2 偏冷 / else 明顯偏冷.
 
+模型本身跟市場無關 —— 它只吃「指數收盤 + 當日量能」，每個市場各自用自己的
+歷史迴歸、自己的近一年分佈排百分位，所以 TW 存成交金額（億元）、US 存成交
+股數（億股）並不衝突：兩邊的殘差都是「相對自己的位階常態偏離多少」，本來就
+不跨市場比較。
+
 Everything is derived on read from the raw ``market_volume_daily`` rows —
 nothing here persists, so the regression always reflects the full history.
 """
 import math
 
+from core.markets import TW
 from repositories import market_volume as repo
 
 # 今日 + 前 240 個交易日 ≈ 近一年。
@@ -49,8 +56,8 @@ def classify(percentile: float) -> tuple[str, str]:
 
 
 def fit_log_regression(rows: list[dict]) -> tuple[float, float]:
-    """OLS ln(turnover) = a + b·ln(taiex_close). Returns (a, b)."""
-    xs = [math.log(r["taiex_close"]) for r in rows]
+    """OLS ln(turnover) = a + b·ln(index_close). Returns (a, b)."""
+    xs = [math.log(r["index_close"]) for r in rows]
     ys = [math.log(r["turnover"]) for r in rows]
     n = len(rows)
     mx = sum(xs) / n
@@ -79,12 +86,12 @@ def compute_heat(rows: list[dict]) -> list[dict]:
     residuals: list[float] = []
     out: list[dict] = []
     for r in rows:
-        expected = math.exp(a + b * math.log(r["taiex_close"]))
+        expected = math.exp(a + b * math.log(r["index_close"]))
         residual = math.log(r["turnover"] / expected)
         residuals.append(residual)
         out.append({
             "date": r["date"],
-            "taiex_close": r["taiex_close"],
+            "index_close": r["index_close"],
             "turnover": r["turnover"],
             "expected_turnover": expected,
             "volume_ratio": r["turnover"] / expected,
@@ -99,11 +106,12 @@ def compute_heat(rows: list[dict]) -> list[dict]:
     return out
 
 
-def get_market_heat(days: int | None = None) -> dict:
+def get_market_heat(days: int | None = None, market: str = TW) -> dict:
     """API payload: the latest reading + the last ``days`` readings
     (date-ascending, chart-ready). ``days=None`` returns the full history."""
-    heat = compute_heat(repo.list_days())
+    heat = compute_heat(repo.list_days(market))
     return {
+        "market": market,
         "latest": heat[-1] if heat else None,
         "days": heat[-days:] if days else heat,
     }

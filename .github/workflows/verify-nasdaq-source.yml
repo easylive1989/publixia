@@ -1,0 +1,94 @@
+name: Verify Nasdaq data source
+
+# 暫時性的探針：本機沙箱連不到 finance 類 host，所以借 Actions runner 的網路
+# 實測 core/nasdaq.py 打的 Yahoo endpoint 到底回什麼。驗完就刪，不留在 repo 裡
+# —— 這支依賴外部網路，留著只會變成會無故變紅的 flaky job。
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Raw response shape
+        run: |
+          python - <<'PY'
+          import json, requests
+          from datetime import date, datetime, timedelta, timezone
+
+          url = "https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC"
+          p1 = int(datetime(2026, 7, 1, tzinfo=timezone.utc).timestamp())
+          p2 = int(datetime(2026, 8, 6, tzinfo=timezone.utc).timestamp())
+          r = requests.get(
+              url,
+              params={"period1": p1, "period2": p2, "interval": "1d"},
+              headers={"User-Agent": "Mozilla/5.0 (stock-dashboard nasdaq sync)"},
+              timeout=30,
+          )
+          print("HTTP", r.status_code)
+          print("content-type:", r.headers.get("content-type"))
+          body = r.text
+          print("body[:600]:", body[:600])
+          try:
+              d = r.json()
+          except Exception as e:
+              print("NOT JSON:", e)
+              raise SystemExit(0)
+          print("top keys:", sorted(d))
+          chart = d.get("chart") or {}
+          print("chart keys:", sorted(chart), "error:", chart.get("error"))
+          res = (chart.get("result") or [None])[0]
+          if not res:
+              raise SystemExit(0)
+          print("result keys:", sorted(res))
+          ts = res.get("timestamp") or []
+          q = ((res.get("indicators") or {}).get("quote") or [{}])[0]
+          print("quote keys:", sorted(q))
+          print("n timestamps:", len(ts))
+          print("close sample:", (q.get("close") or [])[:5])
+          print("volume sample:", (q.get("volume") or [])[:5])
+          if ts:
+              print("first ts ->", datetime.fromtimestamp(ts[0], tz=timezone.utc).isoformat())
+              print("last  ts ->", datetime.fromtimestamp(ts[-1], tz=timezone.utc).isoformat())
+          print("meta:", json.dumps(res.get("meta", {}))[:500])
+          PY
+
+      - name: Run the real fetcher (full backfill range)
+        run: |
+          cd backend
+          python - <<'PY'
+          import sys; sys.path.insert(0, ".")
+          from datetime import date
+          from core.nasdaq import fetch_range
+
+          rows = fetch_range(date(2016, 1, 1), date(2026, 8, 5))
+          print("rows:", len(rows))
+          print("first:", rows[0])
+          print("last :", rows[-1])
+          tv = [r["turnover"] for r in rows]
+          iv = [r["index_close"] for r in rows]
+          print(f"turnover 億股  min={min(tv):.1f} max={max(tv):.1f} mean={sum(tv)/len(tv):.1f}")
+          print(f"index_close    min={min(iv):.1f} max={max(iv):.1f}")
+
+          # 判讀模型跑得動嗎？位階常態的斜率長什麼樣？
+          from services.market_heat import compute_heat, fit_log_regression
+          a, b = fit_log_regression(rows)
+          print(f"OLS ln(成交股數) = {a:.4f} + {b:.4f}*ln(指數)")
+          heat = compute_heat(rows)
+          print("heat rows:", len(heat))
+          print("latest:", heat[-1])
+          from collections import Counter
+          print("level 分佈（近 240 日）:", Counter(h["level"] for h in heat[-240:]))
+          PY
