@@ -1,0 +1,140 @@
+name: Verify TWSE MIS intraday source
+
+# 暫時性的探針：本機沙箱連不到 mis.twse.com.tw（proxy 403），所以借 Actions
+# runner 的網路實測 core/twse_intraday.py 打的兩支 MIS endpoint 到底回什麼。
+# 驗完就刪，不留在 repo 裡 —— 依賴外部網路的 job 留著只會無故變紅。
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Probe MIS
+        run: |
+          python - <<'PY'
+          import json, re, time
+          import requests
+
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+          BASE = "https://mis.twse.com.tw"
+          H = {"User-Agent": UA, "Referer": f"{BASE}/stock/index.jsp",
+               "Accept": "application/json, text/javascript, */*; q=0.01",
+               "X-Requested-With": "XMLHttpRequest"}
+
+          def show(tag, r):
+              print(f"--- {tag}")
+              print("  HTTP", r.status_code, r.headers.get("content-type"))
+              body = r.text
+              print("  body[:400]:", body[:400].replace("\n", " "))
+              try:
+                  return r.json()
+              except Exception as e:
+                  print("  NOT JSON:", e)
+                  return None
+
+          print("=== 1. 無 session（重現 rtcode 9999）")
+          try:
+              r = requests.get(f"{BASE}/stock/api/getStatis.jsp", params={"ex": "tse"},
+                               headers=H, timeout=20)
+              show("getStatis no-session", r)
+          except Exception as e:
+              print("  EXC:", type(e).__name__, e)
+
+          print("=== 2. 先開 index.jsp 拿 cookie，再打同一支")
+          s = requests.Session()
+          s.headers.update({"User-Agent": UA})
+          try:
+              home = s.get(f"{BASE}/stock/index.jsp", timeout=20)
+              print("  index.jsp HTTP", home.status_code, "len", len(home.text))
+              print("  cookies:", s.cookies.get_dict())
+              html = home.text
+              # 這一頁自己會呼叫哪些 api —— 端點名稱直接從頁面挖，別用猜的
+              apis = sorted(set(re.findall(r"[\w/\.]*api/\w+\.jsp", html)))
+              print("  api refs in html:", apis)
+              srcs = sorted(set(re.findall(r'src="([^"]+\.js[^"]*)"', html)))
+              print("  scripts:", srcs[:20])
+              for src in srcs:
+                  url = src if src.startswith("http") else f"{BASE}/stock/{src.lstrip('/')}"
+                  try:
+                      js = s.get(url, timeout=20).text
+                  except Exception as e:
+                      print(f"  js {src}: EXC {e}")
+                      continue
+                  found = sorted(set(re.findall(r"api/\w+\.jsp", js)))
+                  if found:
+                      print(f"  js {src}: {found}")
+                      for name in found:
+                          for m in re.finditer(re.escape(name) + r"[^\"'\n]{0,120}", js):
+                              print("      call:", m.group(0)[:140])
+          except Exception as e:
+              print("  EXC:", type(e).__name__, e)
+
+          for tag, params in [
+              ("getStatis ex=tse", {"ex": "tse"}),
+              ("getStatis ex=tse json/delay/_", {"ex": "tse", "json": "1", "delay": "0", "_": str(int(time.time() * 1000))}),
+              ("getStatis ex=tse&i=", {"ex": "tse", "i": ""}),
+              ("getStatis ex=TSE", {"ex": "TSE"}),
+          ]:
+              try:
+                  r = s.get(f"{BASE}/stock/api/getStatis.jsp", params=params, headers=H, timeout=20)
+                  d = show(tag, r)
+                  if isinstance(d, dict):
+                      print("  top keys:", sorted(d))
+                      for row in (d.get("msgArray") or [])[:3]:
+                          print("  row:", json.dumps(row, ensure_ascii=False))
+              except Exception as e:
+                  print(f"--- {tag}\n  EXC: {type(e).__name__} {e}")
+
+          print("=== 3. getStockInfo tse_t00.tw 整列欄位（看指數列本身有沒有帶累計金額）")
+          for tag, ch in [("t00", "tse_t00.tw"), ("t00+2330", "tse_t00.tw|tse_2330.tw")]:
+              try:
+                  r = s.get(f"{BASE}/stock/api/getStockInfo.jsp",
+                            params={"ex_ch": ch, "json": "1", "delay": "0",
+                                    "_": str(int(time.time() * 1000))},
+                            headers=H, timeout=20)
+                  d = show(f"getStockInfo {tag}", r)
+                  if isinstance(d, dict):
+                      print("  top keys:", sorted(d))
+                      for row in (d.get("msgArray") or []):
+                          print("  row:", json.dumps(row, ensure_ascii=False))
+              except Exception as e:
+                  print(f"--- getStockInfo {tag}\n  EXC: {type(e).__name__} {e}")
+
+          print("=== 4. 其他可能的大盤統計端點")
+          for name, params in [
+              ("getStatis.jsp", {"ex": "tse", "json": "1"}),
+              ("getCategory.jsp", {"ex": "tse", "i": "01", "json": "1"}),
+              ("getDailyRank.jsp", {"ex": "tse", "json": "1"}),
+          ]:
+              try:
+                  r = s.get(f"{BASE}/stock/api/{name}", params=params, headers=H, timeout=20)
+                  print(f"--- {name} {params} -> HTTP {r.status_code} body[:300]: {r.text[:300]}")
+              except Exception as e:
+                  print(f"--- {name}: EXC {type(e).__name__} {e}")
+
+          print("=== 5. TWSE 官網盤中大盤統計（MIS 之外的退路）")
+          for tag, url, params in [
+              ("FMTQIK 當月", "https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK",
+               {"date": "20260805", "response": "json"}),
+              ("MI_INDEX 當日", "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX",
+               {"date": "20260805", "type": "MS", "response": "json"}),
+          ]:
+              try:
+                  r = requests.get(url, params=params, headers={"User-Agent": UA}, timeout=20)
+                  print(f"--- {tag} -> HTTP {r.status_code} body[:500]: {r.text[:500]}")
+              except Exception as e:
+                  print(f"--- {tag}: EXC {type(e).__name__} {e}")
+          PY
