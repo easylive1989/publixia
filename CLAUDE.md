@@ -45,7 +45,7 @@ Layered: **core (fetchers) → repositories → services → routes**, with APSc
 - `backend/main.py` — FastAPI app (`Market Heat API`), registers `api/routes/market.py`.
 - `backend/scheduler.py` + `backend/jobs/registry.py` — APScheduler in TST, DB-driven. `JOBS` is the name → callable + default-cron map; rows are seeded into `scheduler_jobs` on startup (insert-if-missing), and edits to that table take effect on the next restart. Jobs: `intraday_heat_signal` (`0 13 * * 1-5`, 盤中判讀推 Discord), `market_volume_sync` (`0 16 * * 1-5`, TWSE 收盤後), `nasdaq_volume_sync` (`0 6 * * 2-6`, 美股 16:00 ET 收盤後，夏令/冬令都涵蓋), `backup_db` (`0 3`).
 - `backend/core/markets.py` — the `TW`/`US` market codes. Everything downstream (repo, services, API) is market-scoped; there is deliberately no "all markets" query, since the two calendars and turnover units differ.
-- `backend/core/twse.py` — FMTQIK 收盤月報 (the authoritative daily rows). `core/twse_intraday.py` — 盤中快照 via MIS 即時行情 (`getStockInfo.jsp` 指數 + `getStatis.jsp` 累計成交金額), falling back to FMTQIK when MIS has nothing for today. `core/nasdaq.py` — Yahoo chart endpoint (`^IXIC`), one request for the whole range (see 兩個市場的量能不是同一種東西 below). `core/discord.py` — `send_to_discord`. `core/alerts.py` — `send_alert` (維運通報, see 失敗一定要有聲音 below).
+- `backend/core/twse.py` — FMTQIK 收盤月報 (the authoritative daily rows). `core/twse_intraday.py` — 盤中快照 via MIS 即時行情 (`getStockInfo.jsp` 指數 + `getStatis.jsp` → `detail.tz` 累計成交金額；每次請求都要帶 `_` epoch 毫秒), falling back to FMTQIK when MIS has nothing for today. `core/nasdaq.py` — Yahoo chart endpoint (`^IXIC`), one request for the whole range (see 兩個市場的量能不是同一種東西 below). `core/discord.py` — `send_to_discord`. `core/alerts.py` — `send_alert` (維運通報, see 失敗一定要有聲音 below).
 - `backend/services/` — `market_volume_sync.py` (two entry points: `run_market_volume_sync` TWSE 月報式增量, `run_nasdaq_volume_sync` Yahoo 單請求 + 10 天重疊視窗; empty table backfills from 2016, or hit `POST /api/market/volume-heat/refresh?market=…`), `market_heat.py` (冷熱判讀 — ln量能 vs ln指數 OLS 位階常態 → 殘差近一年百分位 → 五級判讀, all derived on read, market-agnostic), `intraday_heat.py` (盤中快照 → 線性外推全日成交金額 → 判讀 → Discord, **台股 only**), `backup.py` (SQLite → R2).
 - `backend/db/runner.py` — forward-only migration runner; `init_db()` runs on every startup.
 
@@ -105,11 +105,17 @@ Two things to preserve when touching it:
   in the frontend as a real bar until the 16:00 sync overwrites it.
 - `core/twse_intraday.py` guards the turnover magnitude (10–100,000 億元) and
   raises with the actual response keys when MIS's 成交金額 field is missing —
-  a silently wrong unit is worse than a missing reading. **The MIS 大盤統計
-  endpoint/field (`getStatis.jsp` → `tm`) has not been verified against a live
-  session**; `fetch_snapshot` raises (never returns `None`) so the failure
-  reason reaches Discord — 空 `msgArray` 會連 `rtcode`/`rtmessage` 一起報，那正是
-  MIS 講「你沒有 session」的地方。修的時候就改這一個模組。
+  a silently wrong unit is worse than a missing reading. `fetch_snapshot` raises
+  (never returns `None`) so the failure reason reaches Discord. 修的時候就改這
+  一個模組。
+
+MIS 的兩支 endpoint 已在 2026-08-05 用 Actions runner 對活的服務實測過（沙箱連
+不到 `mis.twse.com.tw`），三件反直覺、動到就會踩的事寫在該模組 docstring 裡，
+最重要的是：**`_=<epoch 毫秒>` 是 `getStatis` 的必要參數**，少了它一律回
+`rtcode 9999`「發生錯誤，請重新整理網頁。」（這支 job 上線後每天推的就是它）；
+`getStatis` 沒有 `msgArray`，值在 `detail` 底下；成交金額欄位是 `tz`（元），
+隔壁的 `tv` 是成交張數。另外 MIS 只算逐筆交易，比 FMTQIK 定案值**低約 3~4%**
+（FMTQIK 另含零股、盤後定價、鉅額），所以盤中判讀本來就會比收盤後略偏冷。
 
 ## Frontend architecture
 
