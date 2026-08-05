@@ -32,13 +32,24 @@ def _mis_index(d="20260803", t="13:00:07", z="43,119.75"):
             "rtcode": "0000"}
 
 
-def _mis_statis(tm="789,000,000,000"):
-    return {"msgArray": [{"ex": "tse", "tm": tm}], "rtcode": "0000"}
+def _mis_statis(tz="789,000,000,000", key="tse_20260803"):
+    """getStatis 的真實形狀：統計值在 ``detail`` 底下，沒有 msgArray。"""
+    return {"detail": {"key": key, "tv": "13,075,318", "tz": tz},
+            "rtcode": "0000", "rtmessage": "OK"}
 
 
-def _mis_responses(index_payload, statis_payload):
-    """requests.get stub routing by URL (index vs 大盤統計)."""
+# 少了 `_` 時 MIS 實際回的東西（2026-08-05 實測）。
+_MIS_9999 = {"rtcode": "9999", "rtmessage": "發生錯誤，請重新整理網頁。"}
+
+
+def _mis_responses(index_payload, statis_payload, calls=None):
+    """requests.get stub routing by URL (index vs 大盤統計)。
+
+    ``calls`` 有給就把每次的 (url, params) 記下來，讓測試驗參數。
+    """
     def fake_get(url, params=None, headers=None, timeout=None):
+        if calls is not None:
+            calls.append((url, params or {}))
         return _Resp(index_payload if url == intraday.INDEX_URL else statis_payload)
     return fake_get
 
@@ -102,11 +113,42 @@ def test_stale_index_date_is_reported_as_market_closed(monkeypatch):
     assert "20260731" in str(e.value)
 
 
+def test_every_mis_call_carries_the_cachebuster_param():
+    """``_`` 是 getStatis 的必要參數 —— 少了它一律 rtcode 9999，這支 job 上線
+    後每天推的就是那個。少了誰都要在這裡被抓到，不是等隔天的維運通報。"""
+    calls: list = []
+    with patch.object(
+        intraday.requests, "get",
+        side_effect=_mis_responses(_mis_index(), _mis_statis(), calls=calls),
+    ):
+        intraday._from_mis(date(2026, 8, 3))
+
+    assert [url for url, _ in calls] == [intraday.INDEX_URL, intraday.STATIS_URL]
+    for url, params in calls:
+        assert params["_"].isdigit(), url
+        # epoch 毫秒，不是秒、也不是寫死的字串
+        assert int(params["_"]) > 1_700_000_000_000, url
+    # `_` 之外，getStatis 就只吃 ex
+    assert {k: v for k, v in calls[1][1].items() if k != "_"} == {"ex": "tse"}
+
+
+def test_missing_cachebuster_response_is_reported_verbatim():
+    """真的又被 MIS 打回 9999 時，通報要看得到 rtcode 跟那句中文。"""
+    with patch.object(
+        intraday.requests, "get",
+        side_effect=_mis_responses(_mis_index(), _MIS_9999),
+    ):
+        with pytest.raises(FetcherParseError) as e:
+            intraday._from_mis(date(2026, 8, 3))
+    assert "9999" in str(e.value) and "重新整理" in str(e.value)
+    assert "detail" in str(e.value)  # 缺的是哪一塊
+
+
 def test_wrong_turnover_magnitude_raises_instead_of_going_quiet(monkeypatch):
     """欄位若已經是億元（而非元），要擋下來並且吵 —— 不是靜靜地沒有判讀。"""
     monkeypatch.setattr(
         intraday.requests, "get",
-        _mis_responses(_mis_index(), _mis_statis(tm="7,890")),
+        _mis_responses(_mis_index(), _mis_statis(tz="7,890")),
     )
     monkeypatch.setattr(intraday, "fetch_month", lambda y, m: [])
     with pytest.raises(FetcherError) as e:
@@ -114,17 +156,41 @@ def test_wrong_turnover_magnitude_raises_instead_of_going_quiet(monkeypatch):
     # 這不是休市，別被歸到安靜那一類
     assert not isinstance(e.value, MarketClosed)
     # 通報要能照著訊息直接定位到欄位跟數量級
-    assert "'tm'" in str(e.value) and "raw=7890.0" in str(e.value)
+    assert "'tz'" in str(e.value) and "raw=7890.0" in str(e.value)
+
+
+def test_turnover_field_is_amount_not_the_lot_count_next_to_it():
+    """tv（成交張數）在 tz 隔壁，拿錯的話單位差三個數量級還會看起來很正常。"""
+    with patch.object(
+        intraday.requests, "get",
+        side_effect=_mis_responses(_mis_index(), _mis_statis()),
+    ):
+        snap = intraday._from_mis(date(2026, 8, 3))
+    assert snap.turnover == pytest.approx(7890.0)  # tz / 1e8 億元
 
 
 def test_mis_missing_turnover_field_names_the_keys_it_saw():
     with patch.object(
         intraday.requests, "get",
-        side_effect=_mis_responses(_mis_index(), {"msgArray": [{"ex": "tse", "tv": "1"}]}),
+        side_effect=_mis_responses(
+            _mis_index(), {"detail": {"tv": "1"}, "rtcode": "0000"},
+        ),
     ):
         with pytest.raises(FetcherParseError) as e:
             intraday._from_mis(date(2026, 8, 3))
     assert "'tv'" in str(e.value)  # 實際欄位列在訊息裡，好照著修
+
+
+def test_statis_from_another_day_raises_instead_of_extrapolating_it():
+    """指數是今天、統計卻停在昨天 —— 拿昨天的金額外推會得到一個看起來正常、
+    其實完全錯的判讀。"""
+    with patch.object(
+        intraday.requests, "get",
+        side_effect=_mis_responses(_mis_index(), _mis_statis(key="tse_20260731")),
+    ):
+        with pytest.raises(FetcherParseError) as e:
+            intraday._from_mis(date(2026, 8, 3))
+    assert "20260731" in str(e.value) and "20260803" in str(e.value)
 
 
 def test_empty_msgarray_reports_rtcode_and_rtmessage():
