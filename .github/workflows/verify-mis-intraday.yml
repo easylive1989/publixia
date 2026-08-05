@@ -1,7 +1,7 @@
 name: Verify TWSE MIS intraday source
 
 # 暫時性的探針：本機沙箱連不到 mis.twse.com.tw（proxy 403），所以借 Actions
-# runner 的網路實測 core/twse_intraday.py 打的兩支 MIS endpoint 到底回什麼。
+# runner 的網路，讓修好的 core/twse_intraday.py 真的對一次活的 MIS。
 # 驗完就刪，不留在 repo 裡 —— 依賴外部網路的 job 留著只會無故變紅。
 
 on:
@@ -20,80 +20,30 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install requests
+      - run: pip install -r backend/requirements.txt
 
-      - name: Probe MIS
+      - name: fetch_snapshot against live MIS
+        working-directory: backend
         run: |
           python - <<'PY'
-          import json, time
-          import requests
+          from datetime import datetime
+          import pytz
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-          STATIS = "https://mis.twse.com.tw/stock/api/getStatis.jsp"
-          H = {"User-Agent": UA, "Referer": "https://mis.twse.com.tw/stock/index.jsp"}
-          ts = lambda: str(int(time.time() * 1000))
+          from core.twse_intraday import fetch_snapshot
+          from services.intraday_heat import extrapolate_turnover, _snapshot_time
 
-          def probe(tag, params, headers=H):
-              try:
-                  r = requests.get(STATIS, params=params, headers=headers, timeout=20)
-              except Exception as e:
-                  print(f"{tag:42} EXC {type(e).__name__} {e}")
-                  return None
-              try:
-                  d = r.json()
-              except Exception:
-                  print(f"{tag:42} HTTP {r.status_code} NOT JSON {r.text[:120]!r}")
-                  return None
-              print(f"{tag:42} rtcode={d.get('rtcode')} rtmessage={d.get('rtmessage')} "
-                    f"keys={sorted(d)}")
-              return d
+          today = datetime.now(pytz.timezone("Asia/Taipei")).date()
+          print("TST today:", today)
 
-          print("=== 1. 哪一個參數才是 rtcode 0000 的關鍵")
-          probe("ex only", {"ex": "tse"})
-          probe("ex+json", {"ex": "tse", "json": "1"})
-          probe("ex+delay", {"ex": "tse", "delay": "0"})
-          probe("ex+_", {"ex": "tse", "_": ts()})
-          probe("ex+json+_", {"ex": "tse", "json": "1", "_": ts()})
-          probe("ex+json+delay", {"ex": "tse", "json": "1", "delay": "0"})
-          probe("json only (no ex)", {"json": "1"})
-          probe("ex+json, no headers", {"ex": "tse", "json": "1"}, headers={})
-          probe("ex+json, UA only", {"ex": "tse", "json": "1"}, headers={"User-Agent": UA})
+          snap = fetch_snapshot(today)
+          print("snapshot:", snap)
 
-          print("=== 2. 成功回應的完整形狀")
-          d = probe("full", {"ex": "tse", "json": "1", "delay": "0", "_": ts()})
-          if isinstance(d, dict):
-              print(json.dumps({k: v for k, v in d.items() if k != "detail"},
-                               ensure_ascii=False, indent=2))
-              detail = d.get("detail")
-              print("detail type:", type(detail).__name__)
-              print("detail:", json.dumps(detail, ensure_ascii=False, indent=2, sort_keys=True))
-              if isinstance(detail, dict):
-                  tv, tz = detail.get("tv"), detail.get("tz")
-                  print(f"tv={tv} 張 tz={tz} 元 → 成交金額 {float(tz)/1e8:,.1f} 億元, "
-                        f"均價 {float(tz)/(float(tv)*1000):,.2f} 元/股")
+          at = _snapshot_time(snap)
+          est = snap.turnover if snap.is_final else extrapolate_turnover(snap.turnover, at)
+          print(f"累計 {snap.turnover:,.1f} 億 @ {at} → 全日估計 {est:,.1f} 億")
 
-          print("=== 3. 連兩次看 tz 會不會動（盤後應該不動）")
-          for i in range(2):
-              d = probe(f"repeat {i}", {"ex": "tse", "json": "1", "delay": "0", "_": ts()})
-              if isinstance(d, dict) and isinstance(d.get("detail"), dict):
-                  print("   tz =", d["detail"].get("tz"), "queryTime =", d.get("queryTime"))
-              time.sleep(2)
-
-          print("=== 4. MIS tz vs FMTQIK 定案值（同一天差多少）")
-          r = requests.get("https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK",
-                           params={"date": "20260801", "response": "json"},
-                           headers={"User-Agent": UA}, timeout=20)
-          fm = r.json()
-          print("FMTQIK fields:", fm.get("fields"))
-          for row in (fm.get("data") or [])[-4:]:
-              print("  ", row[0], "成交金額", f"{float(row[2].replace(',',''))/1e8:,.1f} 億",
-                    "成交股數", f"{float(row[1].replace(',',''))/1e8:,.1f} 億股",
-                    "指數", row[4])
-
-          print("=== 5. 指數列的 m 欄（累計成交張數）對照 getStatis tv")
-          r = requests.get("https://mis.twse.com.tw/stock/api/getStockInfo.jsp",
-                           params={"ex_ch": "tse_t00.tw", "json": "1", "delay": "0", "_": ts()},
-                           headers=H, timeout=20)
-          row = (r.json().get("msgArray") or [{}])[0]
-          print("  index row:", json.dumps(row, ensure_ascii=False))
+          assert snap.date == today.isoformat(), snap
+          assert 10 < snap.turnover < 100_000, snap
+          assert 1_000 < snap.taiex < 1_000_000, snap
+          print("OK")
           PY
