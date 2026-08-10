@@ -8,8 +8,9 @@ Boot sequence:
 1. For every entry in JOBS, insert a default row if missing (existing
    rows are never overwritten — they reflect admin edits).
 2. Read the table back; for each enabled row whose name is in the
-   registry, parse cron_expr via APScheduler's `CronTrigger.from_crontab`
-   and add the job. Each invocation is wrapped to record run status.
+   registry, parse cron_expr via `jobs.cron.crontab_trigger` (POSIX
+   semantics — **not** `CronTrigger.from_crontab`, see that module) and
+   add the job. Each invocation is wrapped to record run status.
 3. Unknown rows (registry entry deleted but DB row remains) are skipped
    with a warning rather than crashing the service.
 
@@ -19,9 +20,9 @@ import logging
 
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 from core.alerts import send_alert
+from jobs.cron import crontab_trigger
 from jobs.registry import JOBS, JobSpec
 from repositories.scheduler import insert_default, list_jobs, record_run
 
@@ -77,7 +78,9 @@ def start_scheduler() -> BackgroundScheduler:
             logger.info("scheduler_job_disabled name=%s", name)
             continue
         try:
-            trigger = CronTrigger.from_crontab(row["cron_expr"], timezone=TST)
+            # 不是 CronTrigger.from_crontab —— 它的星期是 0=週一，會把整份排程
+            # 往後平移一天而且毫無聲音。見 jobs/cron.py。
+            trigger = crontab_trigger(row["cron_expr"], TST)
         except Exception as e:
             # 掛不上的 job 不會有任何執行紀錄，光看 scheduler_jobs 也看不出
             # 異常（last_run_at 就只是一直沒更新）—— 開機當下就得講。

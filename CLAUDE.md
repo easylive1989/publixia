@@ -43,7 +43,22 @@ cd frontend && npm test                     # frontend (vitest + MSW)
 Layered: **core (fetchers) → repositories → services → routes**, with APScheduler driving the periodic jobs.
 
 - `backend/main.py` — FastAPI app (`Market Heat API`), registers `api/routes/market.py`.
-- `backend/scheduler.py` + `backend/jobs/registry.py` — APScheduler in TST, DB-driven. `JOBS` is the name → callable + default-cron map; rows are seeded into `scheduler_jobs` on startup (insert-if-missing), and edits to that table take effect on the next restart. Jobs: `intraday_heat_signal` (`0 13 * * 1-5`, 盤中判讀推 Discord), `market_volume_sync` (`0 16 * * 1-5`, TWSE 收盤後), `nasdaq_volume_sync` (`0 6 * * 2-6`, 美股 16:00 ET 收盤後，夏令/冬令都涵蓋), `backup_db` (`0 3`).
+- `backend/scheduler.py` + `backend/jobs/registry.py` — APScheduler in TST, DB-driven. `JOBS` is the name → callable + default-cron map; rows are seeded into `scheduler_jobs` on startup (insert-if-missing), and edits to that table take effect on the next restart. Jobs: `intraday_heat_signal` (`0 13 * * 1-5`, 盤中判讀推 Discord), `market_volume_sync` (`0 16 * * 1-5`, TWSE 收盤後), `nasdaq_volume_sync` (`0 6 * * 2-6`, 美股 16:00 ET 收盤後，夏令/冬令都涵蓋), `backup_db` (`0 3`). Cron 字串一律是 **POSIX 語意（星期 0=週日）**，經 `backend/jobs/cron.py` 的 `crontab_trigger` 轉譯 —— 見下面那條。
+
+### cron 的星期不要交給 `CronTrigger.from_crontab`
+
+APScheduler 的 `day_of_week` 是 **0=週一**，POSIX crontab 是 **0=週日**，而
+`from_crontab` 把星期欄位原封不動轉過去。所以 `0 13 * * 1-5`（想寫「週一到週
+五」）實際掛成**週二到週六** —— 整份排程往後平移一天。
+
+**這個錯完全沒有聲音**：cron 解析得過（開機不通報）、job 掛得上、被平移到的
+日子也都跑得好好的，症狀只有「每週一沒有盤中判讀」，而 Discord 上「什麼都沒
+有」跟「job 沒排到」長得一模一樣。2026-08-10 那個週一就是它。
+
+`jobs/cron.py` 的 `crontab_trigger` 把星期欄位展開成明確的 `mon,tue,…` 再交給
+APScheduler（名稱沒有歧義），支援 `*` / 清單 / 區間 / 步進 / 跨週末區間
+`5-1`。`scheduler_jobs` 表裡存的仍是 POSIX 字串，所以既有的列不用改寫，手動
+編輯那張表時也照 POSIX 寫。
 - `backend/core/markets.py` — the `TW`/`US` market codes. Everything downstream (repo, services, API) is market-scoped; there is deliberately no "all markets" query, since the two calendars and turnover units differ.
 - `backend/core/twse.py` — FMTQIK 收盤月報 (the authoritative daily rows). `core/twse_intraday.py` — 盤中快照 via MIS 即時行情 (`getStockInfo.jsp` 指數 + `getStatis.jsp` → `detail.tz` 累計成交金額；每次請求都要帶 `_` epoch 毫秒), falling back to FMTQIK when MIS has nothing for today. `core/nasdaq.py` — Yahoo chart endpoint (`^IXIC`), one request for the whole range (see 兩個市場的量能不是同一種東西 below). `core/discord.py` — `send_to_discord`. `core/alerts.py` — `send_alert` (維運通報, see 失敗一定要有聲音 below).
 - `backend/services/` — `market_volume_sync.py` (two entry points: `run_market_volume_sync` TWSE 月報式增量, `run_nasdaq_volume_sync` Yahoo 單請求 + 10 天重疊視窗; empty table backfills from 2016, or hit `POST /api/market/volume-heat/refresh?market=…`), `market_heat.py` (冷熱判讀 — ln量能 vs ln指數 OLS 位階常態 → 殘差近一年百分位 → 五級判讀, all derived on read, market-agnostic), `intraday_heat.py` (盤中快照 → 線性外推全日成交金額 → 判讀 → Discord, **台股 only**), `backup.py` (SQLite → R2).
