@@ -25,7 +25,7 @@ export function MarketHeat({
   if (!latest) {
     return (
       <div className="empty-note">
-        {market.tab}資料同步中，第一次同步需要幾分鐘，稍後再來看看。
+        台股大盤資料同步中，第一次同步需要幾分鐘，稍後再來看看。
       </div>
     );
   }
@@ -104,7 +104,7 @@ function HeatChart({ days, market }: { days: MarketHeatDay[]; market: MarketConf
     .map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(d.expected_turnover).toFixed(1)}`)
     .join(' ');
 
-  // 刻度交給 niceTicks：台股的量能是幾千（億元）、Nasdaq 是幾十（億股），
+  // 刻度交給 niceTicks：台股量能通常是數千億元，
   // 寫死「取到千位」會讓美股的刻度全部歸零。
   const ticks = niceTicks(0, maxY).filter((v) => v > 0);
   const monthStarts = days

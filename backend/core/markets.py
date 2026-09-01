@@ -8,7 +8,4 @@
 TW = "TW"
 """台股加權指數 + 集中市場成交金額（億元），來源 TWSE FMTQIK。"""
 
-US = "US"
-"""Nasdaq Composite 指數 + Nasdaq 上市股票 composite volume（億股）。"""
-
-MARKETS: tuple[str, ...] = (TW, US)
+MARKETS: tuple[str, ...] = (TW,)

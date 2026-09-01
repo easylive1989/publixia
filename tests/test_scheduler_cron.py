@@ -59,9 +59,6 @@ class TestCrontabTrigger:
         # from_crontab 在這裡會回 ['Tue','Wed','Thu','Fri','Sat',…]
         assert fire_days("0 13 * * 1-5", 5) == ["Mon", "Tue", "Wed", "Thu", "Fri"]
 
-    def test_taipei_tuesday_to_saturday_covers_us_sessions(self):
-        assert fire_days("0 6 * * 2-6", 5) == ["Tue", "Wed", "Thu", "Fri", "Sat"]
-
     def test_daily_expression_fires_every_day(self):
         assert fire_days("0 3 * * *", 7) == [
             "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
@@ -95,8 +92,3 @@ class TestRegistryDefaults:
             assert fire_days(JOBS[name].default_cron, 5) == [
                 "Mon", "Tue", "Wed", "Thu", "Fri"
             ], name
-
-    def test_nasdaq_job_runs_the_taipei_morning_after_each_us_session(self):
-        assert fire_days(JOBS["nasdaq_volume_sync"].default_cron, 5) == [
-            "Tue", "Wed", "Thu", "Fri", "Sat"
-        ]

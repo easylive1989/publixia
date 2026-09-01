@@ -39,6 +39,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => {
   server.resetHandlers();
   cleanup();
-  localStorage.clear();
+  // Node 25 may expose an incomplete built-in localStorage when its
+  // --localstorage-file flag has no path; jsdom tests do not depend on it.
+  if (typeof localStorage?.clear === 'function') localStorage.clear();
 });
 afterAll(() => server.close());

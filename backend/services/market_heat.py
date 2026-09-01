@@ -14,10 +14,7 @@ Method (ported from the reference Google Sheet):
 4. 判讀 — five bands on the percentile:
    ≥0.8 明顯偏熱 / ≥0.6 偏熱 / >0.4 正常 / >0.2 偏冷 / else 明顯偏冷.
 
-模型本身跟市場無關 —— 它只吃「指數收盤 + 當日量能」，每個市場各自用自己的
-歷史迴歸、自己的近一年分佈排百分位，所以 TW 存成交金額（億元）、US 存成交
-股數（億股）並不衝突：兩邊的殘差都是「相對自己的位階常態偏離多少」，本來就
-不跨市場比較。
+模型只吃台股「指數收盤 + 成交金額」，輸出相對目前位階常態的偏離程度。
 
 Everything is derived on read from the raw ``market_volume_daily`` rows —
 nothing here persists, so the regression always reflects the full history.
@@ -114,4 +111,23 @@ def get_market_heat(days: int | None = None, market: str = TW) -> dict:
         "market": market,
         "latest": heat[-1] if heat else None,
         "days": heat[-days:] if days else heat,
+    }
+
+
+def get_market_regimes(market: str = TW) -> dict:
+    """Stable, deliberately small contract for research-tool integration."""
+    heat = compute_heat(repo.list_days(market))
+    return {
+        "schema_version": 1,
+        "market": market,
+        "method": "volume_heat_v1",
+        "regimes": [
+            {
+                "date": row["date"],
+                "percentile": row["percentile"],
+                "level": row["level"],
+                "label": row["label"],
+            }
+            for row in heat
+        ],
     }

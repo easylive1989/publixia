@@ -70,7 +70,7 @@ describe('<MarketHeat />', () => {
 
   it('empty payload renders the syncing note, not a crash', () => {
     render(<MarketHeat data={{ market: "TW", latest: null, days: [] }} isLoading={false} market={TW} />);
-    expect(screen.getByText(/大盤資料同步中/)).toBeInTheDocument();
+    expect(screen.getByText(/資料同步中/)).toBeInTheDocument();
   });
 });
 

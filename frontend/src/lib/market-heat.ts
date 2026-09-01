@@ -23,8 +23,7 @@ export function fmtBillion(n: number): string {
 /**
  * ~`count` 個落在 [min, max] 內的整數刻度。
  *
- * 兩張圖共用：量能的量級隨市場差好幾個數量級（台股成交金額幾千億元、Nasdaq
- * 成交股數幾十億股），所以刻度不能寫死成「取到千位」——那在美股會全部歸零。
+ * 兩張圖共用，所以刻度依資料範圍自動決定，不寫死成千位。
  */
 export function niceTicks(min: number, max: number, count = 4): number[] {
   const raw = (max - min) / count;

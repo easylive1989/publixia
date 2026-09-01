@@ -5,8 +5,8 @@ import type { MarketId } from '@/lib/markets';
 
 export interface MarketHeatDay {
   date: string;               // ISO YYYY-MM-DD (交易日)
-  index_close: number;        // 指數收盤（TW 加權 / US Nasdaq Composite）
-  turnover: number;           // 量能（TW 成交金額億元 / US 成交股數億股）
+  index_close: number;        // 台股加權指數收盤
+  turnover: number;           // 台股成交金額（億元）
   expected_turnover: number;  // 位階常態（同 turnover 單位）
   volume_ratio: number;       // turnover / expected
   residual: number;           // ln(volume_ratio)

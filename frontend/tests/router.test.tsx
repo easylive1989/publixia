@@ -69,22 +69,6 @@ describe('market heat page', () => {
     expect(requests).toContain('?market=TW');
   });
 
-  it('切換市場 refetches Nasdaq 並換掉指數/量能的稱呼與單位', async () => {
-    const requests: string[] = [];
-    mockApi(requests);
-    renderAt('/');
-    await screen.findByText('位階常態(億元)');
-
-    await userEvent.click(screen.getByRole('tab', { name: 'Nasdaq' }));
-
-    await screen.findByText('位階常態(億股)');
-    expect(requests).toContain('?market=US&days=66');
-    // 美股的量能是成交股數，不是成交金額 —— 標題不能沿用台股的字
-    expect(screen.getByText('成交股數(億股)')).toBeInTheDocument();
-    expect(screen.queryByText('成交金額(億元)')).toBeNull();
-    expect(screen.getAllByText('Nasdaq 指數').length).toBeGreaterThan(0);
-  });
-
   it('redirects unknown paths to /', async () => {
     const requests: string[] = [];
     mockApi(requests);

@@ -1,7 +1,7 @@
 """market_volume_daily repository: 各市場的每日「指數收盤 + 量能」原始列.
 
-每個查詢都要指定 ``market``（``core.markets`` 的 TW/US）—— 兩個市場的交易日曆
-與 turnover 單位都不同，混在一起迴歸沒有意義，所以沒有「全部市場」的取法。
+每個查詢仍指定 ``market``；現行產品只使用 ``TW``。資料表保留 market 維度，
+是為了不破壞既有資料與 migration 歷史。
 """
 from db.connection import get_connection
 
