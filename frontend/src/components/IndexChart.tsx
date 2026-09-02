@@ -9,8 +9,7 @@ const PAD_R = 58;
 const PAD_T = 14;
 const PAD_B = 25;
 const INDEX_BOTTOM = 120;
-const BAR_TOP = 140;
-const BAR_ZERO = 205;
+const BAR_TOP = 128;
 const BAR_BOTTOM = H - PAD_B;
 const SLOT_MIN = 12;
 
@@ -34,7 +33,8 @@ function axisCeiling(value: number): number {
   if (!(value > 0)) return 100;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const normalized = value / magnitude;
-  const nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  const nice = [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10]
+    .find((candidate) => candidate >= normalized) ?? 10;
   return nice * magnitude;
 }
 
@@ -69,7 +69,7 @@ export function IndexChart({
   const W = Math.max(660, Math.round(PAD_L + PAD_R + days.length * SLOT_MIN));
   const innerW = W - PAD_L - PAD_R;
   const slot = days.length ? innerW / days.length : 0;
-  const barW = Math.max(4, Math.min(10, slot * 0.62));
+  const barW = Math.max(7, Math.min(14, slot * 0.78));
   const x = (index: number) => PAD_L + slot * index + slot / 2;
   const selectedIndex = Math.max(0, days.findIndex((day) => day.date === selectedDate));
 
@@ -83,20 +83,24 @@ export function IndexChart({
     PAD_T + (INDEX_BOTTOM - PAD_T) * (1 - (value - indexMin) / (indexMax - indexMin))
   );
 
-  const maxInstitutional = Math.max(0, ...days.map((day) => {
+  const institutionalExtents = days.map((day) => {
     const values = Object.values(institutionNets(day.institutional));
     const positive = values.filter((value) => value > 0).reduce((sum, value) => sum + value, 0);
     const negative = Math.abs(values.filter((value) => value < 0).reduce((sum, value) => sum + value, 0));
-    return Math.max(positive, negative);
-  }));
-  const institutionAxis = axisCeiling(maxInstitutional);
-  const positiveScale = (BAR_ZERO - BAR_TOP) / institutionAxis;
-  const negativeScale = (BAR_BOTTOM - BAR_ZERO) / institutionAxis;
+    return { positive, negative };
+  });
+  const positiveAxis = axisCeiling(Math.max(0, ...institutionalExtents.map(({ positive }) => positive)));
+  const negativeAxis = axisCeiling(Math.max(0, ...institutionalExtents.map(({ negative }) => negative)));
+  // 上下軸共用相同的「每億元像素數」，零軸依兩側資料範圍移動，
+  // 避免較小的一側浪費半個法人圖區，同時維持柱高可直接互相比較。
+  const barZero = BAR_TOP + (BAR_BOTTOM - BAR_TOP) * positiveAxis / (positiveAxis + negativeAxis);
+  const positiveScale = (barZero - BAR_TOP) / positiveAxis;
+  const negativeScale = (BAR_BOTTOM - barZero) / negativeAxis;
 
   const segments = (day: MarketHeatDay): BarSegment[] => {
     const values = institutionNets(day.institutional);
-    let positiveY = BAR_ZERO;
-    let negativeY = BAR_ZERO;
+    let positiveY = barZero;
+    let negativeY = barZero;
     return (Object.keys(INSTITUTION_COLORS) as InstitutionKey[]).map((key) => {
       const value = values[key];
       const scale = value >= 0 ? positiveScale : negativeScale;
@@ -150,11 +154,11 @@ export function IndexChart({
           ))}
 
           <line x1={PAD_L} x2={W - PAD_R} y1={BAR_TOP} y2={BAR_TOP} className="grid" />
-          <line x1={PAD_L} x2={W - PAD_R} y1={BAR_ZERO} y2={BAR_ZERO} className="idx-zero" />
+          <line x1={PAD_L} x2={W - PAD_R} y1={barZero} y2={barZero} className="idx-zero" />
           <line x1={PAD_L} x2={W - PAD_R} y1={BAR_BOTTOM} y2={BAR_BOTTOM} className="grid" />
-          <text x={PAD_L - 6} y={BAR_TOP + 3.5} className="tick" textAnchor="end">+{fmtBillion(institutionAxis)}</text>
-          <text x={PAD_L - 6} y={BAR_ZERO + 3.5} className="tick" textAnchor="end">0</text>
-          <text x={PAD_L - 6} y={BAR_BOTTOM + 3.5} className="tick" textAnchor="end">−{fmtBillion(institutionAxis)}</text>
+          <text x={PAD_L - 6} y={BAR_TOP + 3.5} className="tick" textAnchor="end">+{fmtBillion(positiveAxis)}</text>
+          <text x={PAD_L - 6} y={barZero + 3.5} className="tick" textAnchor="end">0</text>
+          <text x={PAD_L - 6} y={BAR_BOTTOM + 3.5} className="tick" textAnchor="end">−{fmtBillion(negativeAxis)}</text>
 
           {monthStarts.map(({ day, index }) => (
             <g key={day.date}>
@@ -188,7 +192,7 @@ export function IndexChart({
               key={`dot-${day.date}`}
               cx={x(index)}
               cy={indexY(day.index_close)}
-              r={index === selectedIndex ? 4.5 : Math.max(1.5, Math.min(2.4, slot * 0.14))}
+              r={index === selectedIndex ? 5.5 : Math.max(2.75, Math.min(3.75, slot * 0.22))}
               fill={HEAT_META[day.level].color}
               className={`idx-dot${index === selectedIndex ? ' selected' : ''}`}
             />

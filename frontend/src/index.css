@@ -196,7 +196,7 @@
 .idx-panel-head > span { padding-right: 16px; color: var(--ink-3); font-size: 11px; text-align: right; }
 .idx-panel .heat-legend { padding: 8px 16px 0; }
 .idx-plot-scroll { overflow-x: auto; padding: 12px 16px 0; }
-.idx-line { fill: none; stroke: var(--ink-3); stroke-width: 1.75; stroke-linejoin: round; }
+.idx-line { fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linejoin: round; }
 .idx-dot { opacity: .82; stroke: var(--panel); stroke-width: 1; }
 .idx-dot.selected { opacity: 1; stroke: var(--ink); stroke-width: 2; }
 .idx-selected-band { fill: var(--panel-2); }

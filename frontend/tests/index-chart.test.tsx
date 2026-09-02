@@ -47,6 +47,30 @@ describe('<IndexChart />', () => {
     expect(container.querySelector(`rect[fill="${INSTITUTION_COLORS.foreign}"]`)).toBeTruthy();
   });
 
+  it('uses compact asymmetric limits without distorting the buy and sell scale', () => {
+    const { container } = chart();
+    const labels = [...container.querySelectorAll('text.tick')].map((node) => node.textContent);
+    expect(labels).toContain('+750');
+    expect(labels).toContain('−75');
+
+    const zero = container.querySelector('line.idx-zero');
+    const top = [...container.querySelectorAll('line.grid')]
+      .find((line) => line.getAttribute('y1') === '128');
+    const bottom = [...container.querySelectorAll('line.grid')]
+      .find((line) => line.getAttribute('y1') === '275');
+    const positivePixelsPerBillion = (Number(zero?.getAttribute('y1')) - Number(top?.getAttribute('y1'))) / 750;
+    const negativePixelsPerBillion = (Number(bottom?.getAttribute('y1')) - Number(zero?.getAttribute('y1'))) / 75;
+    expect(positivePixelsPerBillion).toBeCloseTo(negativePixelsPerBillion, 8);
+  });
+
+  it('keeps ordinary heat points and institutional bars easy to see', () => {
+    const { container } = chart();
+    const dots = [...container.querySelectorAll('circle.idx-dot')];
+    expect(Number(dots[0].getAttribute('r'))).toBeGreaterThanOrEqual(2.75);
+    expect(dots[2]).toHaveAttribute('r', '5.5');
+    expect(Number(container.querySelector('rect.idx-inst-segment')?.getAttribute('width'))).toBeGreaterThanOrEqual(7);
+  });
+
   it('colors each index point with that day heat level and keeps the selected point colored', () => {
     const { container } = chart();
     const dots = [...container.querySelectorAll('circle.idx-dot')];
