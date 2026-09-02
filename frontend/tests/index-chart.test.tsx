@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IndexChart, IndexLegend, INSTITUTION_COLORS } from '../src/components/IndexChart';
 import type { InstitutionalFlow, MarketHeatDay } from '../src/hooks/useMarketHeat';
+import { HEAT_META } from '../src/lib/market-heat';
 import { MARKETS } from '../src/lib/markets';
 
 const TW = MARKETS[0];
@@ -46,6 +47,15 @@ describe('<IndexChart />', () => {
     expect(container.querySelector(`rect[fill="${INSTITUTION_COLORS.foreign}"]`)).toBeTruthy();
   });
 
+  it('colors each index point with that day heat level and keeps the selected point colored', () => {
+    const { container } = chart();
+    const dots = [...container.querySelectorAll('circle.idx-dot')];
+    expect(dots[0]).toHaveAttribute('fill', HEAT_META.hot.color);
+    expect(dots[1]).toHaveAttribute('fill', HEAT_META.hot.color);
+    expect(dots[2]).toHaveAttribute('fill', HEAT_META.very_cold.color);
+    expect(dots[2]).toHaveClass('selected');
+  });
+
   it('plots a higher index above a lower one', () => {
     const { container } = chart();
     const cy = [...container.querySelectorAll('circle.idx-dot')].map((circle) => Number(circle.getAttribute('cy')));
@@ -83,7 +93,10 @@ describe('<IndexChart />', () => {
 
   it('legend names the line and all three institutions', () => {
     render(<IndexLegend market={TW} />);
-    for (const label of ['加權指數', '外資', '投信', '自營商', '零軸上方為買超，下方為賣超']) {
+    for (const label of [
+      '加權指數', '明顯偏冷', '偏冷', '正常', '偏熱', '明顯偏熱',
+      '外資', '投信', '自營商', '零軸上方為買超，下方為賣超',
+    ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });

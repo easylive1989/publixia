@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { InstitutionalFlow, MarketHeatDay } from '@/hooks/useMarketHeat';
-import { fmtBillion, fmtPercentile, niceTicks } from '@/lib/market-heat';
+import { HEAT_LEVELS, HEAT_META, fmtBillion, fmtPercentile, niceTicks } from '@/lib/market-heat';
 import type { MarketConfig } from '@/lib/markets';
 
 const H = 300;
@@ -189,6 +189,7 @@ export function IndexChart({
               cx={x(index)}
               cy={indexY(day.index_close)}
               r={index === selectedIndex ? 4.5 : Math.max(1.5, Math.min(2.4, slot * 0.14))}
+              fill={HEAT_META[day.level].color}
               className={`idx-dot${index === selectedIndex ? ' selected' : ''}`}
             />
           ))}
@@ -257,6 +258,11 @@ export function IndexLegend({ market }: { market: MarketConfig }) {
   return (
     <div className="heat-legend idx-combo-legend">
       <span className="heat-key line-key"><i className="idx" />{market.indexLabel}</span>
+      {HEAT_LEVELS.map((level) => (
+        <span className="heat-key dot-key" key={level}>
+          <i style={{ background: HEAT_META[level].color }} />{HEAT_META[level].zh}
+        </span>
+      ))}
       {items.map((item) => (
         <span className="heat-key" key={item.label}>
           <i style={{ background: item.color }} />{item.label}
