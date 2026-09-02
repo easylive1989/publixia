@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 import core.twse_institutional as twse
-from core.errors import FetcherParseError
+from core.errors import FetcherError, FetcherParseError
 from core.markets import TW
 from repositories import institutional_flow as repo
 from repositories import market_volume
@@ -110,6 +110,53 @@ def test_sync_prioritises_recent_missing_dates_and_refreshes_latest(monkeypatch)
     result = sync.run_institutional_flow_sync(today=date(2026, 9, 4), batch_size=2)
     assert fetched == ["2026-09-04", "2026-09-03", "2026-09-02"]
     assert result == {"requested": 3, "rows": 3, "remaining": 1}
+
+
+def test_sync_retries_a_transient_day_with_backoff(monkeypatch):
+    market_volume.upsert_days(TW, [
+        {"date": "2026-09-01", "index_close": 10001, "turnover": 1000},
+    ])
+    attempts = 0
+    sleeps = []
+
+    def flaky_fetch(day):
+        nonlocal attempts
+        attempts += 1
+        if attempts <= 3:
+            raise FetcherError("temporary timeout")
+        return _raw(day.isoformat())
+
+    monkeypatch.setattr(sync, "fetch_day", flaky_fetch)
+    monkeypatch.setattr(sync.time, "sleep", sleeps.append)
+
+    result = sync.run_institutional_flow_sync(today=date(2026, 9, 1), batch_size=1)
+
+    assert attempts == 4
+    assert sleeps == [2.0, 5.0, 10.0]
+    assert result == {"requested": 1, "rows": 1, "remaining": 0}
+
+
+def test_sync_skips_a_permanent_failure_but_persists_later_days(monkeypatch):
+    market_volume.upsert_days(TW, [
+        {"date": f"2026-09-0{day}", "index_close": 10000 + day, "turnover": 1000}
+        for day in range(1, 4)
+    ])
+    fetched = []
+
+    def partially_broken_fetch(day):
+        fetched.append(day.isoformat())
+        if day == date(2026, 9, 3):
+            return None
+        return _raw(day.isoformat())
+
+    monkeypatch.setattr(sync, "fetch_day", partially_broken_fetch)
+    monkeypatch.setattr(sync.time, "sleep", lambda _: None)
+
+    with pytest.raises(FetcherError, match=r"rows=1 failed=1 remaining=2"):
+        sync.run_institutional_flow_sync(today=date(2026, 9, 3), batch_size=2)
+
+    assert fetched == ["2026-09-03"] * 4 + ["2026-09-02"]
+    assert repo.existing_dates(TW) == {"2026-09-02"}
 
 
 def test_early_sync_only_refreshes_latest(monkeypatch):
