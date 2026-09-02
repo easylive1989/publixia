@@ -22,12 +22,14 @@ nothing here persists, so the regression always reflects the full history.
 import math
 
 from core.markets import TW
+from repositories import institutional_flow as institutional_repo
 from repositories import market_volume as repo
 
 # 今日 + 前 240 個交易日 ≈ 近一年。
 WINDOW = 241
 # 迴歸至少要跨過一段位階與量能循環才有意義。
 MIN_ROWS = 60
+_YI = 1e8
 
 # (lower-bound check, level key, 中文判讀) — evaluated top-down.
 _LEVELS: list[tuple[float, str, str]] = [
@@ -103,10 +105,54 @@ def compute_heat(rows: list[dict]) -> list[dict]:
     return out
 
 
+def _amount_pair(row: dict, prefix: str) -> dict:
+    buy = row[f"{prefix}_buy"] / _YI
+    sell = row[f"{prefix}_sell"] / _YI
+    return {"buy": buy, "sell": sell, "net": buy - sell}
+
+
+def _institutional_payload(row: dict, turnover: float) -> dict:
+    """DB 元 → API 億元，並以同日 FMTQIK 成交金額算成交比重。"""
+    proprietary = _amount_pair(row, "dealer_proprietary")
+    hedge = _amount_pair(row, "dealer_hedge")
+    trust = _amount_pair(row, "trust")
+    foreign = _amount_pair(row, "foreign")
+    foreign_dealer = _amount_pair(row, "foreign_dealer")
+    total = _amount_pair(row, "total")
+    dealer = {
+        "buy": proprietary["buy"] + hedge["buy"],
+        "sell": proprietary["sell"] + hedge["sell"],
+        "net": proprietary["net"] + hedge["net"],
+    }
+    turnover_ratio = (
+        (total["buy"] + total["sell"]) / (2 * turnover) * 100
+        if turnover > 0 else None
+    )
+    return {
+        "date": row["date"],
+        "dealer_proprietary": proprietary,
+        "dealer_hedge": hedge,
+        "dealer": dealer,
+        "trust": trust,
+        "foreign": foreign,
+        "foreign_dealer": foreign_dealer,
+        "total": total,
+        "turnover_ratio": turnover_ratio,
+    }
+
+
 def get_market_heat(days: int | None = None, market: str = TW) -> dict:
     """API payload: the latest reading + the last ``days`` readings
     (date-ascending, chart-ready). ``days=None`` returns the full history."""
     heat = compute_heat(repo.list_days(market))
+    institutional = {
+        row["date"]: row for row in institutional_repo.list_days(market)
+    }
+    for row in heat:
+        raw = institutional.get(row["date"])
+        row["institutional"] = (
+            _institutional_payload(raw, row["turnover"]) if raw else None
+        )
     return {
         "market": market,
         "latest": heat[-1] if heat else None,

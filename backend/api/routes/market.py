@@ -39,9 +39,10 @@ def regimes(market: str = TW):
 
 @router.post("/volume-heat/refresh")
 def refresh_volume_heat(background_tasks: BackgroundTasks, market: str = TW):
+    from services import institutional_flow_sync
     from services import market_volume_sync
 
     _check_market(market)
-    runner = market_volume_sync.run_market_volume_sync
-    background_tasks.add_task(runner)
+    background_tasks.add_task(market_volume_sync.run_market_volume_sync)
+    background_tasks.add_task(institutional_flow_sync.run_institutional_flow_sync)
     return {"status": "scheduled", "market": market}

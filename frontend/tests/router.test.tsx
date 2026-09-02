@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -21,9 +21,22 @@ function renderAt(path: string) {
   );
 }
 
-const day = (date: string, level: string, label: string, percentile: number) => ({
+const flow = (date: string, foreignNet: number) => ({
+  date,
+  dealer_proprietary: { buy: 20, sell: 10, net: 10 },
+  dealer_hedge: { buy: 30, sell: 25, net: 5 },
+  dealer: { buy: 50, sell: 35, net: 15 },
+  trust: { buy: 50, sell: 40, net: 10 },
+  foreign: { buy: 200, sell: 200 - foreignNet, net: foreignNet },
+  foreign_dealer: { buy: 0, sell: 0, net: 0 },
+  total: { buy: 300, sell: 275 - foreignNet, net: 25 + foreignNet },
+  turnover_ratio: 10,
+});
+
+const day = (date: string, level: string, label: string, percentile: number, foreignNet: number) => ({
   date, index_close: 43119.75, turnover: 8877, expected_turnover: 12209.5,
   volume_ratio: 0.727, residual: -0.319, percentile, level, label,
+  institutional: flow(date, foreignNet),
 });
 
 function mockApi(requests: string[]) {
@@ -31,8 +44,8 @@ function mockApi(requests: string[]) {
     http.get('*/api/market/volume-heat', ({ request }) => {
       requests.push(new URL(request.url).search);
       const days = [
-        day('2026-07-30', 'hot', '偏熱', 0.738),
-        day('2026-07-31', 'very_cold', '明顯偏冷', 0.042),
+        day('2026-07-30', 'hot', '偏熱', 0.738, 12),
+        day('2026-07-31', 'very_cold', '明顯偏冷', 0.042, 80),
       ];
       return HttpResponse.json({ latest: days[days.length - 1], days });
     }),
@@ -43,7 +56,7 @@ describe('market heat page', () => {
   it('renders 今日判讀 + sheet 比較表 at /', async () => {
     const requests: string[] = [];
     mockApi(requests);
-    renderAt('/');
+    const { container } = renderAt('/');
     // 近一季 is the default range
     expect((await screen.findAllByText('明顯偏冷')).length).toBeGreaterThan(0);
     expect(requests[0]).toBe('?market=TW&days=66');
@@ -54,8 +67,8 @@ describe('market heat page', () => {
     const cells = screen.getAllByRole('cell').map((c) => c.textContent);
     expect(cells).toContain('0.042');
     expect(cells).toContain('43,119.75');
-    const rows = screen.getAllByRole('row');
-    expect(rows[1].textContent).toContain('2026-07-31'); // newest first
+    const rows = container.querySelectorAll('.sheet tbody tr');
+    expect(rows[0].textContent).toContain('2026-07-31'); // newest first
   });
 
   it('切換區間 refetches with the chosen days (全部 = no param)', async () => {
@@ -67,6 +80,18 @@ describe('market heat page', () => {
     await userEvent.click(screen.getByRole('tab', { name: '全部' }));
     expect(requests).toContain('?market=TW&days=22');
     expect(requests).toContain('?market=TW');
+  });
+
+  it('點選組合圖日期會同步切換上方量能與法人資料', async () => {
+    mockApi([]);
+    const { container } = renderAt('/');
+    await screen.findByText('位階常態(億元)');
+    expect(container.querySelector('.heat-date')).toHaveTextContent('2026-07-31');
+    expect(within(screen.getByLabelText('三大法人摘要')).getByText('+80.00')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '選擇 2026-07-30' }));
+    expect(container.querySelector('.heat-date')).toHaveTextContent('2026-07-30');
+    expect(within(screen.getByLabelText('三大法人摘要')).getByText('+12.00')).toBeInTheDocument();
   });
 
   it('redirects unknown paths to /', async () => {

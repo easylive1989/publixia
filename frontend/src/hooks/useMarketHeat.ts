@@ -3,6 +3,24 @@ import { apiFetch } from '@/lib/api-client';
 import type { HeatLevel } from '@/lib/market-heat';
 import type { MarketId } from '@/lib/markets';
 
+export interface InstitutionalAmount {
+  buy: number;   // 億元
+  sell: number;  // 億元
+  net: number;   // buy - sell，億元
+}
+
+export interface InstitutionalFlow {
+  date: string;
+  dealer_proprietary: InstitutionalAmount;
+  dealer_hedge: InstitutionalAmount;
+  dealer: InstitutionalAmount;
+  trust: InstitutionalAmount;
+  foreign: InstitutionalAmount;
+  foreign_dealer: InstitutionalAmount;
+  total: InstitutionalAmount;
+  turnover_ratio: number | null; // (法人買+賣)/(市場成交金額*2)，百分比
+}
+
 export interface MarketHeatDay {
   date: string;               // ISO YYYY-MM-DD (交易日)
   index_close: number;        // 台股加權指數收盤
@@ -13,6 +31,7 @@ export interface MarketHeatDay {
   percentile: number;         // 近一年殘差百分位 0..1
   level: HeatLevel;
   label: string;              // 中文判讀（後端與 sheet 同字）
+  institutional?: InstitutionalFlow | null;
 }
 
 export interface MarketHeatPayload {

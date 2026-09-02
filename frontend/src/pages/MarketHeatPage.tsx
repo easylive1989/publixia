@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HeatTable } from '@/components/HeatTable';
+import { InstitutionalFlowPanel } from '@/components/InstitutionalFlow';
 import { IndexChart, IndexLegend } from '@/components/IndexChart';
 import { MarketHeat } from '@/components/MarketHeat';
 import { useMarketHeat } from '@/hooks/useMarketHeat';
@@ -26,13 +27,20 @@ const RANGES: { label: string; days: number | null }[] = [
 export default function MarketHeatPage() {
   const market = DEFAULT_MARKET;
   const [days, setDays] = useState<number | null>(66);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   // 選了半年區間就改抓全歷史，再於前端切出該半年；此時區間 tab 不亮。
   const [half, setHalf] = useState<HalfYear | null>(null);
   const heat = useMarketHeat(half ? null : days, market.id);
   const all = heat.data?.days ?? [];
   const rows = half ? filterHalfYear(all, half) : all;
-  // 今日判讀卡跟著區間走：看半年區間時顯示該半年最後一個交易日。
-  const shown = { market: market.id, latest: rows.length ? rows[rows.length - 1] : null, days: rows };
+  const selected = rows.find((row) => row.date === selectedDate) ?? rows[rows.length - 1] ?? null;
+  // 選取日期不在新區間時回到該區間最新日；仍在範圍內則保留使用者選擇。
+  useEffect(() => {
+    if (rows.length && !rows.some((row) => row.date === selectedDate)) {
+      setSelectedDate(rows[rows.length - 1].date);
+    }
+  }, [rows, selectedDate]);
+  const shown = { market: market.id, latest: selected, days: rows };
   const options = halfYearOptions(heat.data?.latest?.date, market.dataStartYear);
 
   return (
@@ -78,10 +86,26 @@ export default function MarketHeatPage() {
         <MarketHeat data={shown} isLoading={heat.isLoading} market={market} />
       )}
 
+      {selected && (
+        <InstitutionalFlowPanel
+          day={selected}
+          rows={rows}
+          onSelectDate={setSelectedDate}
+        />
+      )}
+
       {rows.length > 0 && (
         <section className="panel idx-panel">
-          <h2 className="panel-title">{market.indexLabel}位階 vs 量能判讀</h2>
-          <IndexChart days={rows} market={market} />
+          <div className="idx-panel-head">
+            <h2 className="panel-title">{market.indexLabel} vs 三大法人買賣</h2>
+            <span>點選任一交易日，同步切換上方量能與法人資料</span>
+          </div>
+          <IndexChart
+            days={rows}
+            market={market}
+            selectedDate={selected?.date ?? rows[rows.length - 1].date}
+            onSelectDate={setSelectedDate}
+          />
           <IndexLegend market={market} />
         </section>
       )}

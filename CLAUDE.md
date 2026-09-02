@@ -2,8 +2,9 @@
 
 ## 現行產品
 
-Publixia 是單市場的**台股大盤成交金額冷熱判讀**。它同步加權指數收盤與 TWSE
-成交金額，以 `ln(量能) ~ ln(指數)` OLS 位階常態、殘差近一年百分位產生五級判讀。
+Publixia 是單市場的**台股大盤成交金額冷熱判讀**。它同步加權指數收盤、TWSE
+成交金額與 BFI82U 三大法人買賣金額，以 `ln(量能) ~ ln(指數)` OLS 位階常態、
+殘差近一年百分位產生五級判讀，並讓法人買賣與量能共用日期選取。
 
 Repo 過去做過期貨策略引擎、跟單追蹤與 Nasdaq 判讀；那些 migration 和設計文件是
 歷史，不是現行功能。不要把舊功能重新接回來。US 歷史 DB 列刻意保留，但 API、前端
@@ -29,19 +30,25 @@ cd frontend && npm test
 - `backend/main.py`：FastAPI app。
 - `backend/api/routes/market.py`：`volume-heat`、`regimes` 與 refresh API。
 - `backend/core/twse.py`：FMTQIK 收盤月報。
+- `backend/core/twse_institutional.py`：BFI82U 每日三大法人買賣金額。
 - `backend/core/twse_intraday.py`：MIS 盤中快照。
 - `backend/repositories/market_volume.py`：原始日資料存取。
+- `backend/repositories/institutional_flow.py`：法人整數元原始資料存取。
 - `backend/services/market_heat.py`：OLS、殘差、百分位、五級判讀。
+- `backend/services/institutional_flow_sync.py`：法人近期優先、分批回補與每日重抓。
 - `backend/services/intraday_heat.py`：13:00 線性外推與 Discord 推播。
 - `backend/jobs/registry.py` + `scheduler.py`：DB-driven APScheduler。
 - `backend/db/runner.py`：forward-only migration runner。
 
-資料庫只存 `(market, date, index_close, turnover)` 原始值，所有衍生值讀取時計算。
-現行程式只寫/read TW；不要刪除既有 US 列，除非使用者另行確認。
+`market_volume_daily` 只存 `(market, date, index_close, turnover)`；
+`institutional_flow_daily` 只存官方買進／賣出的整數元。淨額、合計自營商與法人
+成交比重皆在讀取時計算。現行程式只寫/read TW；不要刪除既有 US 列，除非使用者
+另行確認。
 
 ## API 契約
 
-- `GET /api/market/volume-heat?market=TW&days=N`：畫面完整資料。
+- `GET /api/market/volume-heat?market=TW&days=N`：畫面完整資料；每個交易日可帶
+  `institutional`，尚未回補時為 `null`。
 - `GET /api/market/regimes?market=TW`：給研究工具的 `schema_version=1` 小型契約。
 - `POST /api/market/volume-heat/refresh?market=TW`：背景同步。
 
@@ -52,6 +59,7 @@ label。修改契約時必須升 `schema_version`，避免讓保存快照的回�
 
 - `intraday_heat_signal`：`0 13 * * 1-5`
 - `market_volume_sync`：`0 16 * * 1-5`
+- `institutional_flow_sync`：`0 20 * * 1-5`
 - `backup_db`：`0 3 * * *`
 
 Cron 是 POSIX 星期語義（0=週日），必須經 `jobs/cron.py::crontab_trigger` 轉譯，不能
@@ -71,7 +79,9 @@ MIS 的 `getStatis.jsp` 必須帶 `_=<epoch 毫秒>`，值在 `detail.tz`（元�
 
 ## 前端
 
-單頁只呈現台股：區間 tabs、半年 dropdown、今日判讀、量能圖、指數圖與明細表。
+單頁只呈現台股：區間 tabs、半年 dropdown、所選日量能判讀、法人明細、指數／法人
+組合圖與量能明細表。點選組合圖任一交易日，所選日量能與法人明細必須同步切換；
+長區間以橫向捲動保留逐日選取，不可只留下最新一個指數點。
 `frontend/src/lib/markets.ts` 仍保留 `MarketConfig`，集中管理台股欄位名稱與單位；不要
 重新加入市場切換 UI。`MethodPage` 必須與 `market_heat.py` 的算法同步。
 

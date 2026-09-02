@@ -1,10 +1,11 @@
 # Publixia — 大盤成交量能冷熱判讀
 
-Publixia 用「目前指數位階下，今天的市場量能是否異常」描述台股市場環境。
-它不是交易訊號，也不預測漲跌；它提供一個可觀察、可回溯的 market
-regime，供人工判讀或其他研究工具分組分析。
+Publixia 用「目前指數位階下，今天的市場量能是否異常」描述台股市場環境，並把
+同日三大法人買賣金額放在同一條時間軸上。它不是交易訊號，也不預測漲跌；它提供
+一個可觀察、可回溯的 market regime，供人工判讀或其他研究工具分組分析。
 
 - **台股**：加權指數收盤 + TWSE 成交金額（億元）
+- **法人**：TWSE BFI82U 外資、投信、自營商每日買進／賣出／差額
 - **後端**：FastAPI + APScheduler + SQLite，部署於 VPS
 - **前端**：Vite + React + Tailwind，部署於 GitHub Pages
 - **網址**：<https://stock.paul-learning.dev>
@@ -20,7 +21,9 @@ regime，供人工判讀或其他研究工具分組分析。
 3. 將殘差放進近 241 個交易日（約一年）計算百分位。
 4. 分成明顯偏冷、偏冷、正常、偏熱、明顯偏熱五級。
 
-所有衍生值都在讀取時重新計算，資料庫只保存日期、指數收盤與量能原始值。
+冷熱判讀的衍生值都在讀取時重新計算，資料庫保存日期、指數收盤、量能，以及法人
+買賣的整數元原始值。法人金額在 API 轉為億元；法人成交比重以
+`(法人買進 + 法人賣出) / (市場成交金額 × 2)` 計算。
 因此歷史判讀可能隨
 新資料加入而小幅漂移；需要可重現研究時，應保存 API 快照。
 
@@ -33,8 +36,8 @@ GET  /api/market/regimes?market=TW
 POST /api/market/volume-heat/refresh?market=TW
 ```
 
-`volume-heat` 提供畫面使用的完整數值；`regimes` 是給研究工具使用的穩定、版本化薄
-介面，只包含：
+`volume-heat` 提供畫面使用的完整數值，每個交易日另帶可為 `null` 的
+`institutional` 法人資料；`regimes` 是給研究工具使用的穩定、版本化薄介面，只包含：
 
 ```json
 {
@@ -61,6 +64,7 @@ backend/
   core/                      TWSE、Discord 與設定
   repositories/             SQLite 存取
   services/market_heat.py    OLS、百分位與五級判讀
+  services/institutional_flow_sync.py  BFI82U 法人資料回補與每日同步
   services/intraday_heat.py  台股盤中估算與通知
   jobs/ + scheduler.py       DB-driven 排程
   db/migrations/             forward-only migrations
@@ -103,6 +107,7 @@ Cron 儲存在 `scheduler_jobs`，時區為 `Asia/Taipei`，字串採 POSIX 星�
 |---|---|---|
 | `intraday_heat_signal` | `0 13 * * 1-5` | 台股 13:00 盤中估算並推 Discord |
 | `market_volume_sync` | `0 16 * * 1-5` | 同步 TWSE 收盤資料 |
+| `institutional_flow_sync` | `0 20 * * 1-5` | 同步 TWSE 三大法人最終版買賣金額 |
 | `backup_db` | `0 3 * * *` | SQLite 備份到 R2 |
 
 排程失敗會透過維運 webhook 告警；休市使用 `MarketClosed` 回報，不會靜默略過。

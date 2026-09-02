@@ -55,11 +55,15 @@ def test_volume_heat_days_out_of_range():
 
 
 def test_refresh_schedules_background_sync():
-    with patch("services.market_volume_sync.run_market_volume_sync") as run:
+    with (
+        patch("services.market_volume_sync.run_market_volume_sync") as volume_run,
+        patch("services.institutional_flow_sync.run_institutional_flow_sync") as flow_run,
+    ):
         r = client.post("/api/market/volume-heat/refresh")
     assert r.status_code == 200
     assert r.json() == {"status": "scheduled", "market": "TW"}
-    run.assert_called_once()
+    volume_run.assert_called_once()
+    flow_run.assert_called_once()
 
 
 def test_unknown_market_rejected():

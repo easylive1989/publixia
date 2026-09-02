@@ -17,6 +17,10 @@
     --line-strong: var(--ink);
     --band: var(--ink);
     --band-ink: oklch(0.97 0.005 250);
+    --inst-foreign: #c4513f;
+    --inst-trust: #5269b4;
+    --inst-dealer: #ce963b;
+    --inst-sell: #218572;
 
     --maxw: 1120px;
     --display: "Anton", "Noto Sans TC", sans-serif;
@@ -124,17 +128,87 @@
 .heat-key i { width: 10px; height: 10px; border-radius: 2px; }
 .heat-key.line-key i { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--ink); opacity: 0.65; }
 
-/* ===== 大盤位階 vs 量能判讀 ===== */
+/* ===== 三大法人每日買賣 ===== */
+.inst-panel { background: var(--panel); border: 2px solid var(--line-strong); margin-bottom: 18px; }
+.inst-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  padding: 13px 16px; border-bottom: 1px solid var(--line);
+}
+.inst-title-wrap { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.inst-title-wrap h2 { margin: 0; font-family: var(--display); font-size: 20px; line-height: 1.2; letter-spacing: .5px; }
+.inst-title-wrap > span { color: var(--ink-3); font-family: var(--label); font-size: 12px; letter-spacing: 1.7px; white-space: nowrap; }
+.inst-date-control { display: flex; align-items: center; flex: 0 0 auto; border: 1.5px solid var(--ink); background: var(--panel); }
+.inst-date-control button {
+  display: grid; place-items: center; width: 34px; height: 32px; border: 0;
+  background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.inst-date-control button:hover:not(:disabled) { background: var(--panel-2); color: var(--ink); }
+.inst-date-control button:disabled { color: var(--line); cursor: not-allowed; }
+.inst-date-control time { min-width: 142px; padding: 0 12px; border-inline: 1px solid var(--line); text-align: center; font-size: 12.5px; font-weight: 600; }
+.inst-body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, .7fr); }
+.inst-table-wrap { min-width: 0; overflow-x: auto; }
+.inst-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.inst-table th {
+  padding: 10px 14px 8px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+  color: var(--ink-3); font-family: var(--label); font-size: 12px; font-weight: 400;
+  letter-spacing: 1.3px; text-align: right; white-space: nowrap;
+}
+.inst-table th:first-child { text-align: left; }
+.inst-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.inst-table td:first-child { text-align: left; font-weight: 700; }
+.inst-table tbody tr:hover td { background: var(--panel-2); }
+.inst-table .inst-sub { padding-left: 27px; color: var(--ink-2); font-size: 12.5px; font-weight: 500; }
+.inst-table tfoot td { padding-block: 12px; border-bottom: 0; border-top: 2px solid var(--ink); background: var(--panel-2); font-weight: 900; }
+.inst-net.buy { color: var(--inst-foreign); font-weight: 700; }
+.inst-net.sell { color: var(--inst-sell); font-weight: 700; }
+.inst-net.flat { color: var(--ink-3); font-weight: 600; }
+.inst-summary {
+  display: flex; flex-direction: column; gap: 18px; padding: 18px;
+  border-left: 1px solid var(--line); background: oklch(0.985 0.002 250);
+}
+.inst-total-label { color: var(--ink-3); font-family: var(--label); font-size: 12px; letter-spacing: 1.5px; }
+.inst-total { margin-top: 2px; font-size: 30px; line-height: 1.1; letter-spacing: -.06em; }
+.inst-total small { margin-left: 5px; color: var(--ink-2); font-family: var(--sans); font-size: 13px; letter-spacing: 0; }
+.inst-groups { display: grid; gap: 10px; }
+.inst-group { display: grid; grid-template-columns: 54px minmax(50px, 1fr) 76px; align-items: center; gap: 8px; font-size: 12px; }
+.inst-group strong { font-size: 12.5px; }
+.inst-group > span { height: 6px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.inst-group > span i { display: block; height: 100%; border-radius: inherit; }
+.inst-group output { text-align: right; font-size: 12px; }
+.inst-ratio { margin-top: auto; }
+.inst-ratio > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+.inst-ratio span { color: var(--ink-3); font-size: 12px; font-weight: 700; }
+.inst-ratio strong { font-size: 17px; }
+.inst-ratio-track { display: block; height: 9px; overflow: hidden; border-radius: 2px; background: var(--line); }
+.inst-ratio-track i { display: block; height: 100%; background: var(--ink); }
+.inst-empty { padding: 30px 18px; color: var(--ink-3); text-align: center; font-size: 13px; }
+.inst-foot { padding: 8px 14px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 11px; }
+
+/* ===== 大盤指數 vs 三大法人 ===== */
 .panel { background: var(--panel); border: 2px solid var(--line-strong); margin-bottom: 18px; }
 .panel-title {
   margin: 0; padding: 12px 16px 10px; border-bottom: 1px solid var(--line);
   font-family: var(--display); font-weight: 900; font-size: 18px; letter-spacing: 0.5px;
 }
 .idx-panel { padding-bottom: 12px; }
+.idx-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+.idx-panel-head .panel-title { border-bottom: 0; }
+.idx-panel-head > span { padding-right: 16px; color: var(--ink-3); font-size: 11px; text-align: right; }
 .idx-panel .heat-legend { padding: 8px 16px 0; }
 .idx-plot-scroll { overflow-x: auto; padding: 12px 16px 0; }
 .idx-line { fill: none; stroke: var(--ink-3); stroke-width: 1.75; stroke-linejoin: round; }
-.idx-dot { stroke: var(--panel); stroke-width: 1.2; }  /* 2px-ish ring keeps overlapping dots readable */
+.idx-dot { fill: var(--ink-3); opacity: .72; stroke: var(--panel); stroke-width: 1; }
+.idx-dot.selected { fill: var(--panel); opacity: 1; stroke: var(--ink-2); stroke-width: 2; }
+.idx-selected-band { fill: var(--panel-2); }
+.idx-zero { stroke: var(--ink); stroke-width: 1.2; }
+.idx-month-line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+.idx-inst-segment { stroke: var(--panel); stroke-width: .5; }
+.idx-hit { cursor: pointer; }
+.idx-hit:focus { outline: none; }
+.idx-hit:focus-visible { stroke: var(--ink); stroke-width: 1.5; }
+.idx-combo-tip { top: 8px; }
+.idx-combo-legend { align-items: center; }
+.idx-zero-note { margin-left: auto; color: var(--ink-3); font-size: 11px; }
 .heat-key.dot-key i { border-radius: 50%; }
 .heat-key.line-key i.idx { width: 16px; height: 0; border-radius: 0; border-top: 2px solid var(--ink-3); }
 
@@ -188,7 +262,24 @@
   .heat { grid-template-columns: 1fr; }
   .heat-today { border-right: none; border-bottom: 1px solid var(--line); }
   .heat-meter { margin-top: 4px; }
+  .inst-body { grid-template-columns: 1fr; }
+  .inst-summary { border-top: 1px solid var(--line); border-left: 0; }
+  .inst-groups { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .inst-group { grid-template-columns: 1fr; gap: 4px; }
+  .inst-group output { text-align: left; }
 }
 @media (max-width: 560px) {
   .wrap { padding: 18px 14px 60px; }
+  .inst-head { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .inst-title-wrap { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .inst-date-control { width: 100%; }
+  .inst-date-control time { flex: 1; min-width: 0; }
+  .inst-table { min-width: 560px; }
+  .inst-summary { padding: 16px 14px; }
+  .inst-groups { grid-template-columns: 1fr; }
+  .inst-group { grid-template-columns: 54px minmax(50px, 1fr) 76px; gap: 8px; }
+  .inst-group output { text-align: right; }
+  .idx-panel-head { align-items: flex-start; flex-direction: column; gap: 0; }
+  .idx-panel-head > span { padding: 0 16px 10px; text-align: left; }
+  .idx-zero-note { flex-basis: 100%; margin-left: 0; }
 }

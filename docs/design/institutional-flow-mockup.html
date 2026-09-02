@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Publixia｜三大法人買賣整合示意</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+    :root {
+      --field: #f1f2f4;
+      --panel: #fdfdfd;
+      --panel-2: #f6f6f7;
+      --ink: #202229;
+      --ink-2: #5d6069;
+      --ink-3: #8b8e96;
+      --line: #d9dadd;
+      --red: #c84e3e;
+      --red-soft: #f7e6e2;
+      --green: #218572;
+      --blue: #4f68bb;
+      --amber: #d49a36;
+      --maxw: 1120px;
+      --display: "Anton", "Noto Sans TC", sans-serif;
+      --label: "Bebas Neue", "Noto Sans TC", sans-serif;
+      --sans: "Noto Sans TC", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--field);
+      color: var(--ink);
+      font: 16px/1.55 var(--sans);
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "tnum" 1;
+    }
+
+    button { font: inherit; }
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .wrap { width: min(calc(100% - 52px), var(--maxw)); margin: 0 auto; padding: 24px 0 72px; }
+
+    .proposal-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 0 14px;
+      color: var(--ink-2);
+      font-size: 12px;
+    }
+
+    .proposal-note strong {
+      color: var(--ink);
+      font-weight: 900;
+      letter-spacing: .03em;
+    }
+
+    .proposal-note span:last-child { text-align: right; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .filters {
+      display: flex;
+      width: fit-content;
+      max-width: 100%;
+      overflow-x: auto;
+      border: 2px solid var(--ink);
+      background: var(--panel);
+    }
+
+    .tab {
+      flex: 0 0 auto;
+      border: 0;
+      border-right: 2px solid var(--ink);
+      padding: 9px 15px;
+      background: var(--panel);
+      color: var(--ink-2);
+      font-size: 13.5px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .tab:last-child { border-right: 0; }
+    .tab.on { background: var(--ink); color: var(--field); }
+
+    .method-link {
+      color: var(--ink-2);
+      border-bottom: 1.5px solid var(--line);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .heat {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      margin-bottom: 18px;
+      border: 2px solid var(--ink);
+      background: var(--panel);
+    }
+
+    .heat-today {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 20px;
+      border-right: 1px solid var(--line);
+    }
+
+    .heat-stamp {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 14px 9px;
+      border-radius: 4px;
+      background: #d49a36;
+    }
+
+    .heat-stamp .zh {
+      font: 900 27px/1 var(--display);
+      letter-spacing: 1px;
+    }
+
+    .heat-stamp .en {
+      font: 12px/1 var(--label);
+      letter-spacing: 2px;
+      opacity: .74;
+    }
+
+    .heat-date { color: var(--ink-3); font-size: 13px; }
+    .heat-stats { display: grid; gap: 7px; margin: 0; }
+    .heat-stats div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .heat-stats dt { color: var(--ink-3); font: 12px var(--label); letter-spacing: 1.2px; }
+    .heat-stats dd { margin: 0; font-size: 15px; font-weight: 600; }
+
+    .meter { margin-top: auto; padding-top: 8px; }
+    .meter-track { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); height: 10px; overflow: visible; border-radius: 3px; }
+    .meter-track i:nth-child(1) { background: #4f68bb; border-radius: 3px 0 0 3px; }
+    .meter-track i:nth-child(2) { background: #65a8c5; }
+    .meter-track i:nth-child(3) { background: #d5bd57; }
+    .meter-track i:nth-child(4) { background: #d67e45; }
+    .meter-track i:nth-child(5) { background: #c84e3e; border-radius: 0 3px 3px 0; }
+    .meter-pin { position: absolute; inset: -4px auto -4px 62%; width: 3px; background: var(--ink); box-shadow: 0 0 0 2px var(--panel); }
+    .meter-labels { display: flex; justify-content: space-between; margin-top: 4px; color: var(--ink-3); font: 11px var(--label); letter-spacing: 1.5px; }
+
+    .heat-chart { min-width: 0; padding: 16px 18px 12px; }
+    .chart-kicker { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .chart-kicker strong { font: 16px var(--display); letter-spacing: .5px; }
+    .chart-kicker span { color: var(--ink-3); font-size: 11px; }
+    .heat-chart svg { display: block; width: 100%; height: 178px; }
+    .grid { stroke: var(--line); stroke-width: 1; }
+    .expected { fill: none; stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; opacity: .65; }
+    .axis-label { fill: var(--ink-3); font: 10px var(--mono); }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--ink-2); font-size: 11.5px; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend i { width: 10px; height: 10px; border-radius: 2px; }
+    .legend .dash { width: 16px; height: 0; border-top: 2px dashed var(--ink); border-radius: 0; opacity: .65; }
+
+    /* The proposed institutional-flow module. */
+    .flow-panel {
+      margin-bottom: 18px;
+      border: 2px solid var(--ink);
+      background: var(--panel);
+    }
+
+    .flow-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .flow-title-wrap { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+    .flow-title { margin: 0; font: 900 20px/1.2 var(--display); letter-spacing: .5px; }
+    .flow-eyebrow { color: var(--ink-3); font: 12px var(--label); letter-spacing: 1.7px; white-space: nowrap; }
+
+    .date-control {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+      border: 1.5px solid var(--ink);
+      background: var(--panel);
+    }
+
+    .date-control button {
+      display: grid;
+      width: 34px;
+      height: 32px;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      cursor: pointer;
+    }
+
+    .date-control button:hover { background: var(--panel-2); color: var(--ink); }
+    .date-control button:disabled { color: var(--line); cursor: not-allowed; background: transparent; }
+    .date-control time { min-width: 142px; padding: 0 12px; border-inline: 1px solid var(--line); text-align: center; font-size: 12.5px; font-weight: 600; }
+
+    .flow-body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(260px, .7fr); }
+    .flow-table-wrap { min-width: 0; overflow-x: auto; }
+    .flow-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .flow-table th {
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--ink-3);
+      font: 12px var(--label);
+      letter-spacing: 1.3px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .flow-table th:first-child { text-align: left; }
+    .flow-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    .flow-table td:first-child { text-align: left; font-weight: 700; }
+    .flow-table tbody tr:hover td { background: var(--panel-2); }
+    .flow-table .sub { padding-left: 27px; color: var(--ink-2); font-size: 12.5px; font-weight: 500; }
+    .flow-table .net-buy { color: var(--red); font-weight: 700; }
+    .flow-table .net-sell { color: var(--green); font-weight: 700; }
+    .flow-table .net-flat { color: var(--ink-3); font-weight: 600; }
+    .flow-table tfoot td { padding-block: 12px; border: 0; border-top: 2px solid var(--ink); background: var(--panel-2); font-weight: 900; }
+
+    .flow-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 18px;
+      border-left: 1px solid var(--line);
+      background: #fafafa;
+    }
+
+    .net-total-label { color: var(--ink-3); font: 12px var(--label); letter-spacing: 1.5px; }
+    .net-total { margin-top: 2px; color: var(--red); font: 600 30px/1.1 var(--mono); letter-spacing: -.06em; }
+    .net-total small { margin-left: 5px; color: var(--ink-2); font: 13px var(--sans); letter-spacing: 0; }
+
+    .group-list { display: grid; gap: 10px; }
+    .group-row { display: grid; grid-template-columns: 54px minmax(50px, 1fr) 72px; align-items: center; gap: 8px; font-size: 12px; }
+    .group-row strong { font-size: 12.5px; }
+    .group-track { height: 6px; overflow: hidden; border-radius: 999px; background: #e8e8ea; }
+    .group-track i { display: block; height: 100%; border-radius: inherit; }
+    .group-row output { color: var(--red); font: 600 12px var(--mono); text-align: right; }
+
+    .ratio { margin-top: auto; padding-top: 2px; }
+    .ratio-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
+    .ratio-head span { color: var(--ink-3); font-size: 12px; font-weight: 700; }
+    .ratio-head strong { font: 600 17px var(--mono); }
+    .ratio-track { height: 9px; overflow: hidden; border-radius: 2px; background: #e4e5e8; }
+    .ratio-track i { display: block; width: 44.01%; height: 100%; background: var(--ink); }
+
+    .flow-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 9px 14px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-3);
+      font-size: 11px;
+    }
+
+    .flow-foot span:last-child { text-align: right; }
+
+    .panel { margin-bottom: 18px; border: 2px solid var(--ink); background: var(--panel); }
+    .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px 16px 10px; border-bottom: 1px solid var(--line); }
+    .panel-title { margin: 0; font: 900 18px var(--display); letter-spacing: .5px; }
+    .panel-note { color: var(--ink-3); font-size: 11px; }
+    .panel-note strong { color: var(--ink-2); font-weight: 900; }
+    .combo-scroll { overflow-x: auto; }
+    .mini-chart { position: relative; height: 302px; min-width: 780px; padding: 12px 10px 4px; }
+    .mini-chart svg { display: block; width: 100%; height: 100%; }
+    .chart-zero { stroke: var(--ink); stroke-width: 1.4; }
+    .index-line { fill: none; stroke: #595c65; stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+    .index-dot { fill: var(--panel); stroke: #595c65; stroke-width: 2; }
+    .foreign-bar { fill: var(--red); }
+    .trust-bar { fill: var(--blue); }
+    .dealer-bar { fill: var(--amber); }
+    .chart-bar { opacity: .82; }
+    .chart-bar.latest { opacity: 1; }
+    .latest-band { fill: #f1f1f3; }
+    .chart-segment { stroke: var(--panel); stroke-width: .6; transition: opacity .12s; }
+    .chart-day:hover .chart-segment { opacity: .68; }
+    .chart-hit { fill: transparent; cursor: pointer; pointer-events: all; }
+    .chart-hit:focus { outline: none; }
+    .selected-guide { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 3; opacity: .5; }
+    .chart-month-line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+    .chart-scroll-hint { display: none; padding: 0 16px 3px; color: var(--ink-3); font-size: 10.5px; text-align: right; }
+    .mini-legend { padding: 4px 16px 13px; }
+    .mini-legend .line-swatch { width: 17px; height: 0; border-top: 2px solid #595c65; border-radius: 0; }
+    .legend-note { margin-left: auto; color: var(--ink-3); }
+
+    .sheet-peek { border: 2px solid var(--ink); background: var(--panel); overflow: hidden; }
+    .sheet-peek table { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: center; }
+    .sheet-peek th { padding: 9px 12px; background: var(--ink); color: var(--field); font: 12px var(--label); letter-spacing: 1.2px; white-space: nowrap; }
+    .sheet-peek td { padding: 7px 12px; border-top: 1px solid var(--line); white-space: nowrap; }
+
+    @media (max-width: 900px) {
+      .heat { grid-template-columns: 1fr; }
+      .heat-today { border-right: 0; border-bottom: 1px solid var(--line); }
+      .flow-body { grid-template-columns: 1fr; }
+      .flow-summary { border-top: 1px solid var(--line); border-left: 0; }
+      .group-list { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .group-row { grid-template-columns: 1fr; gap: 4px; }
+      .group-row output { text-align: left; }
+    }
+
+    @media (max-width: 620px) {
+      .wrap { width: min(calc(100% - 28px), var(--maxw)); padding-top: 16px; }
+      .proposal-note { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .proposal-note span:last-child { text-align: left; }
+      .method-link { display: none; }
+      .filters { width: 100%; }
+      .tab { flex: 1 0 auto; padding-inline: 11px; }
+      .heat-chart { padding-inline: 12px; }
+      .heat-chart svg { min-width: 620px; }
+      .heat-chart { overflow-x: auto; }
+      .flow-head { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .flow-title-wrap { align-items: flex-start; flex-direction: column; gap: 2px; }
+      .date-control { width: 100%; }
+      .date-control time { flex: 1; min-width: 0; }
+      .flow-table { min-width: 560px; }
+      .flow-summary { gap: 16px; padding: 16px 14px; }
+      .group-list { grid-template-columns: 1fr; }
+      .group-row { grid-template-columns: 54px minmax(50px, 1fr) 72px; gap: 8px; }
+      .group-row output { text-align: right; }
+      .flow-foot { flex-direction: column; gap: 3px; }
+      .flow-foot span:last-child { text-align: left; }
+      .panel-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+      .legend-note { flex-basis: 100%; margin-left: 0; }
+      .chart-scroll-hint { display: block; }
+      .sheet-peek { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="proposal-note">
+      <span><strong>版面提案 01</strong> · 三大法人放在每日量能判讀之後</span>
+      <span>此頁為互動 HTML 示意，使用模擬資料、不含正式資料串接</span>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters" role="tablist" aria-label="區間">
+        <button class="tab" type="button" role="tab" aria-selected="false" data-days="22">近一月</button>
+        <button class="tab on" type="button" role="tab" aria-selected="true" data-days="66">近一季</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-days="130">近半年</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-days="240">近一年</button>
+        <button class="tab" type="button" role="tab" aria-selected="false" data-days="all">全部</button>
+      </div>
+      <a class="method-link" href="#">計算原理</a>
+    </div>
+
+    <section class="heat" aria-label="當日量能判讀">
+      <div class="heat-today">
+        <div class="heat-stamp" id="selected-heat-stamp">
+          <span class="zh" id="selected-heat-label">量能偏熱</span>
+          <span class="en" id="selected-heat-en">ABOVE NORMAL</span>
+        </div>
+        <div class="heat-date mono" id="selected-heat-date">2026-09-01</div>
+        <dl class="heat-stats">
+          <div><dt>加權指數</dt><dd class="mono" id="selected-index">24,016.78</dd></div>
+          <div><dt>成交金額</dt><dd class="mono" id="selected-turnover">5,318.2 億元</dd></div>
+          <div><dt>位階常態</dt><dd class="mono" id="selected-expected">4,769.6 億元</dd></div>
+          <div><dt>量能比</dt><dd class="mono" id="selected-ratio">×1.12</dd></div>
+          <div><dt>近一年百分位</dt><dd class="mono" id="selected-percentile">62.0%</dd></div>
+        </dl>
+        <div class="meter">
+          <div class="meter-track"><i></i><i></i><i></i><i></i><i></i><span class="meter-pin" id="selected-meter-pin"></span></div>
+          <div class="meter-labels"><span>冷</span><span>熱</span></div>
+        </div>
+      </div>
+
+      <div class="heat-chart">
+        <div class="chart-kicker"><strong>成交金額 vs 位階常態</strong><span>億元</span></div>
+        <svg viewBox="0 0 780 178" role="img" aria-label="成交金額長條圖示意">
+          <line class="grid" x1="42" x2="770" y1="28" y2="28"></line>
+          <line class="grid" x1="42" x2="770" y1="72" y2="72"></line>
+          <line class="grid" x1="42" x2="770" y1="116" y2="116"></line>
+          <line class="grid" x1="42" x2="770" y1="150" y2="150"></line>
+          <text class="axis-label" x="35" y="32" text-anchor="end">6,000</text>
+          <text class="axis-label" x="35" y="76" text-anchor="end">4,000</text>
+          <text class="axis-label" x="35" y="120" text-anchor="end">2,000</text>
+          <g fill="#65a8c5">
+            <rect x="49" y="78" width="7" height="72" rx="1.5"></rect><rect x="61" y="85" width="7" height="65" rx="1.5"></rect>
+            <rect x="73" y="82" width="7" height="68" rx="1.5"></rect><rect x="85" y="89" width="7" height="61" rx="1.5"></rect>
+            <rect x="97" y="79" width="7" height="71" rx="1.5"></rect><rect x="109" y="92" width="7" height="58" rx="1.5"></rect>
+          </g>
+          <g fill="#d5bd57">
+            <rect x="121" y="75" width="7" height="75" rx="1.5"></rect><rect x="133" y="71" width="7" height="79" rx="1.5"></rect>
+            <rect x="145" y="77" width="7" height="73" rx="1.5"></rect><rect x="157" y="66" width="7" height="84" rx="1.5"></rect>
+            <rect x="169" y="70" width="7" height="80" rx="1.5"></rect><rect x="181" y="63" width="7" height="87" rx="1.5"></rect>
+            <rect x="193" y="68" width="7" height="82" rx="1.5"></rect><rect x="205" y="62" width="7" height="88" rx="1.5"></rect>
+            <rect x="217" y="65" width="7" height="85" rx="1.5"></rect><rect x="229" y="72" width="7" height="78" rx="1.5"></rect>
+            <rect x="241" y="60" width="7" height="90" rx="1.5"></rect><rect x="253" y="58" width="7" height="92" rx="1.5"></rect>
+            <rect x="265" y="67" width="7" height="83" rx="1.5"></rect><rect x="277" y="54" width="7" height="96" rx="1.5"></rect>
+          </g>
+          <g fill="#d67e45">
+            <rect x="289" y="59" width="7" height="91" rx="1.5"></rect><rect x="301" y="51" width="7" height="99" rx="1.5"></rect>
+            <rect x="313" y="57" width="7" height="93" rx="1.5"></rect><rect x="325" y="48" width="7" height="102" rx="1.5"></rect>
+            <rect x="337" y="52" width="7" height="98" rx="1.5"></rect><rect x="349" y="47" width="7" height="103" rx="1.5"></rect>
+            <rect x="361" y="56" width="7" height="94" rx="1.5"></rect><rect x="373" y="49" width="7" height="101" rx="1.5"></rect>
+            <rect x="385" y="44" width="7" height="106" rx="1.5"></rect><rect x="397" y="54" width="7" height="96" rx="1.5"></rect>
+            <rect x="409" y="46" width="7" height="104" rx="1.5"></rect><rect x="421" y="50" width="7" height="100" rx="1.5"></rect>
+          </g>
+          <g fill="#c84e3e">
+            <rect x="433" y="41" width="7" height="109" rx="1.5"></rect><rect x="445" y="53" width="7" height="97" rx="1.5"></rect>
+            <rect x="457" y="45" width="7" height="105" rx="1.5"></rect><rect x="469" y="37" width="7" height="113" rx="1.5"></rect>
+            <rect x="481" y="46" width="7" height="104" rx="1.5"></rect><rect x="493" y="34" width="7" height="116" rx="1.5"></rect>
+            <rect x="505" y="43" width="7" height="107" rx="1.5"></rect><rect x="517" y="48" width="7" height="102" rx="1.5"></rect>
+            <rect x="529" y="36" width="7" height="114" rx="1.5"></rect><rect x="541" y="40" width="7" height="110" rx="1.5"></rect>
+            <rect x="553" y="32" width="7" height="118" rx="1.5"></rect><rect x="565" y="44" width="7" height="106" rx="1.5"></rect>
+            <rect x="577" y="38" width="7" height="112" rx="1.5"></rect><rect x="589" y="29" width="7" height="121" rx="1.5"></rect>
+            <rect x="601" y="42" width="7" height="108" rx="1.5"></rect><rect x="613" y="35" width="7" height="115" rx="1.5"></rect>
+            <rect x="625" y="39" width="7" height="111" rx="1.5"></rect><rect x="637" y="33" width="7" height="117" rx="1.5"></rect>
+            <rect x="649" y="43" width="7" height="107" rx="1.5"></rect><rect x="661" y="31" width="7" height="119" rx="1.5"></rect>
+            <rect x="673" y="37" width="7" height="113" rx="1.5"></rect><rect x="685" y="28" width="7" height="122" rx="1.5"></rect>
+            <rect x="697" y="35" width="7" height="115" rx="1.5"></rect><rect x="709" y="42" width="7" height="108" rx="1.5"></rect>
+            <rect x="721" y="31" width="7" height="119" rx="1.5"></rect><rect x="733" y="38" width="7" height="112" rx="1.5"></rect>
+            <rect x="745" y="27" width="7" height="123" rx="1.5"></rect><rect x="757" y="32" width="7" height="118" rx="1.5"></rect>
+          </g>
+          <path class="expected" d="M52 91 C120 88, 155 81, 216 77 S330 66, 394 62 S503 57, 566 52 S681 47, 760 43"></path>
+          <text class="axis-label" x="150" y="170">7月</text><text class="axis-label" x="390" y="170">8月</text><text class="axis-label" x="742" y="170">9月</text>
+        </svg>
+        <div class="legend">
+          <span><i style="background:#4f68bb"></i>量能極冷</span>
+          <span><i style="background:#65a8c5"></i>量能偏冷</span>
+          <span><i style="background:#d5bd57"></i>量能正常</span>
+          <span><i style="background:#d67e45"></i>量能偏熱</span>
+          <span><i style="background:#c84e3e"></i>量能極熱</span>
+          <span><i class="dash"></i>位階常態</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="flow-panel" aria-labelledby="flow-title">
+      <header class="flow-head">
+        <div class="flow-title-wrap">
+          <h2 class="flow-title" id="flow-title">三大法人買賣</h2>
+          <span class="flow-eyebrow">INSTITUTIONAL FLOW · 收盤</span>
+        </div>
+        <div class="date-control" aria-label="法人資料日期">
+          <button type="button" aria-label="前一個交易日" id="previous-date">‹</button>
+          <time class="mono" datetime="2026-09-01" id="selected-flow-date">115.09.01（二）</time>
+          <button type="button" aria-label="後一個交易日" id="next-date">›</button>
+        </div>
+      </header>
+
+      <div class="flow-body">
+        <div class="flow-table-wrap">
+          <table class="flow-table">
+            <thead>
+              <tr>
+                <th scope="col">單位名稱</th>
+                <th scope="col">買進（億元）</th>
+                <th scope="col">賣出（億元）</th>
+                <th scope="col">買賣差額（億元）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-flow-row="dealer-own">
+                <td class="sub">自營商（自行買賣）</td>
+                <td class="mono" data-flow-field="buy">158.31</td>
+                <td class="mono" data-flow-field="sell">126.74</td>
+                <td class="mono net-buy" data-flow-field="net">+31.57</td>
+              </tr>
+              <tr data-flow-row="dealer-hedge">
+                <td class="sub">自營商（避險）</td>
+                <td class="mono" data-flow-field="buy">469.08</td>
+                <td class="mono" data-flow-field="sell">337.35</td>
+                <td class="mono net-buy" data-flow-field="net">+131.72</td>
+              </tr>
+              <tr data-flow-row="trust">
+                <td>投信</td>
+                <td class="mono" data-flow-field="buy">391.06</td>
+                <td class="mono" data-flow-field="sell">260.05</td>
+                <td class="mono net-buy" data-flow-field="net">+131.01</td>
+              </tr>
+              <tr data-flow-row="foreign">
+                <td>外資及陸資</td>
+                <td class="mono" data-flow-field="buy">4,019.99</td>
+                <td class="mono" data-flow-field="sell">3,752.91</td>
+                <td class="mono net-buy" data-flow-field="net">+267.07</td>
+              </tr>
+              <tr data-flow-row="foreign-dealer">
+                <td class="sub">外資自營商</td>
+                <td class="mono" data-flow-field="buy">0.00</td>
+                <td class="mono" data-flow-field="sell">0.00</td>
+                <td class="mono net-flat" data-flow-field="net">0.00</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr data-flow-row="total">
+                <td>合計</td>
+                <td class="mono" data-flow-field="buy">5,038.46</td>
+                <td class="mono" data-flow-field="sell">4,477.07</td>
+                <td class="mono net-buy" data-flow-field="net">+561.38</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <aside class="flow-summary" aria-label="三大法人摘要">
+          <div>
+            <div class="net-total-label">三大法人合計淨額</div>
+            <div class="net-total"><span id="selected-total-net">+561.38</span><small>億元</small></div>
+          </div>
+
+          <div class="group-list" aria-label="各法人淨額比較">
+            <div class="group-row" data-summary-group="foreign">
+              <strong>外資</strong>
+              <span class="group-track"><i style="width:100%;background:var(--red)"></i></span>
+              <output>+267.07</output>
+            </div>
+            <div class="group-row" data-summary-group="dealer">
+              <strong>自營商</strong>
+              <span class="group-track"><i style="width:61.1%;background:var(--amber)"></i></span>
+              <output>+163.29</output>
+            </div>
+            <div class="group-row" data-summary-group="trust">
+              <strong>投信</strong>
+              <span class="group-track"><i style="width:49.1%;background:var(--blue)"></i></span>
+              <output>+131.01</output>
+            </div>
+          </div>
+
+          <div class="ratio">
+            <div class="ratio-head"><span>法人成交比重</span><strong id="selected-flow-ratio">44.01%</strong></div>
+            <div class="ratio-track" aria-hidden="true"><i id="selected-flow-ratio-bar"></i></div>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="flow-foot">
+        <span>點下方折線或法人長條的任一日期，即同步切換上方量能與法人明細</span>
+        <span>分項經億元四捨五入後，可能與官方合計相差 0.01</span>
+      </footer>
+    </section>
+
+    <section class="panel" aria-label="加權指數與三大法人買賣圖示意">
+      <header class="panel-head">
+        <h2 class="panel-title">加權指數 vs 三大法人買賣</h2>
+        <span class="panel-note"><strong id="combo-range-label">近一季 · 66 個交易日</strong> · 點選日期同步上方資料 · 左軸：法人買賣差額（億元） · 右軸：加權指數</span>
+      </header>
+      <div class="combo-scroll" id="stacked-chart-scroll">
+        <div class="mini-chart" id="stacked-chart-shell">
+          <svg id="institution-combo-chart" role="img" aria-label="加權指數折線及三大法人每日買賣差額正負堆疊長條圖"></svg>
+        </div>
+      </div>
+      <div class="chart-scroll-hint">左右滑動查看較早交易日 →</div>
+
+      <!-- 上一版「每日三根並排」留在示意檔內方便比較，但不顯示。 -->
+      <div class="combo-scroll" hidden>
+        <div class="mini-chart">
+          <svg viewBox="0 0 1000 270" role="img" aria-label="加權指數折線及外資、投信、自營商每日買賣差額長條圖">
+            <rect class="latest-band" x="891" y="17" width="69" height="229" rx="3"></rect>
+
+            <line class="grid" x1="60" x2="960" y1="35" y2="35"></line>
+            <line class="grid" x1="60" x2="960" y1="85" y2="85"></line>
+            <line class="grid" x1="60" x2="960" y1="135" y2="135"></line>
+            <line class="grid" x1="60" x2="960" y1="235" y2="235"></line>
+            <line class="chart-zero" x1="60" x2="960" y1="185" y2="185"></line>
+
+            <text class="axis-label" x="52" y="139" text-anchor="end">+300</text>
+            <text class="axis-label" x="52" y="189" text-anchor="end">0</text>
+            <text class="axis-label" x="52" y="239" text-anchor="end">−300</text>
+            <text class="axis-label" x="968" y="39">24,100</text>
+            <text class="axis-label" x="968" y="89">23,800</text>
+            <text class="axis-label" x="968" y="139">23,500</text>
+
+            <!-- 每個交易日三根長條：外資、投信、自營商；零軸上方買超、下方賣超。 -->
+            <g class="chart-bar">
+              <rect class="foreign-bar" x="75" y="185" width="10" height="23" rx="1.5"></rect>
+              <rect class="trust-bar" x="88" y="179" width="10" height="6" rx="1.5"></rect>
+              <rect class="dealer-bar" x="101" y="185" width="10" height="8" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="151" y="170" width="10" height="15" rx="1.5"></rect>
+              <rect class="trust-bar" x="164" y="178" width="10" height="7" rx="1.5"></rect>
+              <rect class="dealer-bar" x="177" y="181" width="10" height="4" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="227" y="185" width="10" height="38" rx="1.5"></rect>
+              <rect class="trust-bar" x="240" y="175" width="10" height="10" rx="1.5"></rect>
+              <rect class="dealer-bar" x="253" y="185" width="10" height="6" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="303" y="159" width="10" height="26" rx="1.5"></rect>
+              <rect class="trust-bar" x="316" y="172" width="10" height="13" rx="1.5"></rect>
+              <rect class="dealer-bar" x="329" y="176" width="10" height="9" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="379" y="174" width="10" height="11" rx="1.5"></rect>
+              <rect class="trust-bar" x="392" y="185" width="10" height="5" rx="1.5"></rect>
+              <rect class="dealer-bar" x="405" y="178" width="10" height="7" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="455" y="185" width="10" height="17" rx="1.5"></rect>
+              <rect class="trust-bar" x="468" y="173" width="10" height="12" rx="1.5"></rect>
+              <rect class="dealer-bar" x="481" y="185" width="10" height="13" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="531" y="151" width="10" height="34" rx="1.5"></rect>
+              <rect class="trust-bar" x="544" y="176" width="10" height="9" rx="1.5"></rect>
+              <rect class="dealer-bar" x="557" y="168" width="10" height="17" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="607" y="177" width="10" height="8" rx="1.5"></rect>
+              <rect class="trust-bar" x="620" y="185" width="10" height="6" rx="1.5"></rect>
+              <rect class="dealer-bar" x="633" y="175" width="10" height="10" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="683" y="185" width="10" height="30" rx="1.5"></rect>
+              <rect class="trust-bar" x="696" y="181" width="10" height="4" rx="1.5"></rect>
+              <rect class="dealer-bar" x="709" y="185" width="10" height="8" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="759" y="164" width="10" height="21" rx="1.5"></rect>
+              <rect class="trust-bar" x="772" y="171" width="10" height="14" rx="1.5"></rect>
+              <rect class="dealer-bar" x="785" y="178" width="10" height="7" rx="1.5"></rect>
+
+              <rect class="foreign-bar" x="835" y="185" width="10" height="10" rx="1.5"></rect>
+              <rect class="trust-bar" x="848" y="168" width="10" height="17" rx="1.5"></rect>
+              <rect class="dealer-bar" x="861" y="173" width="10" height="12" rx="1.5"></rect>
+            </g>
+
+            <g class="chart-bar latest">
+              <rect class="foreign-bar" x="911" y="137" width="10" height="48" rx="1.5"></rect>
+              <rect class="trust-bar" x="924" y="161" width="10" height="24" rx="1.5"></rect>
+              <rect class="dealer-bar" x="937" y="156" width="10" height="29" rx="1.5"></rect>
+            </g>
+
+            <polyline class="index-line" points="93,128 169,116 245,102 321,110 397,94 473,84 549,92 625,70 701,77 777,60 853,65 929,43"></polyline>
+            <g>
+              <circle class="index-dot" cx="93" cy="128" r="3.5"></circle><circle class="index-dot" cx="169" cy="116" r="3.5"></circle>
+              <circle class="index-dot" cx="245" cy="102" r="3.5"></circle><circle class="index-dot" cx="321" cy="110" r="3.5"></circle>
+              <circle class="index-dot" cx="397" cy="94" r="3.5"></circle><circle class="index-dot" cx="473" cy="84" r="3.5"></circle>
+              <circle class="index-dot" cx="549" cy="92" r="3.5"></circle><circle class="index-dot" cx="625" cy="70" r="3.5"></circle>
+              <circle class="index-dot" cx="701" cy="77" r="3.5"></circle><circle class="index-dot" cx="777" cy="60" r="3.5"></circle>
+              <circle class="index-dot" cx="853" cy="65" r="3.5"></circle><circle class="index-dot" cx="929" cy="43" r="4.5"></circle>
+            </g>
+
+            <text class="axis-label" x="93" y="261" text-anchor="middle">8/17</text>
+            <text class="axis-label" x="245" y="261" text-anchor="middle">8/19</text>
+            <text class="axis-label" x="397" y="261" text-anchor="middle">8/21</text>
+            <text class="axis-label" x="549" y="261" text-anchor="middle">8/25</text>
+            <text class="axis-label" x="701" y="261" text-anchor="middle">8/27</text>
+            <text class="axis-label" x="853" y="261" text-anchor="middle">8/31</text>
+            <text class="axis-label" x="929" y="261" text-anchor="middle">9/01</text>
+          </svg>
+        </div>
+      </div>
+      <div class="legend mini-legend">
+        <span><i class="line-swatch"></i>加權指數</span>
+        <span><i style="background:var(--red)"></i>外資</span>
+        <span><i style="background:var(--blue)"></i>投信</span>
+        <span><i style="background:var(--amber)"></i>自營商</span>
+        <span class="legend-note">零軸上方為買超，下方為賣超</span>
+      </div>
+    </section>
+
+    <div class="sheet-peek" aria-label="歷史明細表示意">
+      <table>
+        <thead><tr><th>日期</th><th>加權指數</th><th>成交金額（億元）</th><th>位階常態（億元）</th><th>量能比</th><th>近一年百分位</th><th>判讀</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">2026-09-01</td><td class="mono">24,016.78</td><td class="mono">5,318.2</td><td class="mono">4,769.6</td><td class="mono">1.12</td><td class="mono">0.620</td><td><strong>量能偏熱</strong></td></tr>
+          <tr><td class="mono">2026-08-31</td><td class="mono">23,905.14</td><td class="mono">4,982.6</td><td class="mono">4,744.3</td><td class="mono">1.05</td><td class="mono">0.548</td><td><strong>量能正常</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const svg = document.querySelector('#institution-combo-chart');
+      const shell = document.querySelector('#stacked-chart-shell');
+      const scroller = document.querySelector('#stacked-chart-scroll');
+      const rangeLabel = document.querySelector('#combo-range-label');
+      const tabs = [...document.querySelectorAll('.tab[data-days]')];
+
+      const COLORS = {
+        foreign: '#c84e3e',
+        trust: '#4f68bb',
+        dealer: '#d49a36',
+      };
+
+      const HEAT_LEVELS = [
+        { zh: '量能極冷', en: 'VERY COLD', color: '#4f68bb', text: '#fff' },
+        { zh: '量能偏冷', en: 'BELOW NORMAL', color: '#65a8c5', text: '#202229' },
+        { zh: '量能正常', en: 'NORMAL', color: '#d5bd57', text: '#202229' },
+        { zh: '量能偏熱', en: 'ABOVE NORMAL', color: '#d67e45', text: '#202229' },
+        { zh: '量能極熱', en: 'VERY HOT', color: '#c84e3e', text: '#fff' },
+      ];
+
+      const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+      function makePair(net, base) {
+        return {
+          buy: base + net / 2,
+          sell: base - net / 2,
+          net,
+        };
+      }
+
+      function makeFlowDetail(foreign, trust, dealer, index) {
+        const ownShare = .24 + (Math.sin(index * .27) + 1) * .08;
+        const dealerOwnNet = dealer * ownShare;
+        const dealerHedgeNet = dealer - dealerOwnNet;
+        const dealerOwn = makePair(dealerOwnNet, 125 + Math.abs(dealerOwnNet) * .7);
+        const dealerHedge = makePair(dealerHedgeNet, 335 + Math.abs(dealerHedgeNet) * .62);
+        const trustPair = makePair(trust, 260 + Math.abs(trust) * .62);
+        const foreignPair = makePair(foreign, 3400 + Math.sin(index * .13) * 260 + Math.abs(foreign) * .55);
+        const total = {
+          buy: dealerOwn.buy + dealerHedge.buy + trustPair.buy + foreignPair.buy,
+          sell: dealerOwn.sell + dealerHedge.sell + trustPair.sell + foreignPair.sell,
+          net: dealer + trust + foreign,
+        };
+        return {
+          dealerOwn,
+          dealerHedge,
+          trust: trustPair,
+          foreign: foreignPair,
+          foreignDealer: { buy: 0, sell: 0, net: 0 },
+          total,
+          turnoverRatio: clamp(39 + Math.sin(index * .15) * 6 + total.net / 180, 24, 58),
+        };
+      }
+
+      function buildTradingDays(count) {
+        const days = [];
+        const cursor = new Date(2026, 8, 1, 12);
+        while (days.length < count) {
+          const weekday = cursor.getDay();
+          if (weekday !== 0 && weekday !== 6) days.unshift(new Date(cursor));
+          cursor.setDate(cursor.getDate() - 1);
+        }
+        return days;
+      }
+
+      const allDays = buildTradingDays(520).map((date, index, source) => {
+        const progress = index / (source.length - 1);
+        const foreign = Math.round(Math.sin(index * .79) * 160 + Math.cos(index * .23) * 72 + (index % 17 === 0 ? -120 : 0));
+        const trust = Math.round(Math.sin(index * .31 + 1.2) * 65 + Math.cos(index * .09) * 18);
+        const dealer = Math.round(Math.cos(index * .53 - .4) * 74 + Math.sin(index * .17) * 28);
+        const weightedIndex = 17600 + progress * 6100 + Math.sin(index * .08) * 380 + Math.cos(index * .21) * 110;
+        const expectedTurnover = 3050 + progress * 1680 + Math.sin(index * .1) * 210;
+        const turnover = expectedTurnover * (.82 + (Math.sin(index * .37) + 1) * .18);
+        const volumeRatio = turnover / expectedTurnover;
+        const percentile = clamp((volumeRatio - .82) / .36, 0, 1);
+        return {
+          date,
+          foreign,
+          trust,
+          dealer,
+          weightedIndex,
+          turnover,
+          expectedTurnover,
+          volumeRatio,
+          percentile,
+          flow: makeFlowDetail(foreign, trust, dealer, index),
+        };
+      });
+
+      Object.assign(allDays[allDays.length - 1], {
+        foreign: 267.07,
+        trust: 131.01,
+        dealer: 163.29,
+        weightedIndex: 24016.78,
+        turnover: 5318.2,
+        expectedTurnover: 4769.6,
+        volumeRatio: 5318.2 / 4769.6,
+        percentile: .62,
+        flow: {
+          dealerOwn: { buy: 158.31, sell: 126.74, net: 31.57 },
+          dealerHedge: { buy: 469.08, sell: 337.35, net: 131.72 },
+          trust: { buy: 391.06, sell: 260.05, net: 131.01 },
+          foreign: { buy: 4019.99, sell: 3752.91, net: 267.07 },
+          foreignDealer: { buy: 0, sell: 0, net: 0 },
+          total: { buy: 5038.46, sell: 4477.07, net: 561.38 },
+          turnoverRatio: 44.01,
+        },
+      });
+
+      function fmtDate(date) {
+        return `${date.getMonth() + 1}/${String(date.getDate()).padStart(2, '0')}`;
+      }
+
+      function fmtNumber(value, digits = 0) {
+        return value.toLocaleString('zh-TW', {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits,
+        });
+      }
+
+      function isoDate(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      }
+
+      function rocDate(date) {
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        return `${date.getFullYear() - 1911}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}（${weekdays[date.getDay()]}）`;
+      }
+
+      function fmtNet(value) {
+        if (Math.abs(value) < .005) return '0.00';
+        return `${value > 0 ? '+' : ''}${fmtNumber(value, 2)}`;
+      }
+
+      function applyNetStyle(element, value) {
+        element.classList.remove('net-buy', 'net-sell', 'net-flat');
+        element.classList.add(value > .005 ? 'net-buy' : value < -.005 ? 'net-sell' : 'net-flat');
+      }
+
+      function setFlowRow(name, values) {
+        const row = document.querySelector(`[data-flow-row="${name}"]`);
+        row.querySelector('[data-flow-field="buy"]').textContent = fmtNumber(values.buy, 2);
+        row.querySelector('[data-flow-field="sell"]').textContent = fmtNumber(values.sell, 2);
+        const net = row.querySelector('[data-flow-field="net"]');
+        net.textContent = fmtNet(values.net);
+        applyNetStyle(net, values.net);
+      }
+
+      let currentRange = '66';
+      let currentDays = [];
+      let selectedTime = allDays[allDays.length - 1].date.getTime();
+
+      function displaySelectedDay(day) {
+        const heatIndex = clamp(Math.floor(day.percentile * 5), 0, 4);
+        const heat = HEAT_LEVELS[heatIndex];
+        const stamp = document.querySelector('#selected-heat-stamp');
+        stamp.style.background = heat.color;
+        stamp.style.color = heat.text;
+        document.querySelector('#selected-heat-label').textContent = heat.zh;
+        document.querySelector('#selected-heat-en').textContent = heat.en;
+        document.querySelector('#selected-heat-date').textContent = isoDate(day.date);
+        document.querySelector('#selected-index').textContent = fmtNumber(day.weightedIndex, 2);
+        document.querySelector('#selected-turnover').textContent = `${fmtNumber(day.turnover, 1)} 億元`;
+        document.querySelector('#selected-expected').textContent = `${fmtNumber(day.expectedTurnover, 1)} 億元`;
+        document.querySelector('#selected-ratio').textContent = `×${day.volumeRatio.toFixed(2)}`;
+        document.querySelector('#selected-percentile').textContent = `${(day.percentile * 100).toFixed(1)}%`;
+        document.querySelector('#selected-meter-pin').style.left = `${day.percentile * 100}%`;
+
+        const flowDate = document.querySelector('#selected-flow-date');
+        flowDate.textContent = rocDate(day.date);
+        flowDate.dateTime = isoDate(day.date);
+        setFlowRow('dealer-own', day.flow.dealerOwn);
+        setFlowRow('dealer-hedge', day.flow.dealerHedge);
+        setFlowRow('trust', day.flow.trust);
+        setFlowRow('foreign', day.flow.foreign);
+        setFlowRow('foreign-dealer', day.flow.foreignDealer);
+        setFlowRow('total', day.flow.total);
+
+        const totalNet = document.querySelector('#selected-total-net');
+        totalNet.textContent = fmtNet(day.flow.total.net);
+        totalNet.style.color = day.flow.total.net > 0 ? 'var(--red)' : day.flow.total.net < 0 ? 'var(--green)' : 'var(--ink-3)';
+        const summaryValues = {
+          foreign: day.foreign,
+          dealer: day.dealer,
+          trust: day.trust,
+        };
+        const maxSummary = Math.max(1, ...Object.values(summaryValues).map(Math.abs));
+        Object.entries(summaryValues).forEach(([name, value]) => {
+          const group = document.querySelector(`[data-summary-group="${name}"]`);
+          group.querySelector('i').style.width = `${Math.abs(value) / maxSummary * 100}%`;
+          const output = group.querySelector('output');
+          output.textContent = fmtNet(value);
+          output.style.color = value > 0 ? 'var(--red)' : value < 0 ? 'var(--green)' : 'var(--ink-3)';
+        });
+        document.querySelector('#selected-flow-ratio').textContent = `${day.flow.turnoverRatio.toFixed(2)}%`;
+        document.querySelector('#selected-flow-ratio-bar').style.width = `${day.flow.turnoverRatio}%`;
+
+        const selectedIndex = currentDays.findIndex((item) => item.date.getTime() === selectedTime);
+        document.querySelector('#previous-date').disabled = selectedIndex <= 0;
+        document.querySelector('#next-date').disabled = selectedIndex < 0 || selectedIndex >= currentDays.length - 1;
+      }
+
+      function renderChart(daysRequested = currentRange) {
+        currentRange = daysRequested;
+        const days = daysRequested === 'all'
+          ? allDays
+          : allDays.slice(-Number(daysRequested));
+        currentDays = days;
+        let selectedIndex = days.findIndex((day) => day.date.getTime() === selectedTime);
+        if (selectedIndex < 0) {
+          selectedIndex = days.length - 1;
+          selectedTime = days[selectedIndex].date.getTime();
+        }
+        const count = days.length;
+        const slot = count <= 22 ? 34 : count <= 66 ? 18 : 12;
+        const barWidth = count <= 22 ? 14 : count <= 66 ? 10 : 7;
+        const padLeft = 68;
+        const padRight = 82;
+        const width = Math.max(900, padLeft + (count - 1) * slot + padRight);
+        const zeroY = 187;
+        const barExtent = 55;
+
+        const institutionMax = Math.max(...days.map((day) => {
+          const positives = [day.foreign, day.trust, day.dealer].filter((v) => v > 0).reduce((a, b) => a + b, 0);
+          const negatives = Math.abs([day.foreign, day.trust, day.dealer].filter((v) => v < 0).reduce((a, b) => a + b, 0));
+          return Math.max(positives, negatives);
+        }));
+        const institutionAxis = Math.max(300, Math.ceil(institutionMax / 100) * 100);
+        const barScale = barExtent / institutionAxis;
+
+        const rawIndexMin = Math.min(...days.map((day) => day.weightedIndex));
+        const rawIndexMax = Math.max(...days.map((day) => day.weightedIndex));
+        const indexMin = Math.floor((rawIndexMin - 60) / 100) * 100;
+        const indexMax = Math.ceil((rawIndexMax + 60) / 100) * 100;
+        const indexRange = Math.max(100, indexMax - indexMin);
+        const indexY = (value) => 116 - ((value - indexMin) / indexRange) * 82;
+        const x = (index) => padLeft + index * slot;
+
+        const markup = [];
+        markup.push('<title>加權指數與三大法人買賣差額</title>');
+        markup.push('<desc>灰色折線為加權指數；紅色、藍色、黃色堆疊長條分別代表外資、投信與自營商。零軸上方是買超，下方是賣超。</desc>');
+        markup.push(`<rect class="latest-band" x="${x(selectedIndex) - slot * .55}" y="17" width="${slot * 1.1}" height="229" rx="3"></rect>`);
+        markup.push(`<line class="selected-guide" x1="${x(selectedIndex)}" x2="${x(selectedIndex)}" y1="17" y2="246"></line>`);
+
+        [34, 75, 116, 132, 242].forEach((y) => {
+          markup.push(`<line class="grid" x1="${padLeft - 12}" x2="${width - padRight + 12}" y1="${y}" y2="${y}"></line>`);
+        });
+        markup.push(`<line class="chart-zero" x1="${padLeft - 12}" x2="${width - padRight + 12}" y1="${zeroY}" y2="${zeroY}"></line>`);
+        markup.push(`<text class="axis-label" x="${padLeft - 19}" y="136" text-anchor="end">+${institutionAxis}</text>`);
+        markup.push(`<text class="axis-label" x="${padLeft - 19}" y="191" text-anchor="end">0</text>`);
+        markup.push(`<text class="axis-label" x="${padLeft - 19}" y="246" text-anchor="end">−${institutionAxis}</text>`);
+        markup.push(`<text class="axis-label" x="${width - padRight + 20}" y="38">${fmtNumber(indexMax)}</text>`);
+        markup.push(`<text class="axis-label" x="${width - padRight + 20}" y="79">${fmtNumber(Math.round((indexMax + indexMin) / 200) * 100)}</text>`);
+        markup.push(`<text class="axis-label" x="${width - padRight + 20}" y="120">${fmtNumber(indexMin)}</text>`);
+
+        days.forEach((day, index) => {
+          const previous = days[index - 1];
+          const isMonthStart = !previous || previous.date.getMonth() !== day.date.getMonth();
+          if (isMonthStart && index > 0) {
+            markup.push(`<line class="chart-month-line" x1="${x(index)}" x2="${x(index)}" y1="22" y2="245"></line>`);
+          }
+
+          let positiveY = zeroY;
+          let negativeY = zeroY;
+          const tooltip = [
+            `${day.date.getFullYear()}-${String(day.date.getMonth() + 1).padStart(2, '0')}-${String(day.date.getDate()).padStart(2, '0')}`,
+            `加權指數 ${fmtNumber(day.weightedIndex, 2)}`,
+            `外資 ${day.foreign >= 0 ? '+' : ''}${fmtNumber(day.foreign, 2)} 億`,
+            `投信 ${day.trust >= 0 ? '+' : ''}${fmtNumber(day.trust, 2)} 億`,
+            `自營商 ${day.dealer >= 0 ? '+' : ''}${fmtNumber(day.dealer, 2)} 億`,
+          ].join('｜');
+          markup.push(`<g class="chart-day"><title>${tooltip}</title>`);
+          [
+            ['foreign', day.foreign],
+            ['trust', day.trust],
+            ['dealer', day.dealer],
+          ].forEach(([kind, value]) => {
+            const height = Math.max(1, Math.abs(value) * barScale);
+            let y;
+            if (value >= 0) {
+              positiveY -= height;
+              y = positiveY;
+            } else {
+              y = negativeY;
+              negativeY += height;
+            }
+            markup.push(`<rect class="chart-segment" x="${x(index) - barWidth / 2}" y="${y.toFixed(2)}" width="${barWidth}" height="${height.toFixed(2)}" rx="1" fill="${COLORS[kind]}"></rect>`);
+          });
+          markup.push('</g>');
+        });
+
+        const linePath = days.map((day, index) => `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)},${indexY(day.weightedIndex).toFixed(1)}`).join(' ');
+        markup.push(`<path class="index-line" d="${linePath}"></path>`);
+        markup.push(`<circle class="index-dot" cx="${x(selectedIndex)}" cy="${indexY(days[selectedIndex].weightedIndex).toFixed(1)}" r="4.5"></circle>`);
+
+        days.forEach((day, index) => {
+          const hint = `${isoDate(day.date)}｜點選後同步更新上方量能與法人資料`;
+          markup.push(`<rect class="chart-hit" data-day-index="${index}" x="${x(index) - slot / 2}" y="17" width="${slot}" height="229"><title>${hint}</title></rect>`);
+        });
+
+        days.forEach((day, index) => {
+          const previous = days[index - 1];
+          const isMonthStart = !previous || previous.date.getMonth() !== day.date.getMonth();
+          const isLatest = index === count - 1;
+          const isSelected = index === selectedIndex;
+          if (!isMonthStart && !isLatest && !isSelected) return;
+          const label = isLatest || isSelected
+            ? fmtDate(day.date)
+            : day.date.getMonth() === 0
+              ? `${day.date.getFullYear()}/1`
+              : `${day.date.getMonth() + 1}月`;
+          markup.push(`<text class="axis-label" x="${x(index)}" y="262" text-anchor="middle">${label}</text>`);
+        });
+
+        shell.style.width = `${width}px`;
+        svg.setAttribute('viewBox', `0 0 ${width} 270`);
+        svg.innerHTML = markup.join('');
+        displaySelectedDay(days[selectedIndex]);
+        requestAnimationFrame(() => {
+          scroller.scrollLeft = Math.max(0, x(selectedIndex) - scroller.clientWidth / 2);
+        });
+      }
+
+      svg.addEventListener('click', (event) => {
+        const hit = event.target.closest('.chart-hit');
+        if (!hit) return;
+        const day = currentDays[Number(hit.dataset.dayIndex)];
+        if (!day) return;
+        selectedTime = day.date.getTime();
+        renderChart();
+      });
+
+      document.querySelector('#previous-date').addEventListener('click', () => {
+        const index = currentDays.findIndex((day) => day.date.getTime() === selectedTime);
+        if (index <= 0) return;
+        selectedTime = currentDays[index - 1].date.getTime();
+        renderChart();
+      });
+
+      document.querySelector('#next-date').addEventListener('click', () => {
+        const index = currentDays.findIndex((day) => day.date.getTime() === selectedTime);
+        if (index < 0 || index >= currentDays.length - 1) return;
+        selectedTime = currentDays[index + 1].date.getTime();
+        renderChart();
+      });
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          tabs.forEach((item) => {
+            const selected = item === tab;
+            item.classList.toggle('on', selected);
+            item.setAttribute('aria-selected', String(selected));
+          });
+          const requested = tab.dataset.days;
+          const actualDays = requested === 'all' ? allDays.length : Number(requested);
+          rangeLabel.textContent = `${tab.textContent} · ${actualDays} 個交易日`;
+          renderChart(requested);
+        });
+      });
+
+      renderChart('66');
+    })();
+  </script>
+</body>
+</html>
