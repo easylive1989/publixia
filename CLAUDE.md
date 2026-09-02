@@ -59,6 +59,7 @@ label。修改契約時必須升 `schema_version`，避免讓保存快照的回�
 
 - `intraday_heat_signal`：`0 13 * * 1-5`
 - `market_volume_sync`：`0 16 * * 1-5`
+- `institutional_flow_sync_early`：`10 16 * * 1-5`（只刷新最新交易日）
 - `institutional_flow_sync`：`0 20 * * 1-5`
 - `backup_db`：`0 3 * * *`
 

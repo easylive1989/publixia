@@ -107,6 +107,7 @@ Cron 儲存在 `scheduler_jobs`，時區為 `Asia/Taipei`，字串採 POSIX 星�
 |---|---|---|
 | `intraday_heat_signal` | `0 13 * * 1-5` | 台股 13:00 盤中估算並推 Discord |
 | `market_volume_sync` | `0 16 * * 1-5` | 同步 TWSE 收盤資料 |
+| `institutional_flow_sync_early` | `10 16 * * 1-5` | 同步 TWSE 三大法人第一版資料 |
 | `institutional_flow_sync` | `0 20 * * 1-5` | 同步 TWSE 三大法人最終版買賣金額 |
 | `backup_db` | `0 3 * * *` | SQLite 備份到 R2 |
 

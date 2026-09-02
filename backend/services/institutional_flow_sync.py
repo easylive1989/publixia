@@ -58,3 +58,8 @@ def run_institutional_flow_sync(
         len(targets), written, remaining,
     )
     return {"requested": len(targets), "rows": written, "remaining": remaining}
+
+
+def run_institutional_flow_early_sync(today: date | None = None) -> dict:
+    """16:10 第一版只刷新最新交易日，不在尖峰時段執行歷史回補。"""
+    return run_institutional_flow_sync(today=today, batch_size=0)

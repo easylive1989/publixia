@@ -88,7 +88,12 @@ class TestRegistryDefaults:
             assert crontab_trigger(spec.default_cron, TST) is not None, name
 
     def test_tw_jobs_run_on_taipei_weekdays(self):
-        for name in ("intraday_heat_signal", "market_volume_sync", "institutional_flow_sync"):
+        for name in (
+            "intraday_heat_signal",
+            "market_volume_sync",
+            "institutional_flow_sync_early",
+            "institutional_flow_sync",
+        ):
             assert fire_days(JOBS[name].default_cron, 5) == [
                 "Mon", "Tue", "Wed", "Thu", "Fri"
             ], name

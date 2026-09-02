@@ -112,6 +112,23 @@ def test_sync_prioritises_recent_missing_dates_and_refreshes_latest(monkeypatch)
     assert result == {"requested": 3, "rows": 3, "remaining": 1}
 
 
+def test_early_sync_only_refreshes_latest(monkeypatch):
+    market_volume.upsert_days(TW, [
+        {"date": f"2026-09-0{day}", "index_close": 10000 + day, "turnover": 1000}
+        for day in range(1, 5)
+    ])
+    fetched = []
+
+    def fake_fetch(day):
+        fetched.append(day.isoformat())
+        return _raw(day.isoformat())
+
+    monkeypatch.setattr(sync, "fetch_day", fake_fetch)
+    result = sync.run_institutional_flow_early_sync(today=date(2026, 9, 4))
+    assert fetched == ["2026-09-04"]
+    assert result == {"requested": 1, "rows": 1, "remaining": 3}
+
+
 def test_market_heat_attaches_billion_amounts_and_turnover_ratio():
     rows = []
     for index in range(60):
