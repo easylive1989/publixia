@@ -17,8 +17,10 @@ from repositories import market_volume
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 260
-_PAUSE_SECONDS = 0.35
-_RETRY_DELAYS = (2.0, 5.0, 10.0)
+# TWSE 會對同一 IP 的短時間連續請求限流。0.35 秒在正式 VPS 實測會先成功
+# 1～2 日，之後整段逾時；5 秒讓 260 日批次約 22 分鐘，仍可在晚間排程完成。
+_PAUSE_SECONDS = 5.0
+_RETRY_DELAYS = (15.0, 30.0, 60.0)
 
 
 def _fetch_with_retry(iso: str) -> dict:

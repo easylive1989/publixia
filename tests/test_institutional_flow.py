@@ -100,7 +100,8 @@ def test_sync_prioritises_recent_missing_dates_and_refreshes_latest(monkeypatch)
     ])
     repo.upsert_days(TW, [_raw("2026-09-04")])
     fetched = []
-    monkeypatch.setattr(sync.time, "sleep", lambda _: None)
+    sleeps = []
+    monkeypatch.setattr(sync.time, "sleep", sleeps.append)
 
     def fake_fetch(day):
         fetched.append(day.isoformat())
@@ -109,6 +110,7 @@ def test_sync_prioritises_recent_missing_dates_and_refreshes_latest(monkeypatch)
     monkeypatch.setattr(sync, "fetch_day", fake_fetch)
     result = sync.run_institutional_flow_sync(today=date(2026, 9, 4), batch_size=2)
     assert fetched == ["2026-09-04", "2026-09-03", "2026-09-02"]
+    assert sleeps == [5.0, 5.0]
     assert result == {"requested": 3, "rows": 3, "remaining": 1}
 
 
@@ -132,7 +134,7 @@ def test_sync_retries_a_transient_day_with_backoff(monkeypatch):
     result = sync.run_institutional_flow_sync(today=date(2026, 9, 1), batch_size=1)
 
     assert attempts == 4
-    assert sleeps == [2.0, 5.0, 10.0]
+    assert sleeps == [15.0, 30.0, 60.0]
     assert result == {"requested": 1, "rows": 1, "remaining": 0}
 
 
