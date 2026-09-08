@@ -10,6 +10,7 @@ and interpreted in the scheduler's timezone (Asia/Taipei).
 """
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from services.intraday_heat import run_intraday_heat_signal
 from services.institutional_flow_sync import (
@@ -30,7 +31,7 @@ class JobSpec:
 JOBS: dict[str, JobSpec] = {
     "intraday_heat_signal": JobSpec(run_intraday_heat_signal, "0 13 * * 1-5", "盤中大盤冷熱判讀推 Discord"),
     "market_volume_sync": JobSpec(run_market_volume_sync, "0 16 * * 1-5", "同步 TWSE 大盤成交金額供冷熱判讀"),
-    "institutional_flow_sync_early": JobSpec(run_institutional_flow_early_sync, "10 16 * * 1-5", "同步 TWSE 三大法人第一版買賣金額"),
-    "institutional_flow_sync": JobSpec(run_institutional_flow_sync, "0 20 * * 1-5", "同步 TWSE 三大法人最終買賣金額"),
+    "institutional_flow_sync_early": JobSpec(run_institutional_flow_early_sync, "10 16 * * 1-5", "同步 TWSE 三大法人第一版買賣金額並推 Discord"),
+    "institutional_flow_sync": JobSpec(partial(run_institutional_flow_sync, notify=True), "0 20 * * 1-5", "同步 TWSE 三大法人最終買賣金額，有更新時推 Discord"),
     "backup_db":       JobSpec(backup_db_to_r2,           "0 3 * * *",    "DB 備份至 Cloudflare R2"),
 }

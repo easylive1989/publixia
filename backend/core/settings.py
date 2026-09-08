@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     r2_endpoint_url: str | None = None
     r2_bucket: str | None = None
 
-    # Discord webhook for 盤中大盤冷熱判讀. Falls back to
+    # Discord webhook for 盤中大盤冷熱判讀與三大法人每日買賣金額. Falls back to
     # ``discord_stock_webhook_url`` so no new secret is required.
     discord_market_webhook_url: SecretStr | None = None
 

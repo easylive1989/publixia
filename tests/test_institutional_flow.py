@@ -1,15 +1,19 @@
 """TWSE BFI82U parsing, persistence, sync batching, and API enrichment."""
 import math
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import patch
 
 import pytest
+import requests
+from pydantic import SecretStr
 
 import core.twse_institutional as twse
-from core.errors import FetcherError, FetcherParseError
+from core.errors import FetcherError, FetcherParseError, StockDashboardError
 from core.markets import TW
+from jobs.registry import JOBS
 from repositories import institutional_flow as repo
 from repositories import market_volume
+from services import institutional_flow_notification as notification
 from services import institutional_flow_sync as sync
 from services.market_heat import get_market_heat
 
@@ -173,8 +177,11 @@ def test_early_sync_only_refreshes_latest(monkeypatch):
         return _raw(day.isoformat())
 
     monkeypatch.setattr(sync, "fetch_day", fake_fetch)
+    notified = []
+    monkeypatch.setattr(sync, "notify_institutional_flow", notified.append)
     result = sync.run_institutional_flow_early_sync(today=date(2026, 9, 4))
     assert fetched == ["2026-09-04"]
+    assert [row["date"] for row in notified] == ["2026-09-04"]
     assert result == {"requested": 1, "rows": 1, "remaining": 3}
 
 
@@ -201,3 +208,158 @@ def test_market_heat_attaches_billion_amounts_and_turnover_ratio():
     assert institutional["foreign"]["net"] == 200.0
     expected_ratio = (1900 + 1350) / (2 * latest["turnover"]) * 100
     assert institutional["turnover_ratio"] == pytest.approx(expected_ratio)
+
+
+@pytest.fixture
+def discord(monkeypatch):
+    sent = []
+    monkeypatch.setattr(notification.settings, "discord_market_webhook_url", SecretStr("https://market.test"))
+    monkeypatch.setattr(notification.settings, "discord_stock_webhook_url", None)
+    monkeypatch.setattr(notification, "send_to_discord", lambda url, payload: sent.append((url, payload)))
+    monkeypatch.setattr(sync.time, "sleep", lambda _: None)
+    monkeypatch.setattr(sync, "fetch_day", lambda day: _raw(day.isoformat(), 100_000_000))
+    return sent
+
+
+def test_notification_formats_buy_sell_net_and_combines_dealers():
+    row = _raw("2026-09-01", 100_000_000)
+    row.update(trust_buy=100_000_000, trust_sell=200_000_000,
+               foreign_dealer_buy=50_000_000_000)
+    content = notification.format_message(row)
+    assert "2026-09-01" in content and "單位：億元" in content
+    assert "**外資及陸資**｜買進 1,000.00｜賣出 800.00｜買超 200.00" in content
+    assert "**投信**｜買進 1.00｜賣出 2.00｜賣超 1.00" in content
+    assert "**自營商**｜買進 600.00｜賣出 350.00｜買超 250.00" in content
+    assert "**合計**｜買進 1,900.00｜賣出 1,350.00｜買超 550.00" in content
+    assert "TWSE BFI82U" in content
+    assert len(content) < 2000
+    row["trust_sell"] = row["trust_buy"]
+    assert "買賣平衡 0.00" in notification.format_message(row)
+
+
+def test_notification_deduplicates_persistently_and_sends_revisions(discord):
+    row = _raw("2026-09-01")
+    assert notification.notify_institutional_flow(row) is True
+    fingerprint = repo.notification_fingerprint(TW, row["date"])
+    assert fingerprint
+    # 重讀 DB 後仍查重；時間戳等 metadata 不影響金額指紋。
+    repo.upsert_days(TW, [row])
+    reloaded = {**repo.list_days(TW)[0], "updated_at": "later"}
+    assert notification.notify_institutional_flow(reloaded) is False
+    assert len(discord) == 1
+    assert notification.notify_institutional_flow(_raw("2026-09-01", 2)) is True
+    assert repo.notification_fingerprint(TW, row["date"]) != fingerprint
+    assert "（更新）" in discord[-1][1]["content"]
+    assert notification.notify_institutional_flow(_raw("2026-09-02", 2)) is True
+    assert "（更新）" not in discord[-1][1]["content"]
+
+
+@pytest.mark.parametrize("market_hook", [None, "", "   "])
+def test_notification_falls_back_to_stock_webhook(monkeypatch, discord, market_hook):
+    monkeypatch.setattr(notification.settings, "discord_market_webhook_url",
+                        SecretStr(market_hook) if market_hook is not None else None)
+    monkeypatch.setattr(notification.settings, "discord_stock_webhook_url", SecretStr(" https://stock.test "))
+    notification.notify_institutional_flow(_raw("2026-09-01"))
+    assert discord[0][0] == "https://stock.test"
+
+
+def test_missing_webhook_raises_without_marking_sent(monkeypatch, discord):
+    monkeypatch.setattr(notification.settings, "discord_market_webhook_url", None)
+    with pytest.raises(StockDashboardError, match="沒有 Discord webhook"):
+        notification.notify_institutional_flow(_raw("2026-09-01"))
+    assert repo.notification_fingerprint(TW, "2026-09-01") is None
+    assert discord == []
+
+
+@pytest.mark.parametrize("revision", [False, True])
+def test_failed_notification_can_retry_without_exposing_webhook(monkeypatch, discord, revision):
+    if revision:
+        notification.notify_institutional_flow(_raw("2026-09-01"))
+    previous = repo.notification_fingerprint(TW, "2026-09-01")
+    response = requests.Response()
+    response.status_code = 503
+    error = requests.HTTPError("503 https://discord.test/secret-token", response=response)
+    with patch.object(notification, "send_to_discord", side_effect=error):
+        with pytest.raises(StockDashboardError, match="HTTP=503") as raised:
+            notification.notify_institutional_flow(_raw("2026-09-01", 2))
+    assert "secret-token" not in str(raised.value)
+    assert repo.notification_fingerprint(TW, "2026-09-01") == previous
+    assert notification.notify_institutional_flow(_raw("2026-09-01", 2)) is True
+    assert len(discord) == (2 if revision else 1)
+
+
+@pytest.mark.parametrize("run_early", [False, True])
+def test_scheduled_evening_sync_sends_or_deduplicates_after_early(monkeypatch, discord, run_early):
+    class TaipeiToday(datetime):
+        @classmethod
+        def now(cls, tz):
+            assert str(tz) == "Asia/Taipei"
+            return tz.localize(datetime(2026, 9, 1, 20))
+
+    monkeypatch.setattr(sync, "datetime", TaipeiToday)
+    market_volume.upsert_days(TW, [{"date": "2026-09-01", "index_close": 10000, "turnover": 1000}])
+    if run_early:
+        JOBS["institutional_flow_sync_early"].fn()
+    JOBS["institutional_flow_sync"].fn()
+    assert len(discord) == 1
+    assert discord[0][0] == "https://market.test"
+
+
+def test_manual_sync_and_backfill_do_not_send_notifications(discord):
+    market_volume.upsert_days(TW, [
+        {"date": f"2026-09-0{day}", "index_close": 10000, "turnover": 1000}
+        for day in range(1, 4)
+    ])
+    sync.run_institutional_flow_sync(today=date(2026, 9, 3))
+    assert discord == []
+
+
+def test_historical_failure_does_not_block_today_notification(monkeypatch, discord):
+    market_volume.upsert_days(TW, [
+        {"date": f"2026-09-0{day}", "index_close": 10000, "turnover": 1000}
+        for day in range(1, 4)
+    ])
+
+    def fetch(day):
+        if day < date(2026, 9, 3):
+            assert len(discord) == 1  # 當日通知在歷史回補前就已送達。
+            raise FetcherError("historical timeout")
+        return _raw(day.isoformat())
+
+    monkeypatch.setattr(sync, "fetch_day", fetch)
+    with pytest.raises(FetcherError, match="historical timeout"):
+        sync.run_institutional_flow_sync(today=date(2026, 9, 3), notify=True)
+    assert len(discord) == 1
+    assert "2026-09-03" in discord[0][1]["content"]
+
+
+def test_notification_failure_keeps_syncing_history(monkeypatch, discord):
+    market_volume.upsert_days(TW, [
+        {"date": f"2026-09-0{day}", "index_close": 10000, "turnover": 1000}
+        for day in range(1, 4)
+    ])
+    monkeypatch.setattr(notification.settings, "discord_market_webhook_url", None)
+    with pytest.raises(StockDashboardError, match="沒有 Discord webhook"):
+        sync.run_institutional_flow_sync(today=date(2026, 9, 3), notify=True)
+    assert len(repo.list_days(TW)) == 3
+    assert repo.notification_fingerprint(TW, "2026-09-03") is None
+
+
+def test_failed_current_fetch_does_not_send_stored_or_historical_data(monkeypatch, discord):
+    market_volume.upsert_days(TW, [
+        {"date": f"2026-09-0{day}", "index_close": 10000, "turnover": 1000}
+        for day in range(1, 4)
+    ])
+    repo.upsert_days(TW, [_raw("2026-09-03")])
+    monkeypatch.setattr(sync, "fetch_day", lambda day: None if day.day == 3 else _raw(day.isoformat()))
+    with pytest.raises(FetcherError, match="2026-09-03"):
+        sync.run_institutional_flow_sync(today=date(2026, 9, 3), notify=True)
+    assert discord == []
+    assert len(repo.list_days(TW)) == 3
+
+
+def test_stale_market_data_does_not_send_yesterday_as_today(discord):
+    market_volume.upsert_days(TW, [{"date": "2026-09-01", "index_close": 10000, "turnover": 1000}])
+    with pytest.raises(FetcherError, match="最新交易日為 2026-09-01"):
+        sync.run_institutional_flow_early_sync(today=date(2026, 9, 2))
+    assert discord == []

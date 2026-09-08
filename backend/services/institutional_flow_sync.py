@@ -6,13 +6,16 @@ BFI82U 一次只能查一天。首次部署從已有的 market_volume_daily 交�
 """
 import logging
 import time
-from datetime import date
+from datetime import date, datetime
 
-from core.errors import FetcherError
+import pytz
+
+from core.errors import FetcherError, StockDashboardError
 from core.markets import TW
 from core.twse_institutional import fetch_day
 from repositories import institutional_flow as repo
 from repositories import market_volume
+from services.institutional_flow_notification import notify_institutional_flow
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,7 @@ BATCH_SIZE = 260
 # 1～2 日，之後整段逾時；5 秒讓 260 日批次約 22 分鐘，仍可在晚間排程完成。
 _PAUSE_SECONDS = 5.0
 _RETRY_DELAYS = (15.0, 30.0, 60.0)
+TST = pytz.timezone("Asia/Taipei")
 
 
 def _fetch_with_retry(iso: str) -> dict:
@@ -49,9 +53,11 @@ def _fetch_with_retry(iso: str) -> dict:
 def run_institutional_flow_sync(
     today: date | None = None,
     batch_size: int = BATCH_SIZE,
+    *,
+    notify: bool = False,
 ) -> dict:
-    """Scheduler entry point；最近缺資料的交易日優先，回傳同步進度。"""
-    today = today or date.today()
+    """最近缺資料的交易日優先；排程啟用 notify，手動刷新與歷史回補不推播。"""
+    today = today or datetime.now(TST).date()
     market_dates = [
         row["date"] for row in market_volume.list_days(TW)
         if row["date"] <= today.isoformat()
@@ -69,6 +75,7 @@ def run_institutional_flow_sync(
     written = 0
     completed_missing: set[str] = set()
     failures: list[tuple[str, str]] = []
+    notification_error: StockDashboardError | None = None
     for index, iso in enumerate(targets):
         if index:
             time.sleep(_PAUSE_SECONDS)
@@ -83,6 +90,19 @@ def run_institutional_flow_sync(
         written += repo.upsert_days(TW, [row])
         if iso in missing:
             completed_missing.add(iso)
+        if notify and iso == today.isoformat():
+            try:
+                # 當日落盤後就通知，不必等整批歷史回補完成。
+                notify_institutional_flow(row)
+            except StockDashboardError as exc:
+                notification_error = exc
+                logger.error("institutional_flow_notification_failed date=%s error=%s", iso, exc)
+
+    if notify and latest != today.isoformat():
+        notification_error = FetcherError(
+            f"{today} 三大法人未推播：market_volume_daily 最新交易日為 {latest}"
+            "（可能休市或收盤資料尚未同步），不以舊資料當作今日通知"
+        )
 
     remaining = max(0, len(missing) - len(completed_missing))
     logger.info(
@@ -93,14 +113,18 @@ def run_institutional_flow_sync(
         details = "; ".join(f"{day}: {error}" for day, error in failures[:5])
         if len(failures) > 5:
             details += f"; 另有 {len(failures) - 5} 日"
+        if notification_error:
+            details += f"; {notification_error}"
         raise FetcherError(
             "BFI82U sync 部分失敗 "
             f"requested={len(targets)} rows={written} failed={len(failures)} "
             f"remaining={remaining}: {details}"
         )
+    if notification_error:
+        raise notification_error
     return {"requested": len(targets), "rows": written, "remaining": remaining}
 
 
 def run_institutional_flow_early_sync(today: date | None = None) -> dict:
-    """16:10 第一版只刷新最新交易日，不在尖峰時段執行歷史回補。"""
-    return run_institutional_flow_sync(today=today, batch_size=0)
+    """16:10 第一版刷新最新交易日並通知，不在尖峰時段執行歷史回補。"""
+    return run_institutional_flow_sync(today=today, batch_size=0, notify=True)

@@ -107,11 +107,17 @@ Cron 儲存在 `scheduler_jobs`，時區為 `Asia/Taipei`，字串採 POSIX 星�
 |---|---|---|
 | `intraday_heat_signal` | `0 13 * * 1-5` | 台股 13:00 盤中估算並推 Discord |
 | `market_volume_sync` | `0 16 * * 1-5` | 同步 TWSE 收盤資料 |
-| `institutional_flow_sync_early` | `10 16 * * 1-5` | 同步 TWSE 三大法人第一版資料 |
-| `institutional_flow_sync` | `0 20 * * 1-5` | 同步 TWSE 三大法人最終版買賣金額 |
+| `institutional_flow_sync_early` | `10 16 * * 1-5` | 同步 TWSE 三大法人第一版資料並推 Discord |
+| `institutional_flow_sync` | `0 20 * * 1-5` | 同步 TWSE 三大法人最終版買賣金額，有更新或尚未送出時推 Discord |
 | `backup_db` | `0 3 * * *` | SQLite 備份到 R2 |
 
 排程失敗會透過維運 webhook 告警；休市使用 `MarketClosed` 回報，不會靜默略過。
+
+法人通知沿用大盤 Discord webhook，列出當日外資及陸資、投信、自營商與合計的
+買進、賣出及買賣超（億元）。16:10 取得當日資料後立即推送；20:00 金額有修訂才
+另送「更新」，早場未送達則補送。成功送出後才將金額指紋記入 DB，重跑或重啟後
+相同金額不重複通知。手動 refresh 與歷史回補不推播；當日抓取失敗不使用已存資料
+代替，若大盤交易日仍停在過去則通報可能休市或收盤資料未同步。
 
 ## 部署與設定
 

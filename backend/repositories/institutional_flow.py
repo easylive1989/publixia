@@ -48,3 +48,23 @@ def existing_dates(market: str) -> set[str]:
             (market,),
         ).fetchall()
         return {row["date"] for row in rows}
+
+
+def notification_fingerprint(market: str, day: str) -> str | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT fingerprint FROM institutional_flow_notifications "
+            "WHERE market = ? AND date = ?",
+            (market, day),
+        ).fetchone()
+        return row["fingerprint"] if row else None
+
+
+def record_notification(market: str, day: str, fingerprint: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO institutional_flow_notifications (market, date, fingerprint) "
+            "VALUES (?, ?, ?) ON CONFLICT(market, date) DO UPDATE SET "
+            "fingerprint=excluded.fingerprint, sent_at=datetime('now')",
+            (market, day, fingerprint),
+        )

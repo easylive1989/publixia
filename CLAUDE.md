@@ -36,6 +36,7 @@ cd frontend && npm test
 - `backend/repositories/institutional_flow.py`：法人整數元原始資料存取。
 - `backend/services/market_heat.py`：OLS、殘差、百分位、五級判讀。
 - `backend/services/institutional_flow_sync.py`：法人近期優先、分批回補與每日重抓。
+- `backend/services/institutional_flow_notification.py`：法人每日買賣金額 Discord 通知與修訂查重。
 - `backend/services/intraday_heat.py`：13:00 線性外推與 Discord 推播。
 - `backend/jobs/registry.py` + `scheduler.py`：DB-driven APScheduler。
 - `backend/db/runner.py`：forward-only migration runner。
@@ -62,6 +63,10 @@ label。修改契約時必須升 `schema_version`，避免讓保存快照的回�
 - `institutional_flow_sync_early`：`10 16 * * 1-5`（只刷新最新交易日）
 - `institutional_flow_sync`：`0 20 * * 1-5`
 - `backup_db`：`0 3 * * *`
+
+法人兩次排程均啟用 Discord：16:10 送當日第一版，20:00 金額有變才送更新，未成功
+送達則補送。成功後才寫 `institutional_flow_notifications` 金額指紋；只推當日新抓
+資料，歷史回補和 API refresh 不推播。通知失敗仍完成歷史同步，再由 scheduler 告警。
 
 Cron 是 POSIX 星期語義（0=週日），必須經 `jobs/cron.py::crontab_trigger` 轉譯，不能
 直接交給 `CronTrigger.from_crontab`，否則週一到週五會平移成週二到週六。
