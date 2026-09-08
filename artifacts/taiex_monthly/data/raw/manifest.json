@@ -1,0 +1,192 @@
+{
+  "retrieved_at": "2026-09-08T08:19:29.832635+08:00",
+  "as_of": "2026-09-08",
+  "archive_url": "https://www.011.idv.tw/Taiex/taiex-Native.js",
+  "yahoo_url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?period1=0&period2=1788883199&interval=1d",
+  "twse": [
+    {
+      "file": "twse_199901.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990101"
+    },
+    {
+      "file": "twse_199902.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990201"
+    },
+    {
+      "file": "twse_199903.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990301"
+    },
+    {
+      "file": "twse_199904.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990401"
+    },
+    {
+      "file": "twse_199905.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990501"
+    },
+    {
+      "file": "twse_199906.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990601"
+    },
+    {
+      "file": "twse_199907.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990701"
+    },
+    {
+      "file": "twse_199908.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990801"
+    },
+    {
+      "file": "twse_199909.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19990901"
+    },
+    {
+      "file": "twse_199910.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19991001"
+    },
+    {
+      "file": "twse_199911.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19991101"
+    },
+    {
+      "file": "twse_199912.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=19991201"
+    },
+    {
+      "file": "twse_200001.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000101"
+    },
+    {
+      "file": "twse_200002.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000201"
+    },
+    {
+      "file": "twse_200003.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000301"
+    },
+    {
+      "file": "twse_200004.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000401"
+    },
+    {
+      "file": "twse_200005.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000501"
+    },
+    {
+      "file": "twse_200006.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000601"
+    },
+    {
+      "file": "twse_200007.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000701"
+    },
+    {
+      "file": "twse_200008.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000801"
+    },
+    {
+      "file": "twse_200009.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20000901"
+    },
+    {
+      "file": "twse_200010.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20001001"
+    },
+    {
+      "file": "twse_200011.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20001101"
+    },
+    {
+      "file": "twse_200012.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20001201"
+    },
+    {
+      "file": "twse_200101.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010101"
+    },
+    {
+      "file": "twse_200102.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010201"
+    },
+    {
+      "file": "twse_200103.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010301"
+    },
+    {
+      "file": "twse_200104.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010401"
+    },
+    {
+      "file": "twse_200105.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010501"
+    },
+    {
+      "file": "twse_200106.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010601"
+    },
+    {
+      "file": "twse_200107.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010701"
+    },
+    {
+      "file": "twse_200108.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010801"
+    },
+    {
+      "file": "twse_200109.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20010901"
+    },
+    {
+      "file": "twse_200110.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20011001"
+    },
+    {
+      "file": "twse_200111.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20011101"
+    },
+    {
+      "file": "twse_200112.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20011201"
+    },
+    {
+      "file": "twse_200201.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020101"
+    },
+    {
+      "file": "twse_200202.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020201"
+    },
+    {
+      "file": "twse_200203.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020301"
+    },
+    {
+      "file": "twse_200204.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020401"
+    },
+    {
+      "file": "twse_200205.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020501"
+    },
+    {
+      "file": "twse_200206.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020601"
+    },
+    {
+      "file": "twse_200207.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020701"
+    },
+    {
+      "file": "twse_200208.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020801"
+    },
+    {
+      "file": "twse_200209.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20020901"
+    },
+    {
+      "file": "twse_202609.json",
+      "url": "https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=20260901"
+    }
+  ]
+}
