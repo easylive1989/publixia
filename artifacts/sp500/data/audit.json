@@ -1,0 +1,45 @@
+{
+  "symbol": "^GSPC",
+  "as_of": "2026-09-08",
+  "first_daily_date": "1927-12-30",
+  "last_daily_date": "2026-09-08",
+  "daily_rows": 24788,
+  "first_ohlc_date": "1962-01-02",
+  "raw_rows": 24789,
+  "excluded_unfinished_or_after_cutoff_dates": [
+    "2026-09-09"
+  ],
+  "dropped_invalid_close_dates": [],
+  "identical_ohlc_rows_treated_as_close_only": 8547,
+  "invalid_ohlc_rows_treated_as_close_only": 0,
+  "history_kind_counts": {
+    "正式推出後": 17496,
+    "推出前回溯": 7291,
+    "供應商期初值": 1
+  },
+  "launch_date": "1957-03-04",
+  "official_first_value_date": "1928-01-03",
+  "missing_months": [],
+  "cleaning_preserves_month_end_close": true,
+  "source_url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=-2208988800&period2=1788968673&interval=1d",
+  "sha256": "ffb581e64786bcd067c7dd01fd6aa739905acdfd3247667a1aea5d77320cc262",
+  "entire_history_independently_verified": false,
+  "recent_cross_check": {
+    "source": "FRED SP500",
+    "source_url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500&cosd=2026-08-01&coed=2026-09-08",
+    "matched_rows": 26,
+    "first_date": "2026-08-03",
+    "last_date": "2026-09-08",
+    "max_absolute_difference": 0.0
+  },
+  "interval": "monthly",
+  "chart": "close",
+  "selected_rows": 1186,
+  "bars_by_interval": {
+    "daily": 24788,
+    "weekly": 5150,
+    "monthly": 1186
+  },
+  "last_selected_close": 7673.52,
+  "last_period_is_partial": true
+}

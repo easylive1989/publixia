@@ -1,0 +1,6 @@
+{
+  "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500&cosd=2026-08-01&coed=2026-09-08",
+  "retrieved_at": "2026-09-09T15:49:54.250615+00:00",
+  "sha256": "5f0aa7ef054c867f81a3d9d6da52fe61890569be2935d7b964fd5d69c3c6df89",
+  "source_page": "https://fred.stlouisfed.org/series/SP500"
+}

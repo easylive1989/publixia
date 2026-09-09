@@ -1,0 +1,13 @@
+{
+  "retrieved_at": "2026-09-09T15:46:10.278975+00:00",
+  "requested_as_of": "2026-09-09",
+  "as_of": "2026-09-08",
+  "exchange_timezone": "America/New_York",
+  "symbol": "^GSPC",
+  "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=-2208988800&period2=1788968673&interval=1d",
+  "index_launch_date": "1957-03-04",
+  "official_first_value_date": "1928-01-03",
+  "official_metadata_url": "https://www.spglobal.com/spdji/en/indices/equity/sp-500/?os=io___",
+  "sha256": "ffb581e64786bcd067c7dd01fd6aa739905acdfd3247667a1aea5d77320cc262",
+  "exclude_intraday": true
+}
