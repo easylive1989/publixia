@@ -5,7 +5,7 @@ Publixia 用「目前指數位階下，今天的市場量能是否異常」描�
 一個可觀察、可回溯的 market regime，供人工判讀或其他研究工具分組分析。
 
 - **台股**：加權指數收盤 + TWSE 成交金額（億元）
-- **情緒**：固定公開公式的 0～100 台股恐懼貪婪代理指數，與加權指數同表比較
+- **情緒**：固定公開公式的 0～100 台股恐懼貪婪代理指數，與加權指數以雙軸折線比較
 - **法人**：TWSE BFI82U 外資、投信、自營商每日買進／賣出／差額
 - **後端**：FastAPI + APScheduler + SQLite，部署於 VPS
 - **前端**：Vite + React + Tailwind，部署於 GitHub Pages
@@ -77,7 +77,7 @@ backend/
   services/intraday_heat.py  台股盤中估算與通知
   jobs/ + scheduler.py       DB-driven 排程
   db/migrations/             forward-only migrations
-frontend/                    React 單頁儀表板與方法說明
+frontend/                    React 總覽、冷熱明細與方法說明
 tests/                       後端 pytest
 frontend/tests/              Vitest + Testing Library
 ```

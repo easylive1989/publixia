@@ -1,14 +1,22 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { HeatTable } from '@/components/HeatTable';
+import { useMarketHeat } from '@/hooks/useMarketHeat';
+import {
+  filterHalfYear,
+  halfYearLabel,
+  halfYearOptions,
+  halfYearValue,
+  parseHalfYear,
+  type HalfYear,
+} from '@/lib/half-year';
 import { HEAT_LEVELS, HEAT_META } from '@/lib/market-heat';
+import { DEFAULT_MARKET } from '@/lib/markets';
 
 /** 計算原理說明頁：把「冷熱判讀」四個步驟攤開，讓數字可被複現。 */
-export default function MethodPage() {
+export function MethodContent() {
   return (
-    <main className="wrap doc">
-      <div className="toolbar">
-        <Link className="method-link" to="/">← 回判讀</Link>
-      </div>
-
+    <article id="method" className="doc details-method">
       <h1>計算原理</h1>
       <p className="lede">
         「大盤成交金額冷熱判讀」要回答的是一件事：<strong>今天的量能，相對於現在的指數位階，
@@ -127,7 +135,7 @@ export default function MethodPage() {
 
       <h2>自算情緒指數</h2>
       <p>
-        表格中的「自算情緒指數」是本站可重現的台股恐懼貪婪代理指數，並不是財經 M 平方的
+        圖中的「自算情緒指數」是本站可重現的台股恐懼貪婪代理指數，並不是財經 M 平方的
         專有數值。價格因子以當天以前最多五年（<span className="mono">1,260</span> 個交易日）
         的歷史百分位轉成 0～100，再依固定權重合成：
       </p>
@@ -147,8 +155,8 @@ export default function MethodPage() {
         <li><strong>均線偏離</strong>：收盤相對 60 日均線偏離的歷史百分位。</li>
       </ul>
       <p className="note">
-        每個交易日只使用當時以前的資料排名，避免前視偏誤。缺少證交所當日漲跌家數時，表格會顯示
-        「等待漲跌家數」，不以猜測值補齊。
+        每個交易日只使用當時以前的資料排名，避免前視偏誤。缺少證交所當日漲跌家數時，折線會留空，
+        不以猜測值補齊。
       </p>
 
       <h2 id="diff">與原始試算表的數字差異</h2>
@@ -165,6 +173,85 @@ export default function MethodPage() {
       <p className="note">
         簡單說：試算表是<strong>凍結的快照</strong>，本站是<strong>會隨資料自我校正的模型</strong>。
       </p>
+    </article>
+  );
+}
+
+const RANGES: { label: string; days: number | null }[] = [
+  { label: '近一月', days: 22 },
+  { label: '近一季', days: 66 },
+  { label: '近半年', days: 130 },
+  { label: '近一年', days: 240 },
+  { label: '全部', days: null },
+];
+
+/** 冷熱明細與計算原理集中頁，首頁只保留判讀與趨勢。 */
+export default function MethodPage() {
+  const market = DEFAULT_MARKET;
+  const [days, setDays] = useState<number | null>(66);
+  const [half, setHalf] = useState<HalfYear | null>(null);
+  const heat = useMarketHeat(half ? null : days, market.id);
+  const all = heat.data?.days ?? [];
+  const rows = half ? filterHalfYear(all, half) : all;
+  const options = halfYearOptions(heat.data?.latest?.date, market.dataStartYear);
+
+  return (
+    <main className="wrap details-page">
+      <div className="details-nav">
+        <Link className="method-link" to="/">← 回市場總覽</Link>
+      </div>
+
+      <header className="details-page-head">
+        <h1>冷熱詳細數據</h1>
+        <p>查看每日量能、位階常態、殘差與冷熱判讀；完整公式接在表格下方。</p>
+      </header>
+
+      <div className="toolbar details-toolbar">
+        <div className="range-picker">
+          <div className="filters" role="tablist" aria-label="明細區間">
+            {RANGES.map((range) => (
+              <button
+                key={range.label}
+                role="tab"
+                aria-selected={!half && days === range.days}
+                className={`tab${!half && days === range.days ? ' on' : ''}`}
+                onClick={() => {
+                  setHalf(null);
+                  setDays(range.days);
+                }}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+          <select
+            className={`half-select${half ? ' on' : ''}`}
+            aria-label="明細半年區間"
+            value={half ? halfYearValue(half) : ''}
+            onChange={(event) => setHalf(parseHalfYear(event.target.value))}
+          >
+            <option value="">半年區間…</option>
+            {options.map((option) => (
+              <option key={halfYearValue(option)} value={halfYearValue(option)}>
+                {halfYearLabel(option)}半年
+              </option>
+            ))}
+          </select>
+        </div>
+        <a className="method-link" href="#method">查看計算原理 ↓</a>
+      </div>
+
+      <section className="details-data" aria-label="冷熱每日明細">
+        {heat.isLoading ? (
+          <div className="empty-note">載入中…</div>
+        ) : rows.length ? (
+          <HeatTable rows={rows} market={market} />
+        ) : (
+          <div className="empty-note">這個區間沒有資料。</div>
+        )}
+      </section>
+
+      <MethodContent />
     </main>
   );
 }

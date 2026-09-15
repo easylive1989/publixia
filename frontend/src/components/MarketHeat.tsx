@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { MarketHeatDay, MarketHeatPayload } from '@/hooks/useMarketHeat';
 import { HEAT_LEVELS, HEAT_META, fmtBillion, fmtPercentile, niceTicks } from '@/lib/market-heat';
 import type { MarketConfig } from '@/lib/markets';
@@ -49,6 +50,9 @@ export function MarketHeat({
           <div><dt>近一年百分位</dt><dd className="mono">{fmtPercentile(latest.percentile)}</dd></div>
         </dl>
         <HeatMeter percentile={latest.percentile} />
+        <Link className="heat-detail-link" to="/details">
+          查看詳細數據 <span aria-hidden="true">→</span>
+        </Link>
       </div>
       <div className="heat-chart">
         <HeatChart days={data.days} market={market} />

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { MarketHeat } from '../src/components/MarketHeat';
 import type { MarketHeatDay, MarketHeatPayload } from '../src/hooks/useMarketHeat';
 import { HEAT_META, fmtBillion, fmtPercentile } from '../src/lib/market-heat';
@@ -27,6 +28,12 @@ const payload: MarketHeatPayload = {
   ],
 };
 
+function renderMarketHeat(data: MarketHeatPayload = payload) {
+  return render(
+    <MemoryRouter><MarketHeat data={data} isLoading={false} market={TW} /></MemoryRouter>,
+  );
+}
+
 describe('market heat helpers', () => {
   it('formats 億元 and percentile like the sheet', () => {
     expect(fmtBillion(12209.52178)).toBe('12,210');
@@ -42,7 +49,7 @@ describe('market heat helpers', () => {
 
 describe('<MarketHeat />', () => {
   it('shows the latest 判讀 with its stats', () => {
-    render(<MarketHeat data={payload} isLoading={false} market={TW} />);
+    renderMarketHeat();
     // 判讀 shows in the badge and again in the legend
     expect(screen.getAllByText('明顯偏冷')).toHaveLength(2);
     expect(screen.getByText('2026-07-31')).toBeInTheDocument();
@@ -50,17 +57,18 @@ describe('<MarketHeat />', () => {
     expect(screen.getByText('12,210 億')).toBeInTheDocument();    // 位階常態
     expect(screen.getByText('×0.73')).toBeInTheDocument();        // 量能比
     expect(screen.getByText('PR 4')).toBeInTheDocument();         // 百分位
+    expect(screen.getByRole('link', { name: /查看詳細數據/ })).toHaveAttribute('href', '/details');
   });
 
   it('legend names every band so color is never alone', () => {
-    render(<MarketHeat data={payload} isLoading={false} market={TW} />);
+    renderMarketHeat();
     for (const zh of ['明顯偏熱', '偏熱', '正常', '偏冷', '明顯偏冷', '位階常態']) {
       expect(screen.getAllByText(zh).length).toBeGreaterThanOrEqual(1);
     }
   });
 
   it('hovering a day reveals its tooltip', async () => {
-    const { container } = render(<MarketHeat data={payload} isLoading={false} market={TW} />);
+    const { container } = renderMarketHeat();
     const hits = container.querySelectorAll('svg rect[fill="transparent"]');
     expect(hits).toHaveLength(3);
     await userEvent.hover(hits[0]);
@@ -69,7 +77,7 @@ describe('<MarketHeat />', () => {
   });
 
   it('empty payload renders the syncing note, not a crash', () => {
-    render(<MarketHeat data={{ market: "TW", latest: null, days: [] }} isLoading={false} market={TW} />);
+    renderMarketHeat({ market: "TW", latest: null, days: [] });
     expect(screen.getByText(/資料同步中/)).toBeInTheDocument();
   });
 });

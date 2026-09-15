@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { HeatTable } from '@/components/HeatTable';
 import { InstitutionalFlowPanel } from '@/components/InstitutionalFlow';
 import { IndexChart, IndexLegend } from '@/components/IndexChart';
 import { MarketHeat } from '@/components/MarketHeat';
-import { SentimentTable } from '@/components/SentimentTable';
+import { SentimentChart } from '@/components/SentimentChart';
 import { useMarketHeat } from '@/hooks/useMarketHeat';
 import {
   filterHalfYear,
@@ -78,7 +76,6 @@ export default function MarketHeatPage() {
             ))}
           </select>
         </div>
-        <Link className="method-link" to="/method">計算原理</Link>
       </div>
 
       {half && !heat.isLoading && rows.length === 0 ? (
@@ -111,9 +108,7 @@ export default function MarketHeatPage() {
         </section>
       )}
 
-      <SentimentTable rows={rows} market={market} />
-
-      <HeatTable rows={rows} market={market} />
+      <SentimentChart rows={rows} market={market} />
     </main>
   );
 }

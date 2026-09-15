@@ -80,7 +80,7 @@ describe('半年區間 dropdown', () => {
   it('選半年會抓全歷史並只留該半年的交易日', async () => {
     const requests: string[] = [];
     renderPage(requests);
-    await screen.findByText('位階常態(億元)');
+    await screen.findByText('8,877 億');
 
     await userEvent.selectOptions(screen.getByLabelText('半年區間'), '2025H2');
     expect(requests).toContain('?market=TW');   // 全歷史（沒有 days 參數）
@@ -94,7 +94,7 @@ describe('半年區間 dropdown', () => {
   it('選半年時區間 tab 不亮，切回 tab 會清掉半年選擇', async () => {
     const requests: string[] = [];
     renderPage(requests);
-    await screen.findByText('位階常態(億元)');
+    await screen.findByText('8,877 億');
     expect(screen.getByRole('tab', { name: '近一季' })).toHaveAttribute('aria-selected', 'true');
 
     const select = screen.getByLabelText('半年區間') as HTMLSelectElement;
@@ -109,7 +109,7 @@ describe('半年區間 dropdown', () => {
 
   it('選項到最新資料所在的半年為止', async () => {
     renderPage([]);
-    await screen.findByText('位階常態(億元)');
+    await screen.findByText('8,877 億');
     const labels = Array.from(
       (screen.getByLabelText('半年區間') as HTMLSelectElement).options,
     ).map((o) => o.textContent);

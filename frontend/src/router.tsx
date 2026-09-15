@@ -5,7 +5,8 @@ import MethodPage from './pages/MethodPage';
 export function createRouter() {
   return createBrowserRouter([
     { path: '/', element: <MarketHeatPage /> },
-    { path: '/method', element: <MethodPage /> },
+    { path: '/details', element: <MethodPage /> },
+    { path: '/method', element: <Navigate to="/details" replace /> },
     { path: '*', element: <Navigate to="/" replace /> },
   ]);
 }

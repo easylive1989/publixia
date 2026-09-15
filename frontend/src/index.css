@@ -106,6 +106,14 @@
 }
 .heat-meter-cap { display: flex; justify-content: space-between; margin-top: 5px;
   font-family: var(--label); letter-spacing: 1.5px; font-size: 11px; color: var(--ink-3); }
+.heat-detail-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 2px; padding-top: 11px; border-top: 1px solid var(--line);
+  color: var(--ink); font-size: 12.5px; font-weight: 900; text-decoration: none;
+}
+.heat-detail-link span { font-size: 17px; line-height: 1; transition: transform .12s; }
+.heat-detail-link:hover span { transform: translateX(3px); }
+.heat-detail-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .heat-chart { padding: 14px 16px 12px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .heat-plot-scroll { overflow-x: auto; }
 .heat-plot { position: relative; min-width: 100%; }
@@ -231,22 +239,42 @@
   font-weight: 900; font-size: 12.5px; line-height: 1.5;
 }
 
-/* ===== 自算情緒指數 vs 大盤 ===== */
-.sentiment-panel { overflow: hidden; }
-.sentiment-table-wrap { max-height: 52vh; overflow: auto; }
-.sentiment-sheet th:first-child,
-.sentiment-sheet td:first-child { text-align: left; }
-.sentiment-score { font-size: 15px; font-weight: 700; }
-.sentiment-badge {
-  display: inline-block; min-width: 70px; padding: 3px 10px 2px; border-radius: 3px;
-  color: #fff; font-size: 12.5px; font-weight: 900; line-height: 1.5;
+/* ===== 自算恐懼貪婪指數 vs 大盤 ===== */
+.sentiment-panel { overflow: hidden; padding-bottom: 12px; }
+.sentiment-chart-scroll { overflow-x: auto; padding: 12px 16px 0; }
+.sentiment-band { opacity: .075; }
+.sentiment-month-line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 4; }
+.sentiment-index-line {
+  fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-dasharray: 6 4;
+  stroke-linejoin: round; stroke-linecap: round;
 }
-.sentiment-badge.extreme-fear { background: #2368b4; }
-.sentiment-badge.fear { background: #86b7dc; color: var(--ink); }
-.sentiment-badge.neutral { background: #d3d0c9; color: var(--ink); }
-.sentiment-badge.greed { background: #dc954d; }
-.sentiment-badge.extreme-greed { background: #bd362a; }
-.sentiment-missing { color: var(--ink-3); font-size: 12px; }
+.sentiment-score-line {
+  fill: none; stroke: #1f5f9f; stroke-width: 2.75;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.sentiment-dot { stroke: var(--panel); stroke-width: 1.4; }
+.sentiment-hit { cursor: crosshair; }
+.sentiment-hit:focus { outline: none; }
+.sentiment-hit:focus-visible { stroke: var(--ink); stroke-width: 1.5; }
+.sentiment-tip { top: 8px; min-width: 220px; }
+.sentiment-legend { align-items: center; padding: 8px 16px 0; }
+.heat-key.line-key i.sentiment-score-key { border-top: 3px solid #1f5f9f; opacity: 1; }
+.heat-key.line-key i.sentiment-index-key { border-top: 2px dashed var(--ink-3); opacity: 1; }
+.sentiment-empty { margin: 8px 16px 0; color: var(--ink-3); font-size: 12px; }
+
+/* ===== 冷熱明細與計算原理頁 ===== */
+.details-nav { margin-bottom: 22px; }
+.details-page-head { margin-bottom: 18px; }
+.details-page-head h1 {
+  margin: 0 0 6px; font-family: var(--display); font-size: 34px; line-height: 1.2; letter-spacing: .5px;
+}
+.details-page-head p { margin: 0; color: var(--ink-2); }
+.details-toolbar { align-items: flex-end; }
+.details-data { margin-bottom: 56px; }
+.details-method {
+  margin: 0 auto; padding-top: 42px; border-top: 2px solid var(--line-strong);
+}
+.details-method#method { scroll-margin-top: 24px; }
 
 /* ===== 計算原理說明頁 ===== */
 .doc { max-width: 760px; }
@@ -299,4 +327,7 @@
   .idx-panel-head { align-items: flex-start; flex-direction: column; gap: 0; }
   .idx-panel-head > span { padding: 0 16px 10px; text-align: left; }
   .idx-zero-note { flex-basis: 100%; margin-left: 0; }
+  .sentiment-chart-scroll { padding-inline: 10px; }
+  .sentiment-legend { gap: 9px; }
+  .details-page-head h1 { font-size: 29px; }
 }
