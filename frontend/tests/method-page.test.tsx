@@ -27,6 +27,15 @@ describe('<MethodPage />', () => {
     expect(screen.getByText(/每次讀取都用當下的完整歷史重新迴歸/)).toBeInTheDocument();
   });
 
+  it('documents the reproducible sentiment proxy and its five components', () => {
+    render(<MemoryRouter><MethodPage /></MemoryRouter>);
+    expect(screen.getByRole('heading', { name: '自算情緒指數' })).toBeInTheDocument();
+    expect(screen.getByText(/情緒指數 = 25% × 動能/)).toBeInTheDocument();
+    for (const component of ['動能', '距高點回撤', '反向波動率', '市場寬度', '均線偏離']) {
+      expect(screen.getAllByText(new RegExp(component)).length).toBeGreaterThan(0);
+    }
+  });
+
   it('links back to the readings', () => {
     render(<MemoryRouter><MethodPage /></MemoryRouter>);
     expect(screen.getByRole('link', { name: /回判讀/ })).toHaveAttribute('href', '/');

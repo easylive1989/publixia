@@ -3,8 +3,10 @@
 ## 現行產品
 
 Publixia 是單市場的**台股大盤成交金額冷熱判讀**。它同步加權指數收盤、TWSE
-成交金額與 BFI82U 三大法人買賣金額，以 `ln(量能) ~ ln(指數)` OLS 位階常態、
-殘差近一年百分位產生五級判讀，並讓法人買賣與量能共用日期選取。
+成交金額、MI_INDEX 股票漲跌家數與 BFI82U 三大法人買賣金額，以
+`ln(量能) ~ ln(指數)` OLS 位階常態、殘差近一年百分位產生五級判讀，並另外計算
+固定公開公式的 `tw_fear_greed_proxy_v1` 情緒代理指數，讓法人買賣、量能與情緒共用
+日期／區間。
 
 Repo 過去做過期貨策略引擎、跟單追蹤與 Nasdaq 判讀；那些 migration 和設計文件是
 歷史，不是現行功能。不要把舊功能重新接回來。US 歷史 DB 列刻意保留，但 API、前端
@@ -32,9 +34,12 @@ cd frontend && npm test
 - `backend/core/twse.py`：FMTQIK 收盤月報。
 - `backend/core/twse_institutional.py`：BFI82U 每日三大法人買賣金額。
 - `backend/core/twse_intraday.py`：MIS 盤中快照。
+- `backend/core/twse_breadth.py`：MI_INDEX 每日上市股票漲跌家數。
 - `backend/repositories/market_volume.py`：原始日資料存取。
 - `backend/repositories/institutional_flow.py`：法人整數元原始資料存取。
 - `backend/services/market_heat.py`：OLS、殘差、百分位、五級判讀。
+- `backend/services/market_sentiment.py`：五因子 0～100 台股情緒代理指數。
+- `backend/services/market_breadth_sync.py`：MI_INDEX 漲跌家數近期優先分批回補。
 - `backend/services/institutional_flow_sync.py`：法人近期優先、分批回補與每日重抓。
 - `backend/services/institutional_flow_notification.py`：法人每日買賣金額 Discord 通知與修訂查重。
 - `backend/services/intraday_heat.py`：13:00 線性外推與 Discord 推播。
@@ -61,6 +66,7 @@ label。修改契約時必須升 `schema_version`，避免讓保存快照的回�
 - `intraday_heat_signal`：`0 13 * * 1-5`
 - `market_volume_sync`：`0 16 * * 1-5`
 - `institutional_flow_sync_early`：`10 16 * * 1-5`（只刷新最新交易日）
+- `market_breadth_sync`：`20 16 * * 1-5`
 - `institutional_flow_sync`：`0 20 * * 1-5`
 - `backup_db`：`0 3 * * *`
 
@@ -86,7 +92,7 @@ MIS 的 `getStatis.jsp` 必須帶 `_=<epoch 毫秒>`，值在 `detail.tz`（元�
 ## 前端
 
 單頁只呈現台股：區間 tabs、半年 dropdown、所選日量能判讀、法人明細、指數／法人
-組合圖與量能明細表。點選組合圖任一交易日，所選日量能與法人明細必須同步切換；
+組合圖、自算情緒指數／加權指數同表與量能明細表。點選組合圖任一交易日，所選日量能與法人明細必須同步切換；
 長區間以橫向捲動保留逐日選取，不可只留下最新一個指數點。
 `frontend/src/lib/markets.ts` 仍保留 `MarketConfig`，集中管理台股欄位名稱與單位；不要
 重新加入市場切換 UI。`MethodPage` 必須與 `market_heat.py` 的算法同步。

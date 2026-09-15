@@ -21,6 +21,19 @@ export interface InstitutionalFlow {
   turnover_ratio: number | null; // (法人買+賣)/(市場成交金額*2)，百分比
 }
 
+export interface SentimentReading {
+  score: number;              // 0..100，低為恐懼、高為貪婪
+  label: '極度恐懼' | '恐懼' | '中性' | '貪婪' | '極度貪婪';
+  method: 'tw_fear_greed_proxy_v1';
+  components: {
+    momentum: number;
+    drawdown: number;
+    volatility: number;
+    breadth: number;
+    deviation: number;
+  };
+}
+
 export interface MarketHeatDay {
   date: string;               // ISO YYYY-MM-DD (交易日)
   index_close: number;        // 台股加權指數收盤
@@ -31,6 +44,7 @@ export interface MarketHeatDay {
   percentile: number;         // 近一年殘差百分位 0..1
   level: HeatLevel;
   label: string;              // 中文判讀（後端與 sheet 同字）
+  sentiment?: SentimentReading | null;
   institutional?: InstitutionalFlow | null;
 }
 

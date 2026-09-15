@@ -18,6 +18,7 @@ from services.institutional_flow_sync import (
     run_institutional_flow_sync,
 )
 from services.market_volume_sync import run_market_volume_sync
+from services.market_breadth_sync import run_market_breadth_sync
 from services.backup import backup_db_to_r2
 
 
@@ -31,6 +32,7 @@ class JobSpec:
 JOBS: dict[str, JobSpec] = {
     "intraday_heat_signal": JobSpec(run_intraday_heat_signal, "0 13 * * 1-5", "盤中大盤冷熱判讀推 Discord"),
     "market_volume_sync": JobSpec(run_market_volume_sync, "0 16 * * 1-5", "同步 TWSE 大盤成交金額供冷熱判讀"),
+    "market_breadth_sync": JobSpec(run_market_breadth_sync, "20 16 * * 1-5", "同步 TWSE 漲跌家數供情緒指數"),
     "institutional_flow_sync_early": JobSpec(run_institutional_flow_early_sync, "10 16 * * 1-5", "同步 TWSE 三大法人第一版買賣金額並推 Discord"),
     "institutional_flow_sync": JobSpec(partial(run_institutional_flow_sync, notify=True), "0 20 * * 1-5", "同步 TWSE 三大法人最終買賣金額，有更新時推 Discord"),
     "backup_db":       JobSpec(backup_db_to_r2,           "0 3 * * *",    "DB 備份至 Cloudflare R2"),

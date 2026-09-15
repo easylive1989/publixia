@@ -91,6 +91,7 @@ class TestRegistryDefaults:
         for name in (
             "intraday_heat_signal",
             "market_volume_sync",
+            "market_breadth_sync",
             "institutional_flow_sync_early",
             "institutional_flow_sync",
         ):

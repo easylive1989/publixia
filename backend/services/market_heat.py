@@ -22,8 +22,10 @@ nothing here persists, so the regression always reflects the full history.
 import math
 
 from core.markets import TW
+from repositories import market_breadth as breadth_repo
 from repositories import institutional_flow as institutional_repo
 from repositories import market_volume as repo
+from services.market_sentiment import compute_sentiment
 
 # 今日 + 前 240 個交易日 ≈ 近一年。
 WINDOW = 241
@@ -144,11 +146,14 @@ def _institutional_payload(row: dict, turnover: float) -> dict:
 def get_market_heat(days: int | None = None, market: str = TW) -> dict:
     """API payload: the latest reading + the last ``days`` readings
     (date-ascending, chart-ready). ``days=None`` returns the full history."""
-    heat = compute_heat(repo.list_days(market))
+    market_rows = repo.list_days(market)
+    heat = compute_heat(market_rows)
+    sentiment = compute_sentiment(market_rows, breadth_repo.list_days(market))
     institutional = {
         row["date"]: row for row in institutional_repo.list_days(market)
     }
     for row in heat:
+        row["sentiment"] = sentiment.get(row["date"])
         raw = institutional.get(row["date"])
         row["institutional"] = (
             _institutional_payload(raw, row["turnover"]) if raw else None

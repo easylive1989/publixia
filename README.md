@@ -5,6 +5,7 @@ Publixia 用「目前指數位階下，今天的市場量能是否異常」描�
 一個可觀察、可回溯的 market regime，供人工判讀或其他研究工具分組分析。
 
 - **台股**：加權指數收盤 + TWSE 成交金額（億元）
+- **情緒**：固定公開公式的 0～100 台股恐懼貪婪代理指數，與加權指數同表比較
 - **法人**：TWSE BFI82U 外資、投信、自營商每日買進／賣出／差額
 - **後端**：FastAPI + APScheduler + SQLite，部署於 VPS
 - **前端**：Vite + React + Tailwind，部署於 GitHub Pages
@@ -27,6 +28,11 @@ Publixia 用「目前指數位階下，今天的市場量能是否異常」描�
 因此歷史判讀可能隨
 新資料加入而小幅漂移；需要可重現研究時，應保存 API 快照。
 
+另有 `tw_fear_greed_proxy_v1` 自算情緒指數：動能 25%、距高點回撤 20%、反向
+波動率 20%、上市股票市場寬度 25%、60 日均線偏離 10%。價格因子只使用當天以前
+最多 1,260 個交易日的歷史百分位；市場寬度來自 TWSE MI_INDEX 的股票漲跌家數。
+這是可重現的代理指數，不是財經 M 平方的專有數值。
+
 ## API
 
 ```text
@@ -37,7 +43,8 @@ POST /api/market/volume-heat/refresh?market=TW
 ```
 
 `volume-heat` 提供畫面使用的完整數值，每個交易日另帶可為 `null` 的
-`institutional` 法人資料；`regimes` 是給研究工具使用的穩定、版本化薄介面，只包含：
+`sentiment` 情緒指數與 `institutional` 法人資料；`regimes` 是給研究工具使用的
+穩定、版本化薄介面，只包含：
 
 ```json
 {
@@ -64,6 +71,8 @@ backend/
   core/                      TWSE、Discord 與設定
   repositories/             SQLite 存取
   services/market_heat.py    OLS、百分位與五級判讀
+  services/market_sentiment.py  五因子情緒代理指數
+  services/market_breadth_sync.py  MI_INDEX 漲跌家數回補與每日同步
   services/institutional_flow_sync.py  BFI82U 法人資料回補與每日同步
   services/intraday_heat.py  台股盤中估算與通知
   jobs/ + scheduler.py       DB-driven 排程
@@ -108,6 +117,7 @@ Cron 儲存在 `scheduler_jobs`，時區為 `Asia/Taipei`，字串採 POSIX 星�
 | `intraday_heat_signal` | `0 13 * * 1-5` | 台股 13:00 盤中估算並推 Discord |
 | `market_volume_sync` | `0 16 * * 1-5` | 同步 TWSE 收盤資料 |
 | `institutional_flow_sync_early` | `10 16 * * 1-5` | 同步 TWSE 三大法人第一版資料並推 Discord |
+| `market_breadth_sync` | `20 16 * * 1-5` | 同步 TWSE 上市股票漲跌家數供情緒指數 |
 | `institutional_flow_sync` | `0 20 * * 1-5` | 同步 TWSE 三大法人最終版買賣金額，有更新或尚未送出時推 Discord |
 | `backup_db` | `0 3 * * *` | SQLite 備份到 R2 |
 

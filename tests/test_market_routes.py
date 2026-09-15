@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 import main
 from core.markets import TW
 from repositories import market_volume as repo
+from repositories import market_breadth
 
 client = TestClient(main.app)
 
@@ -24,7 +25,11 @@ def _seed(n=120, market=TW):
 
 
 def test_volume_heat_shape():
-    _seed()
+    _seed(600)
+    market_breadth.upsert_days(TW, [{
+        "date": "2026-22-12", "advancing": 500, "declining": 400,
+        "unchanged": 100,
+    }])
     r = client.get("/api/market/volume-heat?days=10")
     assert r.status_code == 200
     body = r.json()
@@ -32,7 +37,8 @@ def test_volume_heat_shape():
     latest = body["latest"]
     assert latest["date"] == body["days"][-1]["date"]
     for key in ("index_close", "turnover", "expected_turnover",
-                "volume_ratio", "residual", "percentile", "level", "label"):
+                "volume_ratio", "residual", "percentile", "level", "label",
+                "sentiment"):
         assert key in latest
 
 
@@ -57,12 +63,14 @@ def test_volume_heat_days_out_of_range():
 def test_refresh_schedules_background_sync():
     with (
         patch("services.market_volume_sync.run_market_volume_sync") as volume_run,
+        patch("services.market_breadth_sync.run_market_breadth_sync") as breadth_run,
         patch("services.institutional_flow_sync.run_institutional_flow_sync") as flow_run,
     ):
         r = client.post("/api/market/volume-heat/refresh")
     assert r.status_code == 200
     assert r.json() == {"status": "scheduled", "market": "TW"}
     volume_run.assert_called_once()
+    breadth_run.assert_called_once()
     flow_run.assert_called_once()
 
 

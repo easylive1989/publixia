@@ -4,6 +4,7 @@ import { HeatTable } from '@/components/HeatTable';
 import { InstitutionalFlowPanel } from '@/components/InstitutionalFlow';
 import { IndexChart, IndexLegend } from '@/components/IndexChart';
 import { MarketHeat } from '@/components/MarketHeat';
+import { SentimentTable } from '@/components/SentimentTable';
 import { useMarketHeat } from '@/hooks/useMarketHeat';
 import {
   filterHalfYear,
@@ -109,6 +110,8 @@ export default function MarketHeatPage() {
           <IndexLegend market={market} />
         </section>
       )}
+
+      <SentimentTable rows={rows} market={market} />
 
       <HeatTable rows={rows} market={market} />
     </main>

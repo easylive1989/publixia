@@ -231,6 +231,23 @@
   font-weight: 900; font-size: 12.5px; line-height: 1.5;
 }
 
+/* ===== 自算情緒指數 vs 大盤 ===== */
+.sentiment-panel { overflow: hidden; }
+.sentiment-table-wrap { max-height: 52vh; overflow: auto; }
+.sentiment-sheet th:first-child,
+.sentiment-sheet td:first-child { text-align: left; }
+.sentiment-score { font-size: 15px; font-weight: 700; }
+.sentiment-badge {
+  display: inline-block; min-width: 70px; padding: 3px 10px 2px; border-radius: 3px;
+  color: #fff; font-size: 12.5px; font-weight: 900; line-height: 1.5;
+}
+.sentiment-badge.extreme-fear { background: #2368b4; }
+.sentiment-badge.fear { background: #86b7dc; color: var(--ink); }
+.sentiment-badge.neutral { background: #d3d0c9; color: var(--ink); }
+.sentiment-badge.greed { background: #dc954d; }
+.sentiment-badge.extreme-greed { background: #bd362a; }
+.sentiment-missing { color: var(--ink-3); font-size: 12px; }
+
 /* ===== 計算原理說明頁 ===== */
 .doc { max-width: 760px; }
 .doc h1 { font-family: var(--display); font-weight: 900; font-size: 34px; letter-spacing: 0.5px; margin: 0 0 12px; }
