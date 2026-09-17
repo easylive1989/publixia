@@ -71,6 +71,42 @@ def test_fetch_day_rejects_wrong_date_and_bad_difference():
             twse.fetch_day(date(2026, 9, 1))
 
 
+_BFI82U_PRE_2017 = {
+    "stat": "OK",
+    "date": "20171215",
+    "data": [
+        ["自營商(自行買賣)", "730,982,985", "1,018,702,931", "-287,719,946"],
+        ["自營商(避險)", "3,700,310,104", "6,402,695,186", "-2,702,385,082"],
+        ["投信", "3,438,839,098", "3,585,595,276", "-146,756,178"],
+        ["外資及陸資", "46,753,892,254", "51,034,339,314", "-4,280,447,060"],
+        ["合計", "54,624,024,441", "62,041,332,707", "-7,417,308,266"],
+    ],
+}
+
+
+def test_fetch_day_handles_pre_2017_format_without_foreign_dealer():
+    with patch.object(twse.requests, "get", return_value=_Resp(_BFI82U_PRE_2017)):
+        row = twse.fetch_day(date(2017, 12, 15))
+    assert row["date"] == "2017-12-15"
+    assert row["dealer_proprietary_buy"] == 730_982_985
+    assert row["dealer_hedge_sell"] == 6_402_695_186
+    assert row["foreign_buy"] == 46_753_892_254
+    assert row["foreign_dealer_buy"] == 0
+    assert row["foreign_dealer_sell"] == 0
+    assert row["total_sell"] == 62_041_332_707
+
+
+def test_fetch_day_rejects_missing_foreign_dealer_after_cutoff():
+    missing_dealer = {
+        **_BFI82U,
+        "date": "20260901",
+        "data": [r for r in _BFI82U["data"] if r[0] != "外資自營商"],
+    }
+    with patch.object(twse.requests, "get", return_value=_Resp(missing_dealer)):
+        with pytest.raises(FetcherParseError, match="缺少分項.*foreign_dealer"):
+            twse.fetch_day(date(2026, 9, 1))
+
+
 def _raw(iso: str, multiplier: int = 1) -> dict:
     return {
         "date": iso,

@@ -12,6 +12,8 @@ from core.errors import FetcherError, FetcherParseError
 
 URL = "https://www.twse.com.tw/rwd/zh/fund/BFI82U"
 _HEADERS = {"User-Agent": "Mozilla/5.0 (stock-dashboard institutional sync)"}
+# 證交所自 2017-12-18 起才新增「外資自營商」獨立揭露列；在此之前的歷史報表無此項目，預設為 (0, 0)。
+_FOREIGN_DEALER_START = date(2017, 12, 18)
 
 
 def _amount(value: object) -> int:
@@ -89,6 +91,10 @@ def fetch_day(day: date) -> dict | None:
                 f"TWSE BFI82U {raw[0]!r} 差額不符 buy={buy} sell={sell} diff={difference}"
             )
         parsed[key] = (buy, sell)
+
+    # 證交所自 2017-12-18 起才新增「外資自營商」獨立揭露列；在此之前無此分項，填 0 補齊。
+    if "foreign_dealer" not in parsed and day < _FOREIGN_DEALER_START:
+        parsed["foreign_dealer"] = (0, 0)
 
     required = {
         "dealer_proprietary", "dealer_hedge", "trust", "foreign",
